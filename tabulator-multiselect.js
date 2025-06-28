@@ -1,3 +1,4 @@
+console.log("Tabulator script loaded!");
 // Variables to hold table instances
 var table1, table2;
 var currentActiveTab = 'table1';
