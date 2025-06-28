@@ -13,14 +13,6 @@ if (!tableElement) {
     
     // Create wrapper for centering if it doesn't exist
     if (tableElement && !tableElement.parentElement.classList.contains('table-wrapper')) {
-        // Rest of your existing code...
-    }
-}
-// Create tabs and inject CSS directly
-document.addEventListener('DOMContentLoaded', function() {
-    // Create wrapper for centering if it doesn't exist
-    var tableElement = document.getElementById('batter-table');
-    if (tableElement && !tableElement.parentElement.classList.contains('table-wrapper')) {
         var wrapper = document.createElement('div');
         wrapper.className = 'table-wrapper';
         wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
@@ -332,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     `;
     document.head.appendChild(style);
-});
+}
 
 function setupTabSwitching() {
     document.addEventListener('click', function(e) {
@@ -522,54 +514,61 @@ function createCustomMultiSelect(cell, onRendered, success, cancel, editorParams
             button.textContent = "No data";
             return;
         }
-    
-    // Create select all option
-    var selectAllOption = document.createElement("div");
-    selectAllOption.className = "custom-multiselect-option select-all";
-    selectAllOption.textContent = "Select All";
-    
-    // FIXED: Use click instead of mousedown and stop propagation properly
-    selectAllOption.addEventListener("click", function(e) {
-        console.log("Select all clicked");
-        e.preventDefault();
-        e.stopPropagation();
-        if (selectedValues.length === allValues.length) {
-            // Unselect all
-            selectedValues = [];
-        } else {
-            // Select all
-            selectedValues = allValues.slice();
-        }
-        updateDropdown();
-        updateButtonText();
-        applyFilter();
-    });
-    dropdown.appendChild(selectAllOption);
-    
-    // Create options for each value
-    allValues.forEach(function(value) {
-        var option = document.createElement("div");
-        option.className = "custom-multiselect-option";
-        option.textContent = value;
-        option.setAttribute('data-value', value);
         
-        // FIXED: Use click instead of mousedown
-        option.addEventListener("click", function(e) {
-            console.log("Option clicked:", value);
+        // Create select all option
+        var selectAllOption = document.createElement("div");
+        selectAllOption.className = "custom-multiselect-option select-all";
+        selectAllOption.textContent = "Select All";
+        
+        // FIXED: Use click instead of mousedown and stop propagation properly
+        selectAllOption.addEventListener("click", function(e) {
+            console.log("Select all clicked");
             e.preventDefault();
             e.stopPropagation();
-            var index = selectedValues.indexOf(value);
-            if (index === -1) {
-                selectedValues.push(value);
+            if (selectedValues.length === allValues.length) {
+                // Unselect all
+                selectedValues = [];
             } else {
-                selectedValues.splice(index, 1);
+                // Select all
+                selectedValues = allValues.slice();
             }
             updateDropdown();
             updateButtonText();
             applyFilter();
         });
-        dropdown.appendChild(option);
-    });
+        dropdown.appendChild(selectAllOption);
+        
+        // Create options for each value
+        allValues.forEach(function(value) {
+            var option = document.createElement("div");
+            option.className = "custom-multiselect-option";
+            option.textContent = value;
+            option.setAttribute('data-value', value);
+            
+            // FIXED: Use click instead of mousedown
+            option.addEventListener("click", function(e) {
+                console.log("Option clicked:", value);
+                e.preventDefault();
+                e.stopPropagation();
+                var index = selectedValues.indexOf(value);
+                if (index === -1) {
+                    selectedValues.push(value);
+                } else {
+                    selectedValues.splice(index, 1);
+                }
+                updateDropdown();
+                updateButtonText();
+                applyFilter();
+            });
+            dropdown.appendChild(option);
+        });
+        
+        // Initialize with all values selected
+        selectedValues = allValues.slice();
+        updateDropdown();
+        updateButtonText();
+        initialized = true;
+    }
     
     function updateDropdown() {
         var options = dropdown.querySelectorAll('.custom-multiselect-option:not(.select-all)');
@@ -583,12 +582,15 @@ function createCustomMultiSelect(cell, onRendered, success, cancel, editorParams
         });
         
         // Update select all option
-        if (selectedValues.length === allValues.length && allValues.length > 0) {
-            selectAllOption.textContent = "Unselect All";
-            selectAllOption.classList.add('selected');
-        } else {
-            selectAllOption.textContent = "Select All";
-            selectAllOption.classList.remove('selected');
+        var selectAllOption = dropdown.querySelector('.select-all');
+        if (selectAllOption) {
+            if (selectedValues.length === allValues.length && allValues.length > 0) {
+                selectAllOption.textContent = "Unselect All";
+                selectAllOption.classList.add('selected');
+            } else {
+                selectAllOption.textContent = "Select All";
+                selectAllOption.classList.remove('selected');
+            }
         }
     }
     
@@ -628,6 +630,12 @@ function createCustomMultiSelect(cell, onRendered, success, cancel, editorParams
         console.log("Button clicked, current isOpen:", isOpen);
         e.preventDefault();
         e.stopPropagation();
+        
+        // Initialize dropdown if not already done and data is available
+        if (!initialized && table.getData().length > 0) {
+            populateDropdown();
+        }
+        
         isOpen = !isOpen;
         dropdown.style.display = isOpen ? "block" : "none";
         console.log("Dropdown display set to:", dropdown.style.display);
@@ -651,12 +659,18 @@ function createCustomMultiSelect(cell, onRendered, success, cancel, editorParams
     container.appendChild(button);
     container.appendChild(dropdown);
     
-    // Initialize with all values selected
-    selectedValues = allValues.slice();
-    updateDropdown();
-    updateButtonText();
+    // Try to initialize immediately if data is available
+    if (table.getData().length > 0) {
+        populateDropdown();
+    } else {
+        // If no data yet, try again after a short delay
+        setTimeout(function() {
+            if (!initialized && table.getData().length > 0) {
+                populateDropdown();
+            }
+        }, 500);
+    }
     
-    // FIXED: Don't apply initial filter immediately, let Tabulator handle it
     return container;
 }
 
@@ -921,6 +935,17 @@ function initializeTables() {
             data.forEach(function(row) {
                 row._expanded = false;
             });
+            
+            // FIXED: Trigger dropdown population after data loads
+            setTimeout(function() {
+                document.querySelectorAll('.custom-multiselect').forEach(function(multiselect) {
+                    var button = multiselect.querySelector('.custom-multiselect-button');
+                    if (button && button.textContent === "Loading...") {
+                        button.click(); // This will trigger populateDropdown
+                        button.click(); // Click again to close it
+                    }
+                });
+            }, 100);
         }
     });
 
@@ -1150,6 +1175,17 @@ function initializeTables() {
             data.forEach(function(row) {
                 row._expanded = false;
             });
+            
+            // FIXED: Trigger dropdown population after data loads
+            setTimeout(function() {
+                document.querySelectorAll('.custom-multiselect').forEach(function(multiselect) {
+                    var button = multiselect.querySelector('.custom-multiselect-button');
+                    if (button && button.textContent === "Loading...") {
+                        button.click(); // This will trigger populateDropdown
+                        button.click(); // Click again to close it
+                    }
+                });
+            }, 100);
         }
     });
 
