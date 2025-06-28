@@ -1,8 +1,21 @@
 console.log("Tabulator script loaded!");
+
 // Variables to hold table instances
 var table1, table2;
 var currentActiveTab = 'table1';
 
+// Check if required element exists
+var tableElement = document.getElementById('batter-table');
+if (!tableElement) {
+    console.error("Element 'batter-table' not found!");
+} else {
+    console.log("Found batter-table element, proceeding with initialization...");
+    
+    // Create wrapper for centering if it doesn't exist
+    if (tableElement && !tableElement.parentElement.classList.contains('table-wrapper')) {
+        // Rest of your existing code...
+    }
+}
 // Create tabs and inject CSS directly
 document.addEventListener('DOMContentLoaded', function() {
     // Create wrapper for centering if it doesn't exist
