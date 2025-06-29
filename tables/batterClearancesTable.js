@@ -1,0 +1,209 @@
+// tables/batterClearancesTable.js
+import { BaseTable } from './baseTable.js';
+import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
+import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+
+export class BatterClearancesTable extends BaseTable {
+    constructor(elementId) {
+        super(elementId, 'ModBatterClearances');
+    }
+
+    initialize() {
+        const config = {
+            ...this.tableConfig,
+            columns: this.getColumns(),
+            initialSort: [
+                {column: "Batter Name", dir: "asc"},
+                {column: "Batter Team", dir: "asc"},
+                {column: "Batter Prop Type", dir: "asc"},
+                {column: "Batter Prop Value", dir: "asc"}
+            ],
+            rowFormatter: this.createRowFormatter()
+        };
+
+        this.table = new Tabulator(this.elementId, config);
+        this.setupRowExpansion();
+        
+        this.table.on("tableBuilt", () => {
+            console.log("Batter Clearances table built successfully");
+        });
+    }
+
+    getColumns() {
+        return [
+            {title: "Player Info", columns: [
+                {
+                    title: "Name", 
+                    field: "Batter Name", 
+                    width: 180, 
+                    sorter: "string", 
+                    headerFilter: true,
+                    resizable: false,
+                    formatter: this.createNameFormatter()
+                },
+                {
+                    title: "Team", 
+                    field: "Batter Team", 
+                    width: 160, 
+                    sorter: "string", 
+                    headerFilter: createCustomMultiSelect,
+                    resizable: false,
+                    formatter: this.createTeamFormatter()
+                }
+            ]},
+            {title: "Prop Info", columns: [
+                {
+                    title: "Prop", 
+                    field: "Batter Prop Type", 
+                    width: 120, 
+                    sorter: "string", 
+                    headerFilter: createCustomMultiSelect,
+                    resizable: false
+                },
+                {
+                    title: "Value", 
+                    field: "Batter Prop Value", 
+                    width: 80, 
+                    sorter: "number", 
+                    headerFilter: createCustomMultiSelect,
+                    resizable: false
+                }
+            ]},
+            {title: "Full Season", columns: [
+                {
+                    title: "% Above", 
+                    field: "Clearance Season", 
+                    width: 85, 
+                    sorter: "number", 
+                    sorterParams: {dir: "desc"},
+                    resizable: false,
+                    formatter: (cell) => formatPercentage(cell.getValue())
+                },
+                {
+                    title: "Games", 
+                    field: "Games Season", 
+                    width: 75, 
+                    sorter: "number",
+                    sorterParams: {dir: "desc"},
+                    resizable: false
+                }
+            ]},
+            {title: "Full Season (Home/Away)", columns: [
+                {
+                    title: "% Above", 
+                    field: "Clearance Season At", 
+                    width: 85, 
+                    sorter: "number",
+                    sorterParams: {dir: "desc"},
+                    resizable: false,
+                    formatter: (cell) => formatPercentage(cell.getValue())
+                },
+                {
+                    title: "Games", 
+                    field: "Games Season At", 
+                    width: 75, 
+                    sorter: "number",
+                    sorterParams: {dir: "desc"},
+                    resizable: false
+                }
+            ]},
+            {title: "Last 30 Days", columns: [
+                {
+                    title: "% Above", 
+                    field: "Clearance 30", 
+                    width: 85, 
+                    sorter: "number",
+                    sorterParams: {dir: "desc"},
+                    resizable: false,
+                    formatter: (cell) => formatPercentage(cell.getValue())
+                },
+                {
+                    title: "Games", 
+                    field: "Games 30", 
+                    width: 75, 
+                    sorter: "number",
+                    sorterParams: {dir: "desc"},
+                    resizable: false
+                }
+            ]},
+            {title: "Last 30 Days (Home/Away)", columns: [
+                {
+                    title: "% Above", 
+                    field: "Clearance 30 At", 
+                    width: 85, 
+                    sorter: "number",
+                    sorterParams: {dir: "desc"},
+                    resizable: false,
+                    formatter: (cell) => formatPercentage(cell.getValue())
+                },
+                {
+                    title: "Games", 
+                    field: "Games 30 At", 
+                    width: 75, 
+                    sorter: "number",
+                    sorterParams: {dir: "desc"},
+                    resizable: false
+                }
+            ]}
+        ];
+    }
+
+    createSubtable2(container, data) {
+        var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
+        var handsText = getSwitchHitterVersus(data["Handedness"], data["SP Handedness"]);
+        
+        // For switch hitters, determine pitcher-specific matchups
+        var spVersusText = handsText;
+        var rrVersusText = data["Handedness"] === "S" ? "Lefties" : handsText;
+        var lrVersusText = data["Handedness"] === "S" ? "Righties" : handsText;
+        
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            data: [
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                    fullSeason: data["Batter Prop Total R Season"],
+                    fullSeasonHA: data["Batter Prop Total R Season At"],
+                    last30: data["Batter Prop Total R 30"],
+                    last30HA: data["Batter Prop Total R 30 At"]
+                },
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                    fullSeason: data["Batter Prop Total L Season"],
+                    fullSeasonHA: data["Batter Prop Total L Season At"],
+                    last30: data["Batter Prop Total L 30"],
+                    last30HA: data["Batter Prop Total L 30 At"]
+                },
+                {
+                    player: data["SP"] + " Versus " + spVersusText,
+                    fullSeason: data["SP Prop Total Vs Season"],
+                    fullSeasonHA: data["SP Prop Total Vs Season At"],
+                    last30: data["SP Prop Total Vs 30"],
+                    last30HA: data["SP Prop Total Vs 30 At"]
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + data["R Relievers"] + ") Versus " + rrVersusText,
+                    fullSeason: data["RR Prop Total Vs Season"],
+                    fullSeasonHA: data["RR Prop Total Vs Season At"],
+                    last30: data["RR Prop Total Vs 30"],
+                    last30HA: data["RR Prop Total Vs 30 At"]
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + data["L Relievers"] + ") Versus " + lrVersusText,
+                    fullSeason: data["LR Prop Total Vs Season"],
+                    fullSeasonHA: data["LR Prop Total Vs Season At"],
+                    last30: data["LR Prop Total Vs 30"],
+                    last30HA: data["LR Prop Total Vs 30 At"]
+                }
+            ],
+            columns: [
+                {title: "Players", field: "player", headerSort: false, width: 320},
+                {title: "Full Season", field: "fullSeason", headerSort: false, width: 120},
+                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 160},
+                {title: "Last 30 Days", field: "last30", headerSort: false, width: 120},
+                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 160}
+            ]
+        });
+    }
+}
