@@ -35,7 +35,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Name", 
                     field: "Batter Name", 
-                    width: 180, 
+                    width: 200, 
+                    minWidth: 150,
                     sorter: "string", 
                     headerFilter: true,
                     resizable: false,
@@ -44,7 +45,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 160, 
+                    width: 200, 
+                    minWidth: 150,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false,
@@ -55,7 +57,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Prop", 
                     field: "Batter Prop Type", 
-                    width: 120, 
+                    width: 140, 
+                    minWidth: 100,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false
@@ -63,7 +66,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Value", 
                     field: "Batter Prop Value", 
-                    width: 80, 
+                    width: 90, 
+                    minWidth: 70,
                     sorter: "number", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false
@@ -73,7 +77,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "% Above", 
                     field: "Clearance Season", 
-                    width: 85, 
+                    width: 100, 
+                    minWidth: 85,
                     sorter: "number", 
                     sorterParams: {dir: "desc"},
                     resizable: false,
@@ -82,7 +87,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Games", 
                     field: "Games Season", 
-                    width: 75, 
+                    width: 85, 
+                    minWidth: 70,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false
@@ -92,7 +98,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "% Above", 
                     field: "Clearance Season At", 
-                    width: 85, 
+                    width: 100, 
+                    minWidth: 85,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
@@ -101,7 +108,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Games", 
                     field: "Games Season At", 
-                    width: 75, 
+                    width: 85, 
+                    minWidth: 70,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false
@@ -111,7 +119,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "% Above", 
                     field: "Clearance 30", 
-                    width: 85, 
+                    width: 100, 
+                    minWidth: 85,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
@@ -120,7 +129,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Games", 
                     field: "Games 30", 
-                    width: 75, 
+                    width: 85, 
+                    minWidth: 70,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false
@@ -130,7 +140,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "% Above", 
                     field: "Clearance 30 At", 
-                    width: 85, 
+                    width: 100, 
+                    minWidth: 85,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
@@ -139,7 +150,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Games", 
                     field: "Games 30 At", 
-                    width: 75, 
+                    width: 85, 
+                    minWidth: 70,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false
@@ -198,11 +210,11 @@ export class BatterClearancesTable extends BaseTable {
                 }
             ],
             columns: [
-                {title: "Players", field: "player", headerSort: false, width: 320},
-                {title: "Full Season", field: "fullSeason", headerSort: false, width: 120},
-                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 160},
-                {title: "Last 30 Days", field: "last30", headerSort: false, width: 120},
-                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 160}
+                {title: "Players", field: "player", headerSort: false, width: 350},
+                {title: "Full Season", field: "fullSeason", headerSort: false, width: 130},
+                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 180},
+                {title: "Last 30 Days", field: "last30", headerSort: false, width: 130},
+                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 180}
             ]
         });
     }
