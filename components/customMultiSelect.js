@@ -14,7 +14,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     var allValues = [];
     var selectedValues = [];
     var isOpen = false;
-    var filterApplied = false;
     
     function positionDropdown() {
         var buttonRect = button.getBoundingClientRect();
@@ -27,27 +26,29 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         console.log("Applying filter for", field, "with selected values:", selectedValues.length, "of", allValues.length);
         
         if (selectedValues.length === 0) {
-            // No values selected - hide all rows
-            table.setHeaderFilterValue(field, function(data) {
+            // No values selected - show no rows
+            table.setHeaderFilterValue(field, function(headerValue, rowValue, rowData, filterParams) {
                 return false;
             });
-            filterApplied = true;
         } else if (selectedValues.length === allValues.length) {
-            // All values selected - clear filter completely
-            table.clearHeaderFilter(field);
-            filterApplied = false;
+            // All values selected - clear this specific filter
+            table.setHeaderFilterValue(field, "");
         } else {
-            // Some values selected - apply filter
-            table.setHeaderFilterValue(field, function(data) {
-                var cellValue = data[field];
-                return selectedValues.indexOf(String(cellValue)) !== -1;
+            // Some values selected - apply custom filter function
+            table.setHeaderFilterValue(field, function(headerValue, rowValue, rowData, filterParams) {
+                // Convert the row value to string for comparison
+                var rowValueStr = String(rowValue);
+                var isIncluded = selectedValues.indexOf(rowValueStr) !== -1;
+                return isIncluded;
             });
-            filterApplied = true;
         }
     }
     
     setTimeout(function() {
-        table.getData().forEach(function(row) {
+        // Get all data from the table
+        var tableData = table.getData();
+        
+        tableData.forEach(function(row) {
             var value = row[field];
             if (value !== null && value !== undefined && value !== '') {
                 var stringValue = String(value);
@@ -57,7 +58,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             }
         });
         
-        // Proper numeric sorting for prop values
+        // Sort values appropriately
         if (field === "Batter Prop Value") {
             allValues.sort(function(a, b) {
                 return parseFloat(a) - parseFloat(b);
@@ -73,11 +74,13 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             return;
         }
         
+        // Create select all option
         var selectAllOption = document.createElement("div");
         selectAllOption.className = "custom-multiselect-option select-all selected";
         selectAllOption.textContent = "Unselect All";
         dropdown.appendChild(selectAllOption);
         
+        // Create individual options
         allValues.forEach(function(value) {
             var option = document.createElement("div");
             option.className = "custom-multiselect-option selected";
@@ -86,6 +89,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             dropdown.appendChild(option);
         });
         
+        // Initialize with all values selected
         selectedValues = allValues.slice();
         button.textContent = "All selected";
         
@@ -109,38 +113,49 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             }
         }
         
+        // Handle select all click
         selectAllOption.addEventListener("mousedown", function(e) {
             e.preventDefault();
             e.stopPropagation();
+            
             if (selectedValues.length === allValues.length) {
+                // Unselect all
                 selectedValues = [];
                 dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
                     opt.classList.remove('selected');
                 });
             } else {
+                // Select all
                 selectedValues = allValues.slice();
                 dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
                     opt.classList.add('selected');
                 });
             }
+            
             updateSelectAllButton();
             updateButtonText();
             applyFilter();
         });
         
+        // Handle individual option clicks
         dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(option) {
             var value = option.getAttribute('data-value');
+            
             option.addEventListener("mousedown", function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                
                 var index = selectedValues.indexOf(value);
                 if (index === -1) {
+                    // Add to selected
                     selectedValues.push(value);
                     option.classList.add('selected');
                 } else {
+                    // Remove from selected
                     selectedValues.splice(index, 1);
                     option.classList.remove('selected');
                 }
+                
                 updateSelectAllButton();
                 updateButtonText();
                 applyFilter();
@@ -151,14 +166,18 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         updateButtonText();
     }, 500);
     
+    // Handle button click to open/close dropdown
     button.addEventListener("mousedown", function(e) {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Close other dropdowns
         document.querySelectorAll('.custom-multiselect-dropdown').forEach(function(otherDropdown) {
             if (otherDropdown !== dropdown) {
                 otherDropdown.className = "custom-multiselect-dropdown hide";
             }
         });
+        
         isOpen = !isOpen;
         if (isOpen) {
             positionDropdown();
@@ -168,6 +187,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         }
     });
     
+    // Close dropdown when clicking outside
     document.addEventListener("mousedown", function(e) {
         if (!dropdown.contains(e.target) && !button.contains(e.target)) {
             isOpen = false;
@@ -175,8 +195,14 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         }
     });
     
-    window.addEventListener('resize', function() { if (isOpen) positionDropdown(); });
-    window.addEventListener('scroll', function() { if (isOpen) positionDropdown(); });
+    // Reposition on window events
+    window.addEventListener('resize', function() { 
+        if (isOpen) positionDropdown(); 
+    });
+    
+    window.addEventListener('scroll', function() { 
+        if (isOpen) positionDropdown(); 
+    });
     
     container.appendChild(button);
     return container;
