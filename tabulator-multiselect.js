@@ -174,8 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         #batter-table, #batter-table-alt {
-            width: auto !important;
-            max-width: 95% !important;
+            width: 100% !important;
             margin: 0 auto !important;
         }
         
@@ -236,6 +235,9 @@ document.addEventListener('DOMContentLoaded', function() {
             pointer-events: auto !important;
             position: relative !important;
             z-index: 104 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
         }
         
         .custom-multiselect-button:hover {
@@ -320,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            min-height: 40px !important;
+            min-height: 50px !important;
         }
         
         .tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title {
@@ -495,7 +497,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Custom multiselect function
+    // FIXED: Custom multiselect function with better filtering
     function createCustomMultiSelect(cell, onRendered, success, cancel) {
         var container = document.createElement("div");
         container.className = "custom-multiselect";
@@ -511,6 +513,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var allValues = [];
         var selectedValues = [];
         var isOpen = false;
+        var filterApplied = false;
         
         function positionDropdown() {
             var buttonRect = button.getBoundingClientRect();
@@ -519,27 +522,51 @@ document.addEventListener('DOMContentLoaded', function() {
             dropdown.style.width = Math.max(200, buttonRect.width) + 'px';
         }
         
+        // FIXED: Better filter application with proper clearing
         function applyFilter() {
+            console.log("Applying filter for", field, "with selected values:", selectedValues.length, "of", allValues.length);
+            
             if (selectedValues.length === 0) {
-                success(function() { return false; });
-            } else if (selectedValues.length === allValues.length) {
-                success("");
-            } else {
-                success(function(data) {
-                    return selectedValues.indexOf(String(data[field])) !== -1;
+                // No values selected - hide all rows
+                table.setHeaderFilterValue(field, function(data) {
+                    return false;
                 });
+                filterApplied = true;
+            } else if (selectedValues.length === allValues.length) {
+                // All values selected - clear filter completely
+                table.clearHeaderFilter(field);
+                filterApplied = false;
+            } else {
+                // Some values selected - apply filter
+                table.setHeaderFilterValue(field, function(data) {
+                    var cellValue = data[field];
+                    return selectedValues.indexOf(String(cellValue)) !== -1;
+                });
+                filterApplied = true;
             }
-            setTimeout(function() { if (table && table.redraw) table.redraw(); }, 10);
         }
         
         setTimeout(function() {
             table.getData().forEach(function(row) {
                 var value = row[field];
-                if (value && allValues.indexOf(String(value)) === -1) {
-                    allValues.push(String(value));
+                if (value !== null && value !== undefined && value !== '') {
+                    var stringValue = String(value);
+                    if (allValues.indexOf(stringValue) === -1) {
+                        allValues.push(stringValue);
+                    }
                 }
             });
-            allValues.sort();
+            
+            // FIXED: Proper numeric sorting for prop values
+            if (field === "Batter Prop Value") {
+                allValues.sort(function(a, b) {
+                    return parseFloat(a) - parseFloat(b);
+                });
+            } else {
+                allValues.sort();
+            }
+            
+            console.log("Found values for", field + ":", allValues);
             
             if (allValues.length === 0) {
                 button.textContent = "No data";
@@ -656,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function initializeTables() {
-        // Original Table
+        // Original Table with better column widths
         table1 = new Tabulator("#batter-table", {
             ajaxURL: "https://hcwolbvmffkmjcxsumwn.supabase.co/rest/v1/ModBatterClearances",
             ajaxConfig: {
@@ -681,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     {
                         title: "Name", 
                         field: "Batter Name", 
-                        width: 200, 
+                        width: 180, 
                         sorter: "string", 
                         headerFilter: true,
                         resizable: false,
@@ -726,7 +753,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             return (expanded ? "− " : "+ ") + (value || "");
                         }
                     },
-                    {title: "Team", field: "Batter Team", width: 180, sorter: "string", 
+                    {title: "Team", field: "Batter Team", width: 160, sorter: "string", 
                         headerFilter: createCustomMultiSelect,
                         resizable: false,
                         formatter: function(cell) {
@@ -736,7 +763,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 ]},
                 {title: "Prop Info", columns: [
-                    {title: "Prop", field: "Batter Prop Type", width: 160, sorter: "string", 
+                    {title: "Prop", field: "Batter Prop Type", width: 120, sorter: "string", 
                         headerFilter: createCustomMultiSelect,
                         resizable: false
                     },
@@ -746,7 +773,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 ]},
                 {title: "Full Season", columns: [
-                    {title: "% Above", field: "Clearance Season", width: 90, 
+                    {title: "% Above", field: "Clearance Season", width: 85, 
                         sorter: "number", 
                         sorterParams: {dir: "desc"},
                         resizable: false,
@@ -756,48 +783,31 @@ document.addEventListener('DOMContentLoaded', function() {
                             return (parseFloat(value) * 100).toFixed(1) + "%";
                         }
                     },
-                    {title: "Games", field: "Games Season", width: 70, 
+                    {title: "Games", field: "Games Season", width: 75, 
                         sorter: "number",
                         sorterParams: {dir: "desc"},
                         resizable: false
                     }
                 ]},
                 {title: "Full Season (Home/Away)", columns: [
-                    {title: "% Above", field: "Clearance Season At", width: 90, 
+                    {title: "% Above", field: "Clearance Season At", width: 85, 
                         sorter: "number",
                         sorterParams: {dir: "desc"},
                         resizable: false,
                         formatter: function(cell) {
                             var value = cell.getValue();
-                            if (value === null || value === undefined) return "0%";
-                            return (parseFloat(value) * 100).toFixed(1) + "%";
-                        }
-                    },
-                    {title: "Games", field: "Games Season At", width: 70, 
-                        sorter: "number",
-                        sorterParams: {dir: "desc"},
-                        resizable: false
-                    }
-                ]},
-                {title: "Last 30 Days", columns: [
-                    {title: "% Above", field: "Clearance 30", width: 90, 
-                        sorter: "number",
-                        sorterParams: {dir: "desc"},
-                        resizable: false,
-                        formatter: function(cell) {
-                            var value = cell.getValue();
-                            if (value === null || value === undefined) return "0%";
-                            return (parseFloat(value) * 100).toFixed(1) + "%";
-                        }
-                    },
-                    {title: "Games", field: "Games 30", width: 70, 
+                           if (value === null || value === undefined) return "0%";
+                           return (parseFloat(value) * 100).toFixed(1) + "%";
+                       }
+                   },
+                   {title: "Games", field: "Games Season At", width: 75, 
                        sorter: "number",
                        sorterParams: {dir: "desc"},
                        resizable: false
                    }
                ]},
-               {title: "Last 30 Days (Home/Away)", columns: [
-                   {title: "% Above", field: "Clearance 30 At", width: 90, 
+               {title: "Last 30 Days", columns: [
+                   {title: "% Above", field: "Clearance 30", width: 85, 
                        sorter: "number",
                        sorterParams: {dir: "desc"},
                        resizable: false,
@@ -807,7 +817,24 @@ document.addEventListener('DOMContentLoaded', function() {
                            return (parseFloat(value) * 100).toFixed(1) + "%";
                        }
                    },
-                   {title: "Games", field: "Games 30 At", width: 70, 
+                   {title: "Games", field: "Games 30", width: 75, 
+                       sorter: "number",
+                       sorterParams: {dir: "desc"},
+                       resizable: false
+                   }
+               ]},
+               {title: "Last 30 Days (Home/Away)", columns: [
+                   {title: "% Above", field: "Clearance 30 At", width: 85, 
+                       sorter: "number",
+                       sorterParams: {dir: "desc"},
+                       resizable: false,
+                       formatter: function(cell) {
+                           var value = cell.getValue();
+                           if (value === null || value === undefined) return "0%";
+                           return (parseFloat(value) * 100).toFixed(1) + "%";
+                       }
+                   },
+                   {title: "Games", field: "Games 30 At", width: 75, 
                        sorter: "number",
                        sorterParams: {dir: "desc"},
                        resizable: false
@@ -845,10 +872,10 @@ document.addEventListener('DOMContentLoaded', function() {
                            opposingPitcher: data["SP"]
                        }],
                        columns: [
-                           {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 140},
-                           {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 160},
-                           {title: "Matchup", field: "matchup", headerSort: false, width: 250},
-                           {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 160}
+                           {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 150},
+                           {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 180},
+                           {title: "Matchup", field: "matchup", headerSort: false, width: 280},
+                           {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 180}
                        ]
                    });
                    
@@ -901,11 +928,11 @@ document.addEventListener('DOMContentLoaded', function() {
                            }
                        ],
                        columns: [
-                           {title: "Players", field: "player", headerSort: false, width: 350},
+                           {title: "Players", field: "player", headerSort: false, width: 320},
                            {title: "Full Season", field: "fullSeason", headerSort: false, width: 120},
-                           {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 180},
+                           {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 160},
                            {title: "Last 30 Days", field: "last30", headerSort: false, width: 120},
-                           {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 180}
+                           {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 160}
                        ]
                    });
                } else if (!data._expanded) {
@@ -923,7 +950,7 @@ document.addEventListener('DOMContentLoaded', function() {
            }
        });
 
-       // Alternative Table - FIXED: No limit, pulls full dataset
+       // FIXED: Alternative Table - Removed limit, better pagination handling
        table2 = new Tabulator("#batter-table-alt", {
            ajaxURL: "https://hcwolbvmffkmjcxsumwn.supabase.co/rest/v1/ModBatterClearancesAlt",
            ajaxConfig: {
@@ -931,9 +958,13 @@ document.addEventListener('DOMContentLoaded', function() {
                headers: {
                    "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAzNDQzMTIsImV4cCI6MjA1NTkyMDMxMn0.tM4RwXZpZM6ZHuFFMhWcKYLT3E4NA6Ig90CHw7QtJf0",
                    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAzNDQzMTIsImV4cCI6MjA1NTkyMDMxMn0.tM4RwXZpZM6ZHuFFMhWcKYLT3E4NA6Ig90CHw7QtJf0",
-                   "Content-Type": "application/json"
+                   "Content-Type": "application/json",
+                   "Range": ""
                },
            },
+           progressiveLoad: "load",
+           progressiveLoadDelay: 200,
+           progressiveLoadScrollMargin: 300,
            layout: "fitColumns",
            responsiveLayout: "hide",
            persistence: false,
@@ -948,7 +979,7 @@ document.addEventListener('DOMContentLoaded', function() {
                    {
                        title: "Name", 
                        field: "Batter Name", 
-                       width: 200, 
+                       width: 180, 
                        sorter: "string", 
                        headerFilter: true,
                        resizable: false,
@@ -993,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            return (expanded ? "− " : "+ ") + (value || "");
                        }
                    },
-                   {title: "Team", field: "Batter Team", width: 180, sorter: "string", 
+                   {title: "Team", field: "Batter Team", width: 160, sorter: "string", 
                        headerFilter: createCustomMultiSelect,
                        resizable: false,
                        formatter: function(cell) {
@@ -1003,7 +1034,7 @@ document.addEventListener('DOMContentLoaded', function() {
                    }
                ]},
                {title: "Prop Info", columns: [
-                   {title: "Prop", field: "Batter Prop Type", width: 160, sorter: "string", 
+                   {title: "Prop", field: "Batter Prop Type", width: 120, sorter: "string", 
                        headerFilter: createCustomMultiSelect,
                        resizable: false
                    },
@@ -1011,7 +1042,7 @@ document.addEventListener('DOMContentLoaded', function() {
                        headerFilter: createCustomMultiSelect,
                        resizable: false
                    },
-                   {title: "Time/Location Split", field: "Batter Prop Split ID", width: 200, sorter: "string", 
+                   {title: "Time/Location Split", field: "Batter Prop Split ID", width: 180, sorter: "string", 
                        headerFilter: createCustomMultiSelect,
                        resizable: false,
                        formatter: function(cell) {
@@ -1027,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', function() {
                    }
                ]},
                {title: "Prop Clearance", columns: [
-                   {title: "% Above", field: "Batter Clearance", width: 90, 
+                   {title: "% Above", field: "Batter Clearance", width: 100, 
                        sorter: "number",
                        sorterParams: {dir: "desc"},
                        resizable: false,
@@ -1037,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            return parseFloat(value).toFixed(1) + "%";
                        }
                    },
-                   {title: "Games", field: "Batter Games", width: 70, 
+                   {title: "Games", field: "Batter Games", width: 80, 
                        sorter: "number",
                        sorterParams: {dir: "desc"},
                        resizable: false
@@ -1078,10 +1109,10 @@ document.addEventListener('DOMContentLoaded', function() {
                            opposingPitcher: data["SP"]
                        }],
                        columns: [
-                           {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 140, resizable: false},
-                           {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 160, resizable: false},
-                           {title: "Matchup", field: "matchup", headerSort: false, width: 250, resizable: false},
-                           {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 160, resizable: false}
+                           {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 150, resizable: false},
+                           {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 180, resizable: false},
+                           {title: "Matchup", field: "matchup", headerSort: false, width: 280, resizable: false},
+                           {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 180, resizable: false}
                        ]
                    });
                    
@@ -1134,8 +1165,8 @@ document.addEventListener('DOMContentLoaded', function() {
                            }
                        ],
                        columns: [
-                           {title: "Players", field: "player", headerSort: false, resizable: false, width: 350},
-                           {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 120}
+                           {title: "Players", field: "player", headerSort: false, resizable: false, width: 320},
+                           {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 150}
                        ]
                    });
                } else if (!data._expanded) {
