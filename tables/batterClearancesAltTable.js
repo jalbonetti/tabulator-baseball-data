@@ -1,6 +1,6 @@
 // tables/batterClearancesAltTable.js
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, formatClearancePercentage } from '../shared/utils.js';
+import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class BatterClearancesAltTable extends BaseTable {
@@ -45,7 +45,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Name", 
                     field: "Batter Name", 
-                    width: 180, 
+                    width: 200, 
+                    minWidth: 150,
                     sorter: "string", 
                     headerFilter: true,
                     resizable: false,
@@ -54,7 +55,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 160, 
+                    width: 200, 
+                    minWidth: 150,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false,
@@ -65,7 +67,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Prop", 
                     field: "Batter Prop Type", 
-                    width: 120, 
+                    width: 140, 
+                    minWidth: 100,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false
@@ -73,7 +76,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Value", 
                     field: "Batter Prop Value", 
-                    width: 80, 
+                    width: 90, 
+                    minWidth: 70,
                     sorter: "number", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false
@@ -81,7 +85,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Time/Location Split", 
                     field: "Batter Prop Split ID", 
-                    width: 180, 
+                    width: 220, 
+                    minWidth: 180,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false,
@@ -101,7 +106,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "% Above", 
                     field: "Batter Clearance", 
-                    width: 100, 
+                    width: 110, 
+                    minWidth: 90,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
@@ -110,7 +116,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Games", 
                     field: "Batter Games", 
-                    width: 80, 
+                    width: 90, 
+                    minWidth: 70,
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false
@@ -169,8 +176,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 }
             ],
             columns: [
-                {title: "Players", field: "player", headerSort: false, resizable: false, width: 320},
-                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 150}
+                {title: "Players", field: "player", headerSort: false, resizable: false, width: 400},
+                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 200}
             ]
         });
     }
