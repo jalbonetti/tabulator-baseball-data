@@ -18,10 +18,11 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        user-select: none;
     `;
     
     var dropdown = document.createElement("div");
-    dropdown.className = "custom-multiselect-dropdown hide";
+    dropdown.className = "custom-multiselect-dropdown";
     dropdown.style.cssText = `
         position: absolute;
         top: 100%;
@@ -40,173 +41,179 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     
     var field = cell.getColumn().getField();
     var table = cell.getTable();
-    var allValues = new Set();
-    var selectedValues = new Set();
+    var allValues = [];
+    var selectedValues = [];
     var isOpen = false;
     
     function updateFilter() {
-        if (selectedValues.size === 0) {
+        if (selectedValues.length === 0) {
             success(false);
-        } else if (selectedValues.size === allValues.size) {
+        } else if (selectedValues.length === allValues.length) {
             success("");
         } else {
-            var selected = Array.from(selectedValues);
             success(function(cellValue) {
-                return selected.includes(String(cellValue));
+                return selectedValues.includes(String(cellValue));
             });
         }
     }
     
-    function loadValues() {
-        allValues.clear();
+    function createOption(value, isSelectAll) {
+        var option = document.createElement("div");
+        option.className = "multiselect-option";
+        if (isSelectAll) {
+            option.className += " select-all";
+        }
+        option.setAttribute('data-value', value);
         
+        var checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = true;
+        checkbox.style.cssText = "margin-right: 8px; pointer-events: none;";
+        
+        var label = document.createElement("span");
+        label.textContent = isSelectAll ? "Select All" : value;
+        label.style.cssText = "pointer-events: none;";
+        
+        option.appendChild(checkbox);
+        option.appendChild(label);
+        
+        option.style.cssText = `
+            padding: 6px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            font-size: 12px;
+            user-select: none;
+        `;
+        
+        if (isSelectAll) {
+            option.style.fontWeight = "bold";
+            option.style.borderBottom = "2px solid #007bff";
+        }
+        
+        // Add hover effect
+        option.addEventListener('mouseenter', function() {
+            option.style.background = "#f0f0f0";
+        });
+        
+        option.addEventListener('mouseleave', function() {
+            option.style.background = "white";
+        });
+        
+        return option;
+    }
+    
+    function loadValues() {
+        allValues = [];
+        selectedValues = [];
+        
+        // Get unique values
+        var uniqueValues = new Set();
         table.getData().forEach(function(row) {
             var value = row[field];
             if (value !== null && value !== undefined && value !== '') {
-                allValues.add(String(value));
+                uniqueValues.add(String(value));
             }
         });
         
-        var sortedValues = Array.from(allValues);
+        allValues = Array.from(uniqueValues);
+        
+        // Sort values
         if (field === "Batter Prop Value") {
-            sortedValues.sort(function(a, b) {
+            allValues.sort(function(a, b) {
                 return parseFloat(a) - parseFloat(b);
             });
         } else {
-            sortedValues.sort();
+            allValues.sort();
         }
         
+        // Clear dropdown
         dropdown.innerHTML = '';
         
-        if (sortedValues.length === 0) {
+        if (allValues.length === 0) {
             button.textContent = "No data";
             return;
         }
         
-        selectedValues = new Set(sortedValues);
+        // Initialize all as selected
+        selectedValues = [...allValues];
         
         // Create select all option
-        var selectAllOption = document.createElement("div");
-        selectAllOption.className = "custom-multiselect-option select-all selected";
-        selectAllOption.textContent = "✓ Unselect All";
-        selectAllOption.style.cssText = `
-            padding: 8px 12px;
-            cursor: pointer;
-            border-bottom: 2px solid #007bff;
-            font-weight: bold;
-            background: #f8f9fa;
-        `;
+        var selectAllOption = createOption("", true);
         dropdown.appendChild(selectAllOption);
         
         // Create individual options
-        sortedValues.forEach(function(value) {
-            var option = document.createElement("div");
-            option.className = "custom-multiselect-option selected";
-            option.innerHTML = '<span style="margin-right: 8px;">✓</span>' + value;
-            option.setAttribute('data-value', value);
-            option.style.cssText = `
-                padding: 8px 12px;
-                cursor: pointer;
-                border-bottom: 1px solid #eee;
-                font-size: 12px;
-            `;
+        allValues.forEach(function(value) {
+            var option = createOption(value, false);
             dropdown.appendChild(option);
         });
         
-        button.textContent = "All selected (" + sortedValues.length + ")";
+        button.textContent = "All selected (" + allValues.length + ")";
         
-        // Event handlers
-        selectAllOption.onclick = function(e) {
-            e.stopPropagation();
-            if (selectedValues.size === allValues.size) {
-                // Unselect all
-                selectedValues.clear();
-                dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
-                    opt.innerHTML = '<span style="margin-right: 8px; opacity: 0;">✓</span>' + opt.getAttribute('data-value');
-                    opt.style.background = "white";
-                });
-                selectAllOption.textContent = "Select All";
+        // Update UI
+        function updateUI() {
+            // Update checkboxes
+            dropdown.querySelectorAll('.multiselect-option').forEach(function(opt) {
+                var checkbox = opt.querySelector('input[type="checkbox"]');
+                var value = opt.getAttribute('data-value');
+                
+                if (opt.classList.contains('select-all')) {
+                    checkbox.checked = selectedValues.length === allValues.length;
+                    opt.querySelector('span').textContent = checkbox.checked ? "Unselect All" : "Select All";
+                } else {
+                    checkbox.checked = selectedValues.includes(value);
+                }
+            });
+            
+            // Update button text
+            if (selectedValues.length === 0) {
                 button.textContent = "None selected";
+            } else if (selectedValues.length === allValues.length) {
+                button.textContent = "All selected (" + allValues.length + ")";
             } else {
-                // Select all
-                selectedValues = new Set(allValues);
-                dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
-                    opt.innerHTML = '<span style="margin-right: 8px;">✓</span>' + opt.getAttribute('data-value');
-                    opt.style.background = "#f0f8ff";
-                });
-                selectAllOption.textContent = "✓ Unselect All";
-                button.textContent = "All selected (" + allValues.size + ")";
+                button.textContent = selectedValues.length + " of " + allValues.length + " selected";
             }
-            updateFilter();
-        };
+        }
         
-        dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(option) {
-            // Hover effects
-            option.onmouseover = function() {
-                option.style.background = "#e9ecef";
-            };
+        // Event delegation for dropdown clicks
+        dropdown.addEventListener('click', function(e) {
+            var option = e.target.closest('.multiselect-option');
+            if (!option) return;
             
-            option.onmouseout = function() {
-                option.style.background = selectedValues.has(option.getAttribute('data-value')) ? "#f0f8ff" : "white";
-            };
+            e.stopPropagation();
+            e.preventDefault();
             
-            option.onclick = function(e) {
-                e.stopPropagation();
+            if (option.classList.contains('select-all')) {
+                // Toggle all
+                if (selectedValues.length === allValues.length) {
+                    selectedValues = [];
+                } else {
+                    selectedValues = [...allValues];
+                }
+            } else {
+                // Toggle individual
                 var value = option.getAttribute('data-value');
+                var index = selectedValues.indexOf(value);
                 
-                if (selectedValues.has(value)) {
-                    selectedValues.delete(value);
-                    option.innerHTML = '<span style="margin-right: 8px; opacity: 0;">✓</span>' + value;
-                    option.style.background = "white";
+                if (index > -1) {
+                    selectedValues.splice(index, 1);
                 } else {
-                    selectedValues.add(value);
-                    option.innerHTML = '<span style="margin-right: 8px;">✓</span>' + value;
-                    option.style.background = "#f0f8ff";
+                    selectedValues.push(value);
                 }
-                
-                // Update button text
-                if (selectedValues.size === 0) {
-                    button.textContent = "None selected";
-                } else if (selectedValues.size === allValues.size) {
-                    button.textContent = "All selected (" + allValues.size + ")";
-                } else {
-                    button.textContent = selectedValues.size + " of " + allValues.size + " selected";
-                }
-                
-                // Update select all button
-                if (selectedValues.size === allValues.size) {
-                    selectAllOption.textContent = "✓ Unselect All";
-                } else {
-                    selectAllOption.textContent = "Select All";
-                }
-                
-                updateFilter();
-            };
+            }
+            
+            updateUI();
+            updateFilter();
         });
         
-        // Set initial selected background
-        dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
-            opt.style.background = "#f0f8ff";
-        });
+        updateUI();
     }
     
-    // Load values after table data is ready
-    table.on("dataLoaded", loadValues);
-    setTimeout(loadValues, 100);
-    
-    // Button hover effect
-    button.onmouseover = function() {
-        button.style.borderColor = "#007bff";
-        button.style.background = "#f8f9fa";
-    };
-    
-    button.onmouseout = function() {
-        button.style.borderColor = "#ccc";
-        button.style.background = "white";
-    };
-    
-    button.onclick = function(e) {
+    // Button click handler
+    button.addEventListener('click', function(e) {
         e.stopPropagation();
+        e.preventDefault();
         
         if (isOpen) {
             dropdown.style.display = "none";
@@ -215,30 +222,52 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             dropdown.style.display = "block";
             isOpen = true;
             
-            // Adjust position if dropdown goes off-screen
-            var dropdownRect = dropdown.getBoundingClientRect();
-            if (dropdownRect.bottom > window.innerHeight - 20) {
-                dropdown.style.top = "auto";
-                dropdown.style.bottom = "100%";
-                dropdown.style.marginTop = "0";
-                dropdown.style.marginBottom = "2px";
-            }
-            
-            if (dropdownRect.right > window.innerWidth - 20) {
-                dropdown.style.left = "auto";
-                dropdown.style.right = "0";
-            }
+            // Ensure dropdown is visible
+            requestAnimationFrame(function() {
+                var dropdownRect = dropdown.getBoundingClientRect();
+                
+                // Adjust vertical position
+                if (dropdownRect.bottom > window.innerHeight - 20) {
+                    dropdown.style.top = "auto";
+                    dropdown.style.bottom = "100%";
+                    dropdown.style.marginTop = "0";
+                    dropdown.style.marginBottom = "2px";
+                }
+                
+                // Adjust horizontal position
+                if (dropdownRect.right > window.innerWidth - 20) {
+                    dropdown.style.left = "auto";
+                    dropdown.style.right = "0";
+                }
+            });
         }
-    };
+    });
+    
+    // Prevent dropdown from closing when clicking inside
+    dropdown.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
     
     // Close on outside click
-    document.addEventListener('click', function(e) {
+    var closeHandler = function(e) {
         if (isOpen && !container.contains(e.target)) {
             dropdown.style.display = "none";
             isOpen = false;
         }
-    });
+    };
     
+    // Use capture phase to ensure we get the event
+    document.addEventListener('click', closeHandler, true);
+    
+    // Load values when table data is ready
+    table.on("dataLoaded", loadValues);
+    
+    // Initial load
+    setTimeout(function() {
+        loadValues();
+    }, 100);
+    
+    // Append elements
     container.appendChild(button);
     container.appendChild(dropdown);
     
