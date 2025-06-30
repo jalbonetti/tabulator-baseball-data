@@ -22,33 +22,38 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         dropdown.style.width = Math.max(200, buttonRect.width) + 'px';
     }
     
+    // Use Tabulator's built-in filter approach
     function applyFilter() {
-        console.log("Applying filter for", field, "with selected values:", selectedValues.length, "of", allValues.length);
-        
         if (selectedValues.length === 0) {
-            // No values selected - show no rows
-            table.setHeaderFilterValue(field, function(headerValue, rowValue, rowData, filterParams) {
-                return false;
-            });
+            // No values selected - hide all
+            table.setHeaderFilterValue(field, "NONE_SELECTED_FILTER");
         } else if (selectedValues.length === allValues.length) {
-            // All values selected - clear this specific filter
-            table.setHeaderFilterValue(field, "");
+            // All selected - clear filter
+            table.clearHeaderFilter(field);
         } else {
-            // Some values selected - apply custom filter function
-            table.setHeaderFilterValue(field, function(headerValue, rowValue, rowData, filterParams) {
-                // Convert the row value to string for comparison
-                var rowValueStr = String(rowValue);
-                var isIncluded = selectedValues.indexOf(rowValueStr) !== -1;
-                return isIncluded;
-            });
+            // Some selected - use custom filter
+            table.setHeaderFilterValue(field, selectedValues);
         }
     }
     
-    setTimeout(function() {
-        // Get all data from the table
-        var tableData = table.getData();
+    // Set up custom filter function for this column
+    cell.getColumn().getDefinition().headerFilterFunc = function(headerValue, rowValue, rowData, filterParams) {
+        if (headerValue === "NONE_SELECTED_FILTER") {
+            return false;
+        }
+        if (Array.isArray(headerValue)) {
+            var rowValueStr = rowValue !== null && rowValue !== undefined ? String(rowValue) : "";
+            return headerValue.indexOf(rowValueStr) !== -1;
+        }
+        return true;
+    };
+    
+    // Initialize after table data is loaded
+    table.on("dataLoaded", function() {
+        allValues = [];
+        var data = table.getData();
         
-        tableData.forEach(function(row) {
+        data.forEach(function(row) {
             var value = row[field];
             if (value !== null && value !== undefined && value !== '') {
                 var stringValue = String(value);
@@ -58,7 +63,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             }
         });
         
-        // Sort values appropriately
+        // Sort values
         if (field === "Batter Prop Value") {
             allValues.sort(function(a, b) {
                 return parseFloat(a) - parseFloat(b);
@@ -67,7 +72,8 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             allValues.sort();
         }
         
-        console.log("Found values for", field + ":", allValues);
+        // Clear and rebuild dropdown
+        dropdown.innerHTML = '';
         
         if (allValues.length === 0) {
             button.textContent = "No data";
@@ -119,13 +125,11 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             e.stopPropagation();
             
             if (selectedValues.length === allValues.length) {
-                // Unselect all
                 selectedValues = [];
                 dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
                     opt.classList.remove('selected');
                 });
             } else {
-                // Select all
                 selectedValues = allValues.slice();
                 dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
                     opt.classList.add('selected');
@@ -147,11 +151,9 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
                 
                 var index = selectedValues.indexOf(value);
                 if (index === -1) {
-                    // Add to selected
                     selectedValues.push(value);
                     option.classList.add('selected');
                 } else {
-                    // Remove from selected
                     selectedValues.splice(index, 1);
                     option.classList.remove('selected');
                 }
@@ -161,10 +163,12 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
                 applyFilter();
             });
         });
-        
-        updateSelectAllButton();
-        updateButtonText();
-    }, 500);
+    });
+    
+    // Initialize on first render
+    setTimeout(function() {
+        table.modules.ajax.loadData();
+    }, 100);
     
     // Handle button click to open/close dropdown
     button.addEventListener("mousedown", function(e) {
