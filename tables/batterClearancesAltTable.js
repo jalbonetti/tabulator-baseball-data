@@ -1,6 +1,7 @@
 // tables/batterClearancesAltTable.js
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage } from '../shared/utils.js';
+import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class BatterClearancesAltTable extends BaseTable {
     constructor(elementId) {
@@ -70,7 +71,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,  // Simple text filter for now
+                    headerFilter: true,  // Keep text filter for name
                     resizable: false,
                     formatter: this.createNameFormatter()
                 },
@@ -80,7 +81,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,  // Simple text filter for now
+                    headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false,
                     formatter: this.createTeamFormatter()
                 }
@@ -92,7 +93,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 140, 
                     minWidth: 100,
                     sorter: "string", 
-                    headerFilter: true,  // Simple text filter for now
+                    headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
                 },
                 {
@@ -101,9 +102,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 90, 
                     minWidth: 70,
                     sorter: "number", 
-                    headerFilter: "number",
-                    headerFilterPlaceholder: "Min",
-                    headerFilterFunc: ">=",
+                    headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
                 },
                 {
@@ -112,7 +111,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 220, 
                     minWidth: 180,
                     sorter: "string", 
-                    headerFilter: true,  // Simple text filter for now
+                    headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false,
                     formatter: function(cell) {
                         var value = cell.getValue();
