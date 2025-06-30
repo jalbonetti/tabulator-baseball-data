@@ -7,78 +7,71 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     button.textContent = "Loading...";
     var dropdown = document.createElement("div");
     dropdown.className = "custom-multiselect-dropdown hide";
-    document.body.appendChild(dropdown);
     
     var field = cell.getColumn().getField();
     var table = cell.getTable();
-    var allValues = [];
-    var selectedValues = [];
+    var allValues = new Set();
+    var selectedValues = new Set();
     var isOpen = false;
+    
+    // Store dropdown in container for cleanup
+    container._dropdown = dropdown;
     
     function positionDropdown() {
         var buttonRect = button.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
         dropdown.style.left = buttonRect.left + 'px';
         dropdown.style.top = (buttonRect.bottom + 2) + 'px';
         dropdown.style.width = Math.max(200, buttonRect.width) + 'px';
     }
     
-    // Use Tabulator's built-in filter approach
-    function applyFilter() {
-        if (selectedValues.length === 0) {
-            // No values selected - hide all
-            table.setHeaderFilterValue(field, "NONE_SELECTED_FILTER");
-        } else if (selectedValues.length === allValues.length) {
-            // All selected - clear filter
-            table.clearHeaderFilter(field);
+    function updateFilter() {
+        if (selectedValues.size === 0) {
+            // Hide all rows
+            success(false);
+        } else if (selectedValues.size === allValues.size) {
+            // Show all rows
+            success("");
         } else {
-            // Some selected - use custom filter
-            table.setHeaderFilterValue(field, selectedValues);
+            // Show only selected values
+            var selected = Array.from(selectedValues);
+            success(function(cellValue) {
+                return selected.includes(String(cellValue));
+            });
         }
     }
     
-    // Set up custom filter function for this column
-    cell.getColumn().getDefinition().headerFilterFunc = function(headerValue, rowValue, rowData, filterParams) {
-        if (headerValue === "NONE_SELECTED_FILTER") {
-            return false;
-        }
-        if (Array.isArray(headerValue)) {
-            var rowValueStr = rowValue !== null && rowValue !== undefined ? String(rowValue) : "";
-            return headerValue.indexOf(rowValueStr) !== -1;
-        }
-        return true;
-    };
-    
-    // Initialize after table data is loaded
-    table.on("dataLoaded", function() {
-        allValues = [];
-        var data = table.getData();
+    function loadValues() {
+        allValues.clear();
         
-        data.forEach(function(row) {
+        // Get all data from the column
+        table.getData().forEach(function(row) {
             var value = row[field];
             if (value !== null && value !== undefined && value !== '') {
-                var stringValue = String(value);
-                if (allValues.indexOf(stringValue) === -1) {
-                    allValues.push(stringValue);
-                }
+                allValues.add(String(value));
             }
         });
         
-        // Sort values
+        // Convert to array and sort
+        var sortedValues = Array.from(allValues);
         if (field === "Batter Prop Value") {
-            allValues.sort(function(a, b) {
+            sortedValues.sort(function(a, b) {
                 return parseFloat(a) - parseFloat(b);
             });
         } else {
-            allValues.sort();
+            sortedValues.sort();
         }
         
-        // Clear and rebuild dropdown
+        // Clear dropdown
         dropdown.innerHTML = '';
         
-        if (allValues.length === 0) {
+        if (sortedValues.length === 0) {
             button.textContent = "No data";
             return;
         }
+        
+        // Initialize all as selected
+        selectedValues = new Set(sortedValues);
         
         // Create select all option
         var selectAllOption = document.createElement("div");
@@ -87,7 +80,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         dropdown.appendChild(selectAllOption);
         
         // Create individual options
-        allValues.forEach(function(value) {
+        sortedValues.forEach(function(value) {
             var option = document.createElement("div");
             option.className = "custom-multiselect-option selected";
             option.textContent = value;
@@ -95,117 +88,116 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             dropdown.appendChild(option);
         });
         
-        // Initialize with all values selected
-        selectedValues = allValues.slice();
         button.textContent = "All selected";
         
-        function updateSelectAllButton() {
-            if (selectedValues.length === allValues.length) {
-                selectAllOption.textContent = "Unselect All";
-                selectAllOption.classList.add('selected');
-            } else {
-                selectAllOption.textContent = "Select All";
-                selectAllOption.classList.remove('selected');
-            }
-        }
-        
-        function updateButtonText() {
-            if (selectedValues.length === 0) {
-                button.textContent = "None selected";
-            } else if (selectedValues.length === allValues.length) {
-                button.textContent = "All selected";
-            } else {
-                button.textContent = selectedValues.length + " selected";
-            }
-        }
-        
-        // Handle select all click
-        selectAllOption.addEventListener("mousedown", function(e) {
-            e.preventDefault();
+        // Event handlers
+        selectAllOption.onclick = function(e) {
             e.stopPropagation();
-            
-            if (selectedValues.length === allValues.length) {
-                selectedValues = [];
+            if (selectedValues.size === allValues.size) {
+                // Unselect all
+                selectedValues.clear();
                 dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
                     opt.classList.remove('selected');
                 });
+                selectAllOption.textContent = "Select All";
+                selectAllOption.classList.remove('selected');
+                button.textContent = "None selected";
             } else {
-                selectedValues = allValues.slice();
+                // Select all
+                selectedValues = new Set(allValues);
                 dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(opt) {
                     opt.classList.add('selected');
                 });
+                selectAllOption.textContent = "Unselect All";
+                selectAllOption.classList.add('selected');
+                button.textContent = "All selected";
             }
-            
-            updateSelectAllButton();
-            updateButtonText();
-            applyFilter();
-        });
+            updateFilter();
+        };
         
-        // Handle individual option clicks
         dropdown.querySelectorAll('.custom-multiselect-option[data-value]').forEach(function(option) {
-            var value = option.getAttribute('data-value');
-            
-            option.addEventListener("mousedown", function(e) {
-                e.preventDefault();
+            option.onclick = function(e) {
                 e.stopPropagation();
+                var value = option.getAttribute('data-value');
                 
-                var index = selectedValues.indexOf(value);
-                if (index === -1) {
-                    selectedValues.push(value);
-                    option.classList.add('selected');
-                } else {
-                    selectedValues.splice(index, 1);
+                if (selectedValues.has(value)) {
+                    selectedValues.delete(value);
                     option.classList.remove('selected');
+                } else {
+                    selectedValues.add(value);
+                    option.classList.add('selected');
                 }
                 
-                updateSelectAllButton();
-                updateButtonText();
-                applyFilter();
-            });
+                // Update button text
+                if (selectedValues.size === 0) {
+                    button.textContent = "None selected";
+                } else if (selectedValues.size === allValues.size) {
+                    button.textContent = "All selected";
+                } else {
+                    button.textContent = selectedValues.size + " selected";
+                }
+                
+                // Update select all button
+                if (selectedValues.size === allValues.size) {
+                    selectAllOption.textContent = "Unselect All";
+                    selectAllOption.classList.add('selected');
+                } else {
+                    selectAllOption.textContent = "Select All";
+                    selectAllOption.classList.remove('selected');
+                }
+                
+                updateFilter();
+            };
         });
-    });
+    }
     
-    // Initialize on first render
-    setTimeout(function() {
-        table.modules.ajax.loadData();
-    }, 100);
+    // Load values when table data changes
+    table.on("dataLoaded", loadValues);
     
-    // Handle button click to open/close dropdown
-    button.addEventListener("mousedown", function(e) {
-        e.preventDefault();
+    // Initial load
+    setTimeout(loadValues, 100);
+    
+    // Button click handler
+    button.onclick = function(e) {
         e.stopPropagation();
         
-        // Close other dropdowns
-        document.querySelectorAll('.custom-multiselect-dropdown').forEach(function(otherDropdown) {
-            if (otherDropdown !== dropdown) {
-                otherDropdown.className = "custom-multiselect-dropdown hide";
-            }
-        });
-        
-        isOpen = !isOpen;
         if (isOpen) {
-            positionDropdown();
-            dropdown.className = "custom-multiselect-dropdown show";
-        } else {
-            dropdown.className = "custom-multiselect-dropdown hide";
-        }
-    });
-    
-    // Close dropdown when clicking outside
-    document.addEventListener("mousedown", function(e) {
-        if (!dropdown.contains(e.target) && !button.contains(e.target)) {
+            dropdown.classList.remove('show');
+            dropdown.classList.add('hide');
             isOpen = false;
-            dropdown.className = "custom-multiselect-dropdown hide";
+        } else {
+            // Close other dropdowns
+            document.querySelectorAll('.custom-multiselect-dropdown.show').forEach(function(d) {
+                d.classList.remove('show');
+                d.classList.add('hide');
+            });
+            
+            // Append to body if not already there
+            if (!dropdown.parentNode) {
+                document.body.appendChild(dropdown);
+            }
+            
+            positionDropdown();
+            dropdown.classList.remove('hide');
+            dropdown.classList.add('show');
+            isOpen = true;
+        }
+    };
+    
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+        if (isOpen && !container.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.remove('show');
+            dropdown.classList.add('hide');
+            isOpen = false;
         }
     });
     
-    // Reposition on window events
-    window.addEventListener('resize', function() { 
-        if (isOpen) positionDropdown(); 
-    });
-    
-    window.addEventListener('scroll', function() { 
-        if (isOpen) positionDropdown(); 
+    // Clean up on destroy
+    cell.getElement().addEventListener('DOMNodeRemoved', function() {
+        if (dropdown.parentNode) {
+            dropdown.parentNode.removeChild(dropdown);
+        }
     });
     
     container.appendChild(button);
