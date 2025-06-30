@@ -1,6 +1,7 @@
 // tables/batterClearancesTable.js
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
+import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class BatterClearancesTable extends BaseTable {
     constructor(elementId) {
@@ -26,14 +27,6 @@ export class BatterClearancesTable extends BaseTable {
         this.table.on("tableBuilt", () => {
             console.log("Batter Clearances table built successfully");
         });
-        
-        // Log when data is loaded
-        this.table.on("dataLoaded", (data) => {
-            console.log("Table 1 data loaded:", data.length, "rows");
-            if (data.length > 0) {
-                console.log("Sample row:", data[0]);
-            }
-        });
     }
 
     getColumns() {
@@ -45,7 +38,7 @@ export class BatterClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,  // Simple text filter
+                    headerFilter: true,  // Keep text filter for name
                     resizable: false,
                     formatter: this.createNameFormatter()
                 },
@@ -55,7 +48,7 @@ export class BatterClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,  // Simple text filter
+                    headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false,
                     formatter: this.createTeamFormatter()
                 }
@@ -67,7 +60,7 @@ export class BatterClearancesTable extends BaseTable {
                     width: 140, 
                     minWidth: 100,
                     sorter: "string", 
-                    headerFilter: true,  // Simple text filter
+                    headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
                 },
                 {
@@ -76,9 +69,7 @@ export class BatterClearancesTable extends BaseTable {
                     width: 90, 
                     minWidth: 70,
                     sorter: "number", 
-                    headerFilter: "number",  // Number filter
-                    headerFilterPlaceholder: "Min",
-                    headerFilterFunc: ">=",
+                    headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
                 }
             ]},
