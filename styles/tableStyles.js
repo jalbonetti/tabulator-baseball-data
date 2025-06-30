@@ -88,36 +88,43 @@ export function injectStyles() {
             resize: none !important;
         }
         
-        /* Header overflow for dropdowns */
+        /* CRITICAL: Header overflow for dropdowns */
         .tabulator .tabulator-header {
             overflow: visible !important;
             position: relative !important;
-            z-index: 100 !important;
+            z-index: 10 !important;
         }
         
         .tabulator .tabulator-header .tabulator-col {
             overflow: visible !important;
             position: relative !important;
-            z-index: 101 !important;
+            z-index: 11 !important;
         }
         
         .tabulator .tabulator-header .tabulator-col .tabulator-header-filter {
             overflow: visible !important;
             position: relative !important;
-            z-index: 102 !important;
+            z-index: 12 !important;
         }
         
-        /* Table body z-index */
+        /* Table body MUST have lower z-index */
         .tabulator .tabulator-tableHolder {
             position: relative !important;
-            z-index: 50 !important;
+            z-index: 1 !important;
+            overflow: auto !important;
         }
         
-        /* Custom multiselect styling */
+        /* Make sure rows don't overflow and cover dropdowns */
+        .tabulator .tabulator-table {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
+        /* Custom multiselect styling with high z-index */
         .custom-multiselect {
             position: relative !important;
             width: 100% !important;
-            z-index: 103 !important;
+            z-index: 13 !important;
         }
         
         .custom-multiselect-button {
@@ -130,7 +137,7 @@ export function injectStyles() {
             user-select: none !important;
             pointer-events: auto !important;
             position: relative !important;
-            z-index: 104 !important;
+            z-index: 14 !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
@@ -141,6 +148,7 @@ export function injectStyles() {
             border-color: #007bff !important;
         }
         
+        /* CRITICAL: Dropdown must be at highest z-index */
         .custom-multiselect-dropdown {
             position: fixed !important;
             min-width: 200px !important;
@@ -148,7 +156,7 @@ export function injectStyles() {
             border: 2px solid #007bff !important;
             max-height: 250px !important;
             overflow-y: auto !important;
-            z-index: 999999 !important;
+            z-index: 9999 !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
             border-radius: 4px !important;
         }
@@ -157,6 +165,7 @@ export function injectStyles() {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
+            z-index: 9999 !important;
         }
         
         .custom-multiselect-dropdown.hide {
@@ -246,6 +255,11 @@ export function injectStyles() {
         }
         
         /* Subtable styling */
+        .subrow-container {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
         .subrow-container .tabulator .tabulator-header .tabulator-col {
             cursor: default !important;
         }
@@ -272,6 +286,16 @@ export function injectStyles() {
         
         .subrow-container .tabulator .tabulator-cell[tabulator-field="player"] .tabulator-cell-value {
             text-align: left !important;
+        }
+        
+        /* Webflow specific fixes */
+        .w-embed {
+            overflow: visible !important;
+        }
+        
+        /* Ensure dropdowns appear above everything in Webflow */
+        body {
+            position: relative !important;
         }
     `;
     document.head.appendChild(style);
