@@ -1,7 +1,6 @@
 // tables/batterClearancesAltTable.js
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage } from '../shared/utils.js';
-import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class BatterClearancesAltTable extends BaseTable {
     constructor(elementId) {
@@ -11,16 +10,39 @@ export class BatterClearancesAltTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
+            // Override the ajax config to handle pagination
+            ajaxURL: this.tableConfig.ajaxURL + "?select=*",
             ajaxConfig: {
                 ...this.tableConfig.ajaxConfig,
                 headers: {
                     ...this.tableConfig.ajaxConfig.headers,
-                    "Range": ""
+                    "Prefer": "count=exact"
                 }
             },
-            progressiveLoad: "load",
-            progressiveLoadDelay: 200,
-            progressiveLoadScrollMargin: 300,
+            ajaxRequestFunc: function(url, config, params) {
+                // Add pagination parameters
+                var pageSize = 1000; // Request 1000 records at a time
+                var offset = 0;
+                
+                // Build the URL with pagination
+                var requestUrl = url + "&limit=" + pageSize + "&offset=" + offset;
+                
+                return fetch(requestUrl, config)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error("Network response was not ok");
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("Alt table data received:", data.length, "records");
+                        return data;
+                    })
+                    .catch(error => {
+                        console.error("Error loading alt table:", error);
+                        return [];
+                    });
+            },
             columns: this.getColumns(),
             initialSort: [
                 {column: "Batter Name", dir: "asc"},
@@ -48,7 +70,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,
+                    headerFilter: true,  // Simple text filter for now
                     resizable: false,
                     formatter: this.createNameFormatter()
                 },
@@ -58,7 +80,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,
+                    headerFilter: true,  // Simple text filter for now
                     resizable: false,
                     formatter: this.createTeamFormatter()
                 }
@@ -70,7 +92,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 140, 
                     minWidth: 100,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,
+                    headerFilter: true,  // Simple text filter for now
                     resizable: false
                 },
                 {
@@ -79,7 +101,9 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 90, 
                     minWidth: 70,
                     sorter: "number", 
-                    headerFilter: createCustomMultiSelect,
+                    headerFilter: "number",
+                    headerFilterPlaceholder: "Min",
+                    headerFilterFunc: ">=",
                     resizable: false
                 },
                 {
@@ -88,7 +112,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 220, 
                     minWidth: 180,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,
+                    headerFilter: true,  // Simple text filter for now
                     resizable: false,
                     formatter: function(cell) {
                         var value = cell.getValue();
