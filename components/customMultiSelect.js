@@ -50,14 +50,42 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     }
     
     function updateFilter() {
+        console.log("Updating filter for", field);
+        console.log("Selected values:", selectedValues);
+        
         if (selectedValues.length === 0) {
-            success(false);
+            // No values selected - show nothing
+            console.log("No values selected, hiding all rows");
+            // Return empty string to clear filter
+            success("");
+            // Then immediately set a filter that hides everything
+            setTimeout(function() {
+                table.setHeaderFilterValue(field, "IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING");
+            }, 0);
         } else if (selectedValues.length === allValues.length) {
+            // All selected - clear filter
+            console.log("All values selected, showing all rows");
             success("");
         } else {
-            success(function(cellValue) {
-                return selectedValues.includes(String(cellValue));
-            });
+            // Some selected - apply filter
+            console.log("Some values selected, filtering...");
+            // For header filters, we need to pass the selected values directly
+            // Create a custom filter function
+            var filterFunc = function(headerValue, rowValue, rowData, filterParams) {
+                var rowValueStr = String(rowValue);
+                var isIncluded = selectedValues.indexOf(rowValueStr) !== -1;
+                console.log("Filter check:", rowValueStr, "in", selectedValues, "=", isIncluded);
+                return isIncluded;
+            };
+            
+            // Set this as the header filter function for this column
+            var column = table.getColumn(field);
+            if (column) {
+                column.getDefinition().headerFilterFunc = filterFunc;
+            }
+            
+            // Now trigger the filter with a dummy value
+            success(selectedValues);
         }
     }
     
@@ -118,7 +146,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             
             var optionCheckbox = document.createElement("input");
             optionCheckbox.type = "checkbox";
-            optionCheckbox.checked = selectedValues.includes(value);
+            optionCheckbox.checked = selectedValues.indexOf(value) !== -1;
             optionCheckbox.style.marginRight = "8px";
             
             var optionText = document.createElement("span");
@@ -197,26 +225,14 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     }
     
     function loadValues() {
-        console.log("Loading values for field:", field);
         allValues = [];
         var uniqueValues = new Set();
         
-        // Get data using the correct method
-        var data = table.getData("active"); // Get filtered data
-        console.log("Table has", data.length, "rows");
+        // Get ALL data, not filtered
+        var data = table.getData();
         
-        // Log first row to see structure
-        if (data.length > 0) {
-            console.log("First row data:", data[0]);
-            console.log("Field value in first row:", data[0][field]);
-        }
-        
-        data.forEach(function(row, index) {
+        data.forEach(function(row) {
             var value = row[field];
-            // Log first few values to debug
-            if (index < 3) {
-                console.log(`Row ${index} - ${field}:`, value);
-            }
             if (value !== null && value !== undefined && value !== '') {
                 uniqueValues.add(String(value));
             }
@@ -232,11 +248,26 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             allValues.sort();
         }
         
-        console.log("Found unique values for", field + ":", allValues);
-        
         selectedValues = [...allValues];
         updateButtonText();
     }
+    
+    // Setup custom header filter function
+    onRendered(function() {
+        var column = cell.getColumn();
+        column.getDefinition().headerFilterFunc = function(headerValue, rowValue, rowData, filterParams) {
+            // If headerValue is an array, check if rowValue is in it
+            if (Array.isArray(headerValue)) {
+                return headerValue.indexOf(String(rowValue)) !== -1;
+            }
+            // If it's our special "hide all" value
+            if (headerValue === "IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING") {
+                return false;
+            }
+            // Otherwise, default behavior
+            return true;
+        };
+    });
     
     // Button click
     button.addEventListener('click', function(e) {
@@ -246,7 +277,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         if (isOpen) {
             hideDropdown();
         } else {
-            // Reload values when opening
             loadValues();
             showDropdown();
         }
@@ -266,13 +296,12 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         document.addEventListener('click', closeHandler);
     }, 100);
     
-    // Initial load with multiple attempts
+    // Initial load
     var loadAttempts = 0;
     var tryLoad = function() {
         loadAttempts++;
-        console.log("Load attempt", loadAttempts, "for", field);
         
-        var data = table.getData("active");
+        var data = table.getData();
         if (data && data.length > 0) {
             loadValues();
         } else if (loadAttempts < 5) {
@@ -280,17 +309,14 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         }
     };
     
-    // Try loading immediately and with delays
     tryLoad();
     
     // Also listen for table events
     table.on("dataLoaded", function() {
-        console.log("dataLoaded event for", field);
         setTimeout(loadValues, 100);
     });
     
     table.on("renderComplete", function() {
-        console.log("renderComplete event for", field);
         if (allValues.length === 0) {
             loadValues();
         }
