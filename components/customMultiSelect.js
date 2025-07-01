@@ -260,7 +260,8 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             
             allValues = Array.from(uniqueValues);
             
-            if (field === "Batter Prop Value") {
+            // Sort prop value fields numerically for both batter and pitcher tables
+            if (field === "Batter Prop Value" || field === "Pitcher Prop Value") {
                 allValues.sort(function(a, b) {
                     return parseFloat(a) - parseFloat(b);
                 });
