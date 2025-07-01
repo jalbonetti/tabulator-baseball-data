@@ -1,6 +1,6 @@
 // tables/pitcherClearancesTable.js
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, formatPercentage } from '../shared/utils.js';
+import { getOpponentTeam, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class PitcherClearancesTable extends BaseTable {
@@ -82,7 +82,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -103,7 +103,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -124,7 +124,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number", 
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -145,7 +145,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
