@@ -222,8 +222,8 @@ export class PitcherClearancesAltTable extends BaseTable {
 
     // Override createSubtable1 for pitcher data
     createSubtable1(container, data) {
-        // Combine park factors for display
-        var parkFactorDisplay = "L: " + data["Pitcher Prop Park Factor L"] + " / R: " + data["Pitcher Prop Park Factor R"];
+        // Combine park factors for display (R/L order)
+        var parkFactorDisplay = "R: " + data["Pitcher Prop Park Factor R"] + " / L: " + data["Pitcher Prop Park Factor L"];
         
         new Tabulator(container, {
             layout: "fitColumns",
@@ -237,7 +237,7 @@ export class PitcherClearancesAltTable extends BaseTable {
                 handedness: data["Handedness"]
             }],
             columns: [
-                {title: "Prop Park Factor (L/R)", field: "propFactor", headerSort: false, width: 200},
+                {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 200},
                 {title: "Matchup", field: "matchup", headerSort: false, width: 400},
                 {title: "Handedness", field: "handedness", headerSort: false, width: 150}
             ]
