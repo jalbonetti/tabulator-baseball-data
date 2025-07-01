@@ -1,7 +1,7 @@
 // components/tabManager.js
 export class TabManager {
     constructor(tables) {
-        this.tables = tables; // { table1: tableInstance, table2: tableInstance }
+        this.tables = tables; // { table1: tableInstance, table2: tableInstance, table3: tableInstance, table4: tableInstance }
         this.currentActiveTab = 'table1';
         this.setupTabSwitching();
     }
@@ -16,36 +16,29 @@ export class TabManager {
                 document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                 e.target.classList.add('active');
                 
-                // Get containers
-                var table1Container = document.getElementById('table1-container');
-                var table2Container = document.getElementById('table2-container');
+                // Get all containers
+                var containers = {
+                    table1: document.getElementById('table1-container'),
+                    table2: document.getElementById('table2-container'),
+                    table3: document.getElementById('table3-container'),
+                    table4: document.getElementById('table4-container')
+                };
                 
                 // Hide all containers
-                if (table1Container) {
-                    table1Container.className = 'table-container inactive-table';
-                }
-                if (table2Container) {
-                    table2Container.className = 'table-container inactive-table';
-                }
+                Object.values(containers).forEach(container => {
+                    if (container) {
+                        container.className = 'table-container inactive-table';
+                    }
+                });
                 
                 // Show target container
-                if (targetTab === 'table1' && table1Container) {
-                    table1Container.className = 'table-container active-table';
-                    this.currentActiveTab = 'table1';
+                if (containers[targetTab]) {
+                    containers[targetTab].className = 'table-container active-table';
+                    this.currentActiveTab = targetTab;
                     
                     setTimeout(() => {
-                        if (this.tables.table1) {
-                            this.tables.table1.redraw();
-                        }
-                    }, 100);
-                    
-                } else if (targetTab === 'table2' && table2Container) {
-                    table2Container.className = 'table-container active-table';
-                    this.currentActiveTab = 'table2';
-                    
-                    setTimeout(() => {
-                        if (this.tables.table2) {
-                            this.tables.table2.redraw();
+                        if (this.tables[targetTab]) {
+                            this.tables[targetTab].redraw();
                         }
                     }, 100);
                 }
@@ -59,13 +52,15 @@ export class TabManager {
             wrapper.className = 'table-wrapper';
             wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
             
-            // Create tabs container
+            // Create tabs container with all four tabs
             var tabsContainer = document.createElement('div');
             tabsContainer.className = 'tabs-container';
             tabsContainer.innerHTML = `
                 <div class="tab-buttons">
                     <button class="tab-button active" data-tab="table1">Batter Prop Clearances</button>
                     <button class="tab-button" data-tab="table2">Batter Prop Clearances (Alt. View)</button>
+                    <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
+                    <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
                 </div>
             `;
             
