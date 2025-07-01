@@ -24,6 +24,9 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     var isOpen = false;
     var isInitialized = false;
     
+    // Store reference to column
+    var column = cell.getColumn();
+    
     function createDropdown() {
         var existing = document.getElementById(dropdownId);
         if (existing) {
@@ -50,17 +53,48 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         return dropdown;
     }
     
+    // Custom filter function that will be used by Tabulator
+    function customFilterFunction(headerValue, rowValue, rowData, filterParams) {
+        // If no header value, show all
+        if (!headerValue) return true;
+        
+        // Convert row value to string for comparison
+        var rowValueStr = String(rowValue || '');
+        
+        // If headerValue is our special hide-all value
+        if (headerValue === "IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING") {
+            return false;
+        }
+        
+        // If headerValue is an array (our selected values)
+        if (Array.isArray(headerValue)) {
+            return headerValue.indexOf(rowValueStr) !== -1;
+        }
+        
+        // Default: exact match
+        return rowValueStr === String(headerValue);
+    }
+    
+    // Set the custom filter function on the column
+    column.getDefinition().headerFilterFunc = customFilterFunction;
+    
     function updateFilter() {
+        console.log("Updating filter for", field, "- selected:", selectedValues.length, "of", allValues.length);
+        
         if (selectedValues.length === 0) {
-            // No values selected - hide all
+            // No values selected - hide all rows
             success("IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING");
         } else if (selectedValues.length === allValues.length) {
-            // All selected - clear filter
+            // All selected - show all rows
             success("");
         } else {
-            // Some selected - apply filter with selected values
-            success(selectedValues);
+            // Some selected - pass the array of selected values
+            // Make a copy to ensure it's a new reference
+            success([...selectedValues]);
         }
+        
+        // Force table to refilter
+        table.redraw();
     }
     
     function renderDropdown() {
@@ -100,9 +134,12 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
                 selectedValues = [...allValues];
             }
             
-            renderDropdown();
+            // Update immediately
             updateButtonText();
             updateFilter();
+            
+            // Then re-render dropdown to update checkboxes
+            renderDropdown();
         });
         
         dropdown.appendChild(selectAll);
@@ -140,9 +177,18 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
                     selectedValues.push(value);
                 }
                 
-                renderDropdown();
+                console.log("Selection changed:", value, "- now selected:", selectedValues);
+                
+                // Update immediately
                 updateButtonText();
                 updateFilter();
+                
+                // Then update checkbox
+                optionCheckbox.checked = selectedValues.indexOf(value) !== -1;
+                
+                // Update select all checkbox
+                selectAllCheckbox.checked = selectedValues.length === allValues.length;
+                selectAllText.textContent = selectedValues.length === allValues.length ? 'Unselect All' : 'Select All';
             });
             
             optionDiv.addEventListener('mouseenter', function() {
@@ -199,12 +245,10 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     }
     
     function loadValues() {
-        // Only load all values if not already loaded
         if (!isInitialized) {
             allValues = [];
             var uniqueValues = new Set();
             
-            // Get ALL data, not filtered
             var data = table.getData();
             
             data.forEach(function(row) {
@@ -224,34 +268,12 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
                 allValues.sort();
             }
             
-            // Only initialize selectedValues on first load
             selectedValues = [...allValues];
             isInitialized = true;
         }
         
         updateButtonText();
     }
-    
-    // Setup custom header filter function
-    onRendered(function() {
-        var column = cell.getColumn();
-        column.getDefinition().headerFilterFunc = function(headerValue, rowValue, rowData, filterParams) {
-            // Special value to hide all
-            if (headerValue === "IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING") {
-                return false;
-            }
-            // If headerValue is an array, check if rowValue is in it
-            if (Array.isArray(headerValue)) {
-                return headerValue.indexOf(String(rowValue)) !== -1;
-            }
-            // Empty string or no filter = show all
-            if (!headerValue || headerValue === "") {
-                return true;
-            }
-            // Default string comparison
-            return String(rowValue) === String(headerValue);
-        };
-    });
     
     // Button click
     button.addEventListener('click', function(e) {
@@ -261,7 +283,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         if (isOpen) {
             hideDropdown();
         } else {
-            // Load values only if needed
             if (!isInitialized) {
                 loadValues();
             }
@@ -291,7 +312,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         var data = table.getData();
         if (data && data.length > 0) {
             loadValues();
-            // Apply initial filter (all selected)
             updateFilter();
         } else if (loadAttempts < 5) {
             setTimeout(tryLoad, 500);
@@ -300,16 +320,13 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     
     tryLoad();
     
-    // Also listen for table events
+    // Listen for table events
     table.on("dataLoaded", function() {
         if (!isInitialized) {
-            setTimeout(loadValues, 100);
-        }
-    });
-    
-    table.on("renderComplete", function() {
-        if (!isInitialized && allValues.length === 0) {
-            loadValues();
+            setTimeout(function() {
+                loadValues();
+                updateFilter();
+            }, 100);
         }
     });
     
@@ -321,13 +338,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         }
         document.removeEventListener('click', closeHandler);
     };
-    
-    if (cell.getElement) {
-        var cellEl = cell.getElement();
-        if (cellEl && cellEl.addEventListener) {
-            cellEl.addEventListener('DOMNodeRemoved', cleanup);
-        }
-    }
     
     return button;
 }
