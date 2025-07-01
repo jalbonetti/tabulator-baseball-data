@@ -24,7 +24,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     var isOpen = false;
     
     function createDropdown() {
-        // Remove any existing dropdown
         var existing = document.getElementById(dropdownId);
         if (existing) {
             existing.remove();
@@ -51,16 +50,13 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     }
     
     function updateFilter() {
-        console.log("Updating filter:", field, "Selected:", selectedValues.length, "of", allValues.length);
-        
         if (selectedValues.length === 0) {
             success(false);
         } else if (selectedValues.length === allValues.length) {
             success("");
         } else {
             success(function(cellValue) {
-                var result = selectedValues.includes(String(cellValue));
-                return result;
+                return selectedValues.includes(String(cellValue));
             });
         }
     }
@@ -68,9 +64,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     function renderDropdown() {
         var dropdown = document.getElementById(dropdownId) || createDropdown();
         dropdown.innerHTML = '';
-        
-        // Debug info
-        console.log("Rendering dropdown for", field, "Values:", allValues.length);
         
         // Add select all
         var selectAll = document.createElement("div");
@@ -96,7 +89,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         selectAllLabel.appendChild(selectAllText);
         selectAll.appendChild(selectAllLabel);
         
-        // Select all click handler
         selectAll.addEventListener('click', function(e) {
             e.stopPropagation();
             
@@ -106,7 +98,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
                 selectedValues = [...allValues];
             }
             
-            renderDropdown(); // Re-render to update checkboxes
+            renderDropdown();
             updateButtonText();
             updateFilter();
         });
@@ -136,7 +128,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             optionLabel.appendChild(optionText);
             optionDiv.appendChild(optionLabel);
             
-            // Option click handler
             optionDiv.addEventListener('click', function(e) {
                 e.stopPropagation();
                 
@@ -147,12 +138,11 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
                     selectedValues.push(value);
                 }
                 
-                renderDropdown(); // Re-render to update checkboxes
+                renderDropdown();
                 updateButtonText();
                 updateFilter();
             });
             
-            // Hover effect
             optionDiv.addEventListener('mouseenter', function() {
                 optionDiv.style.background = '#f0f0f0';
             });
@@ -163,23 +153,18 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             
             dropdown.appendChild(optionDiv);
         });
-        
-        console.log("Rendered", dropdown.children.length - 1, "options plus select all");
     }
     
     function showDropdown() {
-        console.log("Showing dropdown for", field);
         var dropdown = document.getElementById(dropdownId) || createDropdown();
         
         renderDropdown();
         
-        // Position dropdown
         var buttonRect = button.getBoundingClientRect();
         dropdown.style.left = buttonRect.left + 'px';
         dropdown.style.top = (buttonRect.bottom + 2) + 'px';
         dropdown.style.display = 'block';
         
-        // Adjust position if off-screen
         setTimeout(function() {
             var dropdownRect = dropdown.getBoundingClientRect();
             if (dropdownRect.bottom > window.innerHeight) {
@@ -212,15 +197,26 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     }
     
     function loadValues() {
-        console.log("Loading values for", field);
+        console.log("Loading values for field:", field);
         allValues = [];
         var uniqueValues = new Set();
         
-        var data = table.getData();
+        // Get data using the correct method
+        var data = table.getData("active"); // Get filtered data
         console.log("Table has", data.length, "rows");
         
-        data.forEach(function(row) {
+        // Log first row to see structure
+        if (data.length > 0) {
+            console.log("First row data:", data[0]);
+            console.log("Field value in first row:", data[0][field]);
+        }
+        
+        data.forEach(function(row, index) {
             var value = row[field];
+            // Log first few values to debug
+            if (index < 3) {
+                console.log(`Row ${index} - ${field}:`, value);
+            }
             if (value !== null && value !== undefined && value !== '') {
                 uniqueValues.add(String(value));
             }
@@ -228,7 +224,6 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         
         allValues = Array.from(uniqueValues);
         
-        // Sort values
         if (field === "Batter Prop Value") {
             allValues.sort(function(a, b) {
                 return parseFloat(a) - parseFloat(b);
@@ -237,9 +232,8 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             allValues.sort();
         }
         
-        console.log("Found", allValues.length, "unique values for", field);
+        console.log("Found unique values for", field + ":", allValues);
         
-        // Initialize with all selected
         selectedValues = [...allValues];
         updateButtonText();
     }
@@ -252,6 +246,8 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         if (isOpen) {
             hideDropdown();
         } else {
+            // Reload values when opening
+            loadValues();
             showDropdown();
         }
     });
@@ -266,38 +262,39 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
         }
     };
     
-    // Add with delay to avoid immediate closing
     setTimeout(function() {
         document.addEventListener('click', closeHandler);
     }, 100);
     
-    // Load values when table data is loaded
-    table.on("dataLoaded", function() {
-        console.log("Table data loaded event");
-        loadValues();
-    });
-    
-    // Also try loading after a delay
-    setTimeout(function() {
-        loadValues();
-    }, 1000);
-    
-    // Cleanup on cell removal
-    var cleanup = function() {
-        var dropdown = document.getElementById(dropdownId);
-        if (dropdown) {
-            dropdown.remove();
+    // Initial load with multiple attempts
+    var loadAttempts = 0;
+    var tryLoad = function() {
+        loadAttempts++;
+        console.log("Load attempt", loadAttempts, "for", field);
+        
+        var data = table.getData("active");
+        if (data && data.length > 0) {
+            loadValues();
+        } else if (loadAttempts < 5) {
+            setTimeout(tryLoad, 500);
         }
-        document.removeEventListener('click', closeHandler);
     };
     
-    // Try different cleanup methods
-    if (cell.getElement) {
-        var cellEl = cell.getElement();
-        if (cellEl && cellEl.addEventListener) {
-            cellEl.addEventListener('DOMNodeRemoved', cleanup);
+    // Try loading immediately and with delays
+    tryLoad();
+    
+    // Also listen for table events
+    table.on("dataLoaded", function() {
+        console.log("dataLoaded event for", field);
+        setTimeout(loadValues, 100);
+    });
+    
+    table.on("renderComplete", function() {
+        console.log("renderComplete event for", field);
+        if (allValues.length === 0) {
+            loadValues();
         }
-    }
+    });
     
     return button;
 }
