@@ -3,6 +3,7 @@ import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
 import { PitcherClearancesTable } from './tables/pitcherClearancesTable.js';
 import { PitcherClearancesAltTable } from './tables/pitcherClearancesAltTable.js';
+import { ModBatterStatsTable } from './tables/modBatterStats.js';
 import { TabManager } from './components/tabManager.js';
 import { injectStyles } from './styles/tableStyles.js';
 
@@ -32,6 +33,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var pitcherTableAltElement = document.createElement('div');
     pitcherTableAltElement.id = 'pitcher-table-alt';
 
+    // Create mod batter stats table element
+    var modBatterStatsElement = document.createElement('div');
+    modBatterStatsElement.id = 'mod-batter-stats-table';
+
     // Add pitcher tables to the DOM (hidden initially)
     var table3Container = document.createElement('div');
     table3Container.className = 'table-container inactive-table';
@@ -45,11 +50,19 @@ document.addEventListener('DOMContentLoaded', function() {
     table4Container.style.cssText = 'width: 100%; display: none;';
     table4Container.appendChild(pitcherTableAltElement);
 
+    // Add mod batter stats table container
+    var table5Container = document.createElement('div');
+    table5Container.className = 'table-container inactive-table';
+    table5Container.id = 'table5-container';
+    table5Container.style.cssText = 'width: 100%; display: none;';
+    table5Container.appendChild(modBatterStatsElement);
+
     // Add to tables container
     var tablesContainer = document.querySelector('.tables-container');
     if (tablesContainer) {
         tablesContainer.appendChild(table3Container);
         tablesContainer.appendChild(table4Container);
+        tablesContainer.appendChild(table5Container);
     }
 
     // Initialize all tables
@@ -57,18 +70,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const table2 = new BatterClearancesAltTable("#batter-table-alt");
     const table3 = new PitcherClearancesTable("#pitcher-table");
     const table4 = new PitcherClearancesAltTable("#pitcher-table-alt");
+    const table5 = new ModBatterStatsTable("#mod-batter-stats-table");
 
     table1.initialize();
     table2.initialize();
     table3.initialize();
     table4.initialize();
+    table5.initialize();
 
     // Update tab manager with table instances
     tabManager.tables = {
         table1: table1,
         table2: table2,
         table3: table3,
-        table4: table4
+        table4: table4,
+        table5: table5
     };
 
     console.log('All tables initialized successfully');
