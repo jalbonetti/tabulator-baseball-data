@@ -85,80 +85,84 @@ export class ModBatterStatsTable extends BaseTable {
             ]},
             {title: "Batter Stats", columns: [
                 {
-                    title: "Batter v. R", 
+                    title: "V. R", 
                     field: "Batter Total vs R", 
-                    width: 130, 
-                    minWidth: 110,
+                    width: 80, 
+                    minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatFormatter("Batter PA vs R", "PA")
+                    formatter: this.createSimpleNumberFormatter()
                 },
                 {
-                    title: "Batter v. L", 
+                    title: "V. L", 
                     field: "Batter Total vs L", 
-                    width: 130, 
-                    minWidth: 110,
+                    width: 80, 
+                    minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatFormatter("Batter PA vs L", "PA")
+                    formatter: this.createSimpleNumberFormatter()
                 },
                 {
-                    title: "Batter Total", 
+                    title: "Total", 
                     field: "Batter Total", 
-                    width: 130, 
-                    minWidth: 110,
+                    width: 80, 
+                    minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatFormatter("Batter PA", "PA")
+                    formatter: this.createSimpleNumberFormatter()
                 }
             ]},
-            {title: "Pitcher Stats", columns: [
+            {title: "Starter", columns: [
                 {
-                    title: "Starter", 
+                    title: "Total", 
                     field: "SP Stat Total", 
-                    width: 130, 
-                    minWidth: 110,
+                    width: 80, 
+                    minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatFormatter("SP TBF", "TBF")
-                },
+                    formatter: this.createSimpleNumberFormatter()
+                }
+            ]},
+            {title: "Relievers", columns: [
                 {
-                    title: "R. Relievers", 
+                    title: "R.", 
                     field: "RR Stat Total", 
-                    width: 130, 
-                    minWidth: 110,
+                    width: 70, 
+                    minWidth: 50,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatFormatter("RR TBF", "TBF")
+                    formatter: this.createSimpleNumberFormatter()
                 },
                 {
-                    title: "L. Relievers", 
+                    title: "L.", 
                     field: "LR Stat Total", 
-                    width: 130, 
-                    minWidth: 110,
+                    width: 70, 
+                    minWidth: 50,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatFormatter("LR TBF", "TBF")
-                },
+                    formatter: this.createSimpleNumberFormatter()
+                }
+            ]},
+            {title: "Total", columns: [
                 {
-                    title: "Pitching Total", 
+                    title: "Total", 
                     field: "Opposing Pitching Stat Total", 
-                    width: 130, 
-                    minWidth: 110,
+                    width: 80, 
+                    minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatFormatter("Opposing Pitching TBF", "TBF")
+                    formatter: this.createSimpleNumberFormatter()
                 }
             ]},
             {title: "Righties Matchup", columns: [
                 {
                     title: "Total", 
                     field: "Matchup Total vs R", 
-                    width: 100, 
-                    minWidth: 85,
+                    width: 80, 
+                    minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatValueFormatter()
+                    formatter: this.createSimpleNumberFormatter()
                 },
                 {
                     title: "Rate", 
@@ -178,11 +182,11 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Total", 
                     field: "Matchup Total vs L", 
-                    width: 100, 
-                    minWidth: 85,
+                    width: 80, 
+                    minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatValueFormatter()
+                    formatter: this.createSimpleNumberFormatter()
                 },
                 {
                     title: "Rate", 
@@ -202,11 +206,11 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Total", 
                     field: "Matchup Stat Total", 
-                    width: 100, 
-                    minWidth: 85,
+                    width: 80, 
+                    minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createStatValueFormatter()
+                    formatter: this.createSimpleNumberFormatter()
                 },
                 {
                     title: "Rate", 
