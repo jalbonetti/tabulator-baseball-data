@@ -30,6 +30,13 @@ export class ModBatterStatsTable extends BaseTable {
     }
 
     getColumns() {
+        // Simple number formatter function
+        const simpleNumberFormatter = function(cell) {
+            var value = cell.getValue();
+            if (value === null || value === undefined) return "-";
+            return parseFloat(value).toFixed(0);
+        };
+
         return [
             {title: "Player Info", columns: [
                 {
@@ -91,7 +98,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 },
                 {
                     title: "V. L", 
@@ -100,7 +107,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 },
                 {
                     title: "Total", 
@@ -109,7 +116,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 }
             ]},
             {title: "Starter", columns: [
@@ -120,7 +127,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 }
             ]},
             {title: "Relievers", columns: [
@@ -131,7 +138,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 50,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 },
                 {
                     title: "L.", 
@@ -140,7 +147,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 50,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 }
             ]},
             {title: "Total", columns: [
@@ -151,7 +158,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 }
             ]},
             {title: "Righties Matchup", columns: [
@@ -162,7 +169,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 },
                 {
                     title: "Rate", 
@@ -186,7 +193,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 },
                 {
                     title: "Rate", 
@@ -210,7 +217,7 @@ export class ModBatterStatsTable extends BaseTable {
                     minWidth: 60,
                     sorter: "number",
                     resizable: false,
-                    formatter: this.createSimpleNumberFormatter()
+                    formatter: simpleNumberFormatter
                 },
                 {
                     title: "Rate", 
@@ -227,37 +234,6 @@ export class ModBatterStatsTable extends BaseTable {
                 }
             ]}
         ];
-    }
-
-    // Custom formatter for stat cells that shows "Total StatName (PA: X)"
-    createStatFormatter(paField, paLabel) {
-        return function(cell) {
-            var total = cell.getValue();
-            var row = cell.getRow();
-            var pa = row.getData()[paField];
-            var statType = row.getData()["Batter Stat Type"];
-            
-            if (total === null || total === undefined) return "-";
-            
-            // Format the display based on stat type
-            var formattedTotal = parseFloat(total).toFixed(0);
-            var formattedPA = pa ? parseFloat(pa).toFixed(0) : "0";
-            
-            return formattedTotal + " " + statType + " (" + paLabel + ": " + formattedPA + ")";
-        };
-    }
-
-    // Custom formatter for stat value cells that appends the stat name
-    createStatValueFormatter() {
-        return function(cell) {
-            var value = cell.getValue();
-            var row = cell.getRow();
-            var statType = row.getData()["Batter Stat Type"];
-            
-            if (value === null || value === undefined) return "-";
-            
-            return parseFloat(value).toFixed(0) + " " + statType;
-        };
     }
 
     // Override createSubtable1 for the specific subrow layout
