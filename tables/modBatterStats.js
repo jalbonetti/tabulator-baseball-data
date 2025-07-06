@@ -413,7 +413,8 @@ export class ModBatterStatsTable extends BaseTable {
             spVersusText = batterHand === "L" ? "Lefties" : "Righties";
         }
         
-        // For relievers vs switch hitters
+        // Get opponent team
+        var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
         var rrVersusText, lrVersusText;
         if (batterHand === "S") {
             // Switch hitter faces opposite hand
@@ -466,12 +467,12 @@ export class ModBatterStatsTable extends BaseTable {
                     pa: data["SP TBF"] + " TBF"
                 },
                 {
-                    player: "Righty Relievers (" + data["R Relievers"] + ") Versus " + rrVersusText,
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + data["R Relievers"] + ") Versus " + rrVersusText,
                     stat: data["RR Stat Total"] + " " + statType,
                     pa: data["RR TBF"] + " TBF"
                 },
                 {
-                    player: "Lefty Relievers (" + data["L Relievers"] + ") Versus " + lrVersusText,
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + data["L Relievers"] + ") Versus " + lrVersusText,
                     stat: data["LR Stat Total"] + " " + statType,
                     pa: data["LR TBF"] + " TBF"
                 },
