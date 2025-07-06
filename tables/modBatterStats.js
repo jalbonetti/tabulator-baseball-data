@@ -28,11 +28,14 @@ export class ModBatterStatsTable extends BaseTable {
                     holderEl.style.background = "#f8f9fa";
                     
                     var subtable1 = document.createElement("div");
+                    var subtable2 = document.createElement("div");
                     
                     holderEl.appendChild(subtable1);
+                    holderEl.appendChild(subtable2);
                     row.getElement().appendChild(holderEl);
                     
-                    this.createSubtable(subtable1, data);
+                    this.createSubtable1(subtable1, data);
+                    this.createSubtable2(subtable2, data);
                 } else if (!data._expanded) {
                     var existingSubrow = row.getElement().querySelector('.subrow-container');
                     if (existingSubrow) {
@@ -323,8 +326,8 @@ export class ModBatterStatsTable extends BaseTable {
         ];
     }
 
-    // Create subtable for the expanded row
-    createSubtable(container, data) {
+    // Create first subtable for the expanded row
+    createSubtable1(container, data) {
         // Format bullpen info
         var bullpenInfo = data["R Relievers"] + " R / " + data["L Relievers"] + " L";
         
@@ -349,6 +352,61 @@ export class ModBatterStatsTable extends BaseTable {
                 {title: "Matchup", field: "matchup", headerSort: false, width: 200},
                 {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 150},
                 {title: "Bullpen", field: "bullpen", headerSort: false, width: 120}
+            ]
+        });
+    }
+
+    // Create second subtable for PA/TBF data
+    createSubtable2(container, data) {
+        var statType = data["Batter Stat Type"];
+        
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            data: [
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                    stat: data["Batter Total vs R"] + " " + statType,
+                    pa: data["Batter PA vs R"] + " PA"
+                },
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                    stat: data["Batter Total vs L"] + " " + statType,
+                    pa: data["Batter PA vs L"] + " PA"
+                },
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Total",
+                    stat: data["Batter Total"] + " " + statType,
+                    pa: data["Batter PA"] + " PA"
+                },
+                {
+                    player: data["SP"] + " (" + (data["SP Handedness"] || "Unknown") + ")",
+                    stat: data["SP Stat Total"] + " " + statType,
+                    pa: data["SP TBF"] + " TBF"
+                },
+                {
+                    player: "Righty Relievers (" + data["R Relievers"] + ")",
+                    stat: data["RR Stat Total"] + " " + statType,
+                    pa: data["RR TBF"] + " TBF"
+                },
+                {
+                    player: "Lefty Relievers (" + data["L Relievers"] + ")",
+                    stat: data["LR Stat Total"] + " " + statType,
+                    pa: data["LR TBF"] + " TBF"
+                },
+                {
+                    player: "Total Opposing Pitching",
+                    stat: data["Opposing Pitching Stat Total"] + " " + statType,
+                    pa: data["Opposing Pitching TBF"] + " TBF"
+                }
+            ],
+            columns: [
+                {title: "Players", field: "player", headerSort: false, width: 350},
+                {title: statType + " Total", field: "stat", headerSort: false, width: 150},
+                {title: "Plate Appearances / Total Batters Faced", field: "pa", headerSort: false, width: 200}
             ]
         });
     }
