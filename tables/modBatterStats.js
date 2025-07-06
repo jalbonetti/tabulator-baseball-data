@@ -385,8 +385,16 @@ export class ModBatterStatsTable extends BaseTable {
         }
         
         // Calculate combined PA/TBF for matchups
-        var rightiesMatchupPA = (parseFloat(data["Batter PA vs R"]) || 0) + " PA / " + (parseFloat(data["RR TBF"]) || 0) + " TBF";
-        var leftiesMatchupPA = (parseFloat(data["Batter PA vs L"]) || 0) + " PA / " + (parseFloat(data["LR TBF"]) || 0) + " TBF";
+        var spTBF = parseFloat(data["SP TBF"]) || 0;
+        var rrTBF = parseFloat(data["RR TBF"]) || 0;
+        var lrTBF = parseFloat(data["LR TBF"]) || 0;
+        
+        // Add SP to appropriate side based on their handedness
+        var rightiesTBF = rrTBF + (spHand === "R" ? spTBF : 0);
+        var leftiesTBF = lrTBF + (spHand === "L" ? spTBF : 0);
+        
+        var rightiesMatchupPA = (parseFloat(data["Batter PA vs R"]) || 0) + " PA / " + rightiesTBF + " TBF";
+        var leftiesMatchupPA = (parseFloat(data["Batter PA vs L"]) || 0) + " PA / " + leftiesTBF + " TBF";
         var totalMatchupPA = (parseFloat(data["Batter PA"]) || 0) + " PA / " + (parseFloat(data["Opposing Pitching TBF"]) || 0) + " TBF";
         
         new Tabulator(container, {
@@ -412,7 +420,7 @@ export class ModBatterStatsTable extends BaseTable {
                     pa: data["Batter PA"] + " PA"
                 },
                 {
-                    player: data["SP"] + " (" + (spHand || "?") + ") Versus " + spVersusText,
+                    player: data["SP"] + " Versus " + spVersusText,
                     stat: data["SP Stat Total"] + " " + statType,
                     pa: data["SP TBF"] + " TBF"
                 },
@@ -427,7 +435,7 @@ export class ModBatterStatsTable extends BaseTable {
                     pa: data["LR TBF"] + " TBF"
                 },
                 {
-                    player: "Total Opposing Pitching",
+                    player: "Opposing Pitching Total",
                     stat: data["Opposing Pitching Stat Total"] + " " + statType,
                     pa: data["Opposing Pitching TBF"] + " TBF"
                 },
