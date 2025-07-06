@@ -420,7 +420,7 @@ export class ModBatterStatsTable extends BaseTable {
                     pa: data["Batter PA"] + " PA"
                 },
                 {
-                    player: data["SP"] + " Versus " + spVersusText,
+                    player: data["SP"] + " (" + (spHand || "?") + ") Versus " + spVersusText,
                     stat: data["SP Stat Total"] + " " + statType,
                     pa: data["SP TBF"] + " TBF"
                 },
