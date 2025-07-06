@@ -362,11 +362,25 @@ export class ModBatterStatsTable extends BaseTable {
         var batterHand = data["Handedness"];
         var spHand = data["SP Handedness"];
         
+        // Clean up SP handedness - ensure it's just R or L
+        if (spHand) {
+            spHand = spHand.toString().trim().toUpperCase();
+            if (spHand !== "R" && spHand !== "L") {
+                spHand = null;
+            }
+        }
+        
         // Determine handedness matchups
         var spVersusText;
         if (batterHand === "S") {
             // Switch hitter faces opposite of pitcher's hand
-            spVersusText = spHand === "R" ? "Lefties" : (spHand === "L" ? "Righties" : "Unknown");
+            if (spHand === "R") {
+                spVersusText = "Lefties";
+            } else if (spHand === "L") {
+                spVersusText = "Righties";
+            } else {
+                spVersusText = "Unknown";
+            }
         } else {
             // Regular hitter
             spVersusText = batterHand === "L" ? "Lefties" : "Righties";
