@@ -331,6 +331,18 @@ export class ModBatterStatsTable extends BaseTable {
         // Format bullpen info
         var bullpenInfo = data["R Relievers"] + " R / " + data["L Relievers"] + " L";
         
+        // Extract SP handedness from the "Opposing Pitcher" field if not in SP Handedness
+        var spInfo = data["SP"] || "";
+        var spHand = data["SP Handedness"];
+        
+        // If SP Handedness is not available, try to extract from SP info
+        if (!spHand && spInfo.includes("(") && spInfo.includes(")")) {
+            var match = spInfo.match(/\(([RL])\)/);
+            if (match) {
+                spHand = match[1];
+            }
+        }
+        
         new Tabulator(container, {
             layout: "fitColumns",
             columnHeaderSortMulti: false,
@@ -360,7 +372,16 @@ export class ModBatterStatsTable extends BaseTable {
     createSubtable2(container, data) {
         var statType = data["Batter Stat Type"];
         var batterHand = data["Handedness"];
+        var spInfo = data["SP"] || "";
         var spHand = data["SP Handedness"];
+        
+        // If SP Handedness field is not available, extract from SP name
+        if (!spHand && spInfo.includes("(") && spInfo.includes(")")) {
+            var match = spInfo.match(/\(([RL])\)/);
+            if (match) {
+                spHand = match[1];
+            }
+        }
         
         // Clean up SP handedness - ensure it's just R or L
         if (spHand) {
@@ -368,6 +389,12 @@ export class ModBatterStatsTable extends BaseTable {
             if (spHand !== "R" && spHand !== "L") {
                 spHand = null;
             }
+        }
+        
+        // Extract SP name without handedness
+        var spName = spInfo;
+        if (spInfo.includes("(")) {
+            spName = spInfo.substring(0, spInfo.indexOf("(")).trim();
         }
         
         // Determine handedness matchups
@@ -434,7 +461,7 @@ export class ModBatterStatsTable extends BaseTable {
                     pa: data["Batter PA"] + " PA"
                 },
                 {
-                    player: data["SP"] + " (" + (spHand || "?") + ") Versus " + spVersusText,
+                    player: spName + " (" + (spHand || "?") + ") Versus " + spVersusText,
                     stat: data["SP Stat Total"] + " " + statType,
                     pa: data["SP TBF"] + " TBF"
                 },
