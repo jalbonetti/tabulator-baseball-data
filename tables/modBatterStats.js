@@ -359,6 +359,35 @@ export class ModBatterStatsTable extends BaseTable {
     // Create second subtable for PA/TBF data
     createSubtable2(container, data) {
         var statType = data["Batter Stat Type"];
+        var batterHand = data["Handedness"];
+        var spHand = data["SP Handedness"];
+        
+        // Determine handedness matchups
+        var spVersusText;
+        if (batterHand === "S") {
+            // Switch hitter faces opposite of pitcher's hand
+            spVersusText = spHand === "R" ? "Lefties" : (spHand === "L" ? "Righties" : "Unknown");
+        } else {
+            // Regular hitter
+            spVersusText = batterHand === "L" ? "Lefties" : "Righties";
+        }
+        
+        // For relievers vs switch hitters
+        var rrVersusText, lrVersusText;
+        if (batterHand === "S") {
+            // Switch hitter faces opposite hand
+            rrVersusText = "Lefties";
+            lrVersusText = "Righties";
+        } else {
+            // Regular hitter faces same as their batting hand
+            rrVersusText = batterHand === "L" ? "Lefties" : "Righties";
+            lrVersusText = batterHand === "L" ? "Lefties" : "Righties";
+        }
+        
+        // Calculate combined PA/TBF for matchups
+        var rightiesMatchupPA = (parseFloat(data["Batter PA vs R"]) || 0) + " PA / " + (parseFloat(data["RR TBF"]) || 0) + " TBF";
+        var leftiesMatchupPA = (parseFloat(data["Batter PA vs L"]) || 0) + " PA / " + (parseFloat(data["LR TBF"]) || 0) + " TBF";
+        var totalMatchupPA = (parseFloat(data["Batter PA"]) || 0) + " PA / " + (parseFloat(data["Opposing Pitching TBF"]) || 0) + " TBF";
         
         new Tabulator(container, {
             layout: "fitColumns",
@@ -368,32 +397,32 @@ export class ModBatterStatsTable extends BaseTable {
             movableColumns: false,
             data: [
                 {
-                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                    player: data["Batter Name"] + " (" + batterHand + ") Versus Righties",
                     stat: data["Batter Total vs R"] + " " + statType,
                     pa: data["Batter PA vs R"] + " PA"
                 },
                 {
-                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                    player: data["Batter Name"] + " (" + batterHand + ") Versus Lefties",
                     stat: data["Batter Total vs L"] + " " + statType,
                     pa: data["Batter PA vs L"] + " PA"
                 },
                 {
-                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Total",
+                    player: data["Batter Name"] + " (" + batterHand + ") Total",
                     stat: data["Batter Total"] + " " + statType,
                     pa: data["Batter PA"] + " PA"
                 },
                 {
-                    player: data["SP"] + " (" + (data["SP Handedness"] || "Unknown") + ")",
+                    player: data["SP"] + " (" + (spHand || "?") + ") Versus " + spVersusText,
                     stat: data["SP Stat Total"] + " " + statType,
                     pa: data["SP TBF"] + " TBF"
                 },
                 {
-                    player: "Righty Relievers (" + data["R Relievers"] + ")",
+                    player: "Righty Relievers (" + data["R Relievers"] + ") Versus " + rrVersusText,
                     stat: data["RR Stat Total"] + " " + statType,
                     pa: data["RR TBF"] + " TBF"
                 },
                 {
-                    player: "Lefty Relievers (" + data["L Relievers"] + ")",
+                    player: "Lefty Relievers (" + data["L Relievers"] + ") Versus " + lrVersusText,
                     stat: data["LR Stat Total"] + " " + statType,
                     pa: data["LR TBF"] + " TBF"
                 },
@@ -401,6 +430,21 @@ export class ModBatterStatsTable extends BaseTable {
                     player: "Total Opposing Pitching",
                     stat: data["Opposing Pitching Stat Total"] + " " + statType,
                     pa: data["Opposing Pitching TBF"] + " TBF"
+                },
+                {
+                    player: "Righties Matchup Total",
+                    stat: data["Matchup Total vs R"] + " " + statType,
+                    pa: rightiesMatchupPA
+                },
+                {
+                    player: "Lefties Matchup Total",
+                    stat: data["Matchup Total vs L"] + " " + statType,
+                    pa: leftiesMatchupPA
+                },
+                {
+                    player: "Matchup Total",
+                    stat: data["Matchup Stat Total"] + " " + statType,
+                    pa: totalMatchupPA
                 }
             ],
             columns: [
