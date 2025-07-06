@@ -1,7 +1,7 @@
 // components/tabManager.js
 export class TabManager {
     constructor(tables) {
-        this.tables = tables; // { table1: tableInstance, table2: tableInstance, table3: tableInstance, table4: tableInstance, table5: tableInstance, table6: tableInstance }
+        this.tables = tables; // { table1: tableInstance, table2: tableInstance, ..., table7: tableInstance }
         this.currentActiveTab = 'table1';
         this.setupTabSwitching();
     }
@@ -23,7 +23,8 @@ export class TabManager {
                     table3: document.getElementById('table3-container'),
                     table4: document.getElementById('table4-container'),
                     table5: document.getElementById('table5-container'),
-                    table6: document.getElementById('table6-container')
+                    table6: document.getElementById('table6-container'),
+                    table7: document.getElementById('table7-container')
                 };
                 
                 // Hide all containers
@@ -54,7 +55,7 @@ export class TabManager {
             wrapper.className = 'table-wrapper';
             wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
             
-            // Create tabs container with all six tabs
+            // Create tabs container with all seven tabs
             var tabsContainer = document.createElement('div');
             tabsContainer.className = 'tabs-container';
             tabsContainer.innerHTML = `
@@ -65,6 +66,7 @@ export class TabManager {
                     <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
                     <button class="tab-button" data-tab="table5">Batter Stats</button>
                     <button class="tab-button" data-tab="table6">Pitcher Stats</button>
+                    <button class="tab-button" data-tab="table7">Combined Matchups</button>
                 </div>
             `;
             
