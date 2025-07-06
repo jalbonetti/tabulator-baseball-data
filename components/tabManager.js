@@ -1,7 +1,7 @@
 // components/tabManager.js
 export class TabManager {
     constructor(tables) {
-        this.tables = tables; // { table1: tableInstance, table2: tableInstance, table3: tableInstance, table4: tableInstance, table5: tableInstance }
+        this.tables = tables; // { table1: tableInstance, table2: tableInstance, table3: tableInstance, table4: tableInstance, table5: tableInstance, table6: tableInstance }
         this.currentActiveTab = 'table1';
         this.setupTabSwitching();
     }
@@ -22,7 +22,8 @@ export class TabManager {
                     table2: document.getElementById('table2-container'),
                     table3: document.getElementById('table3-container'),
                     table4: document.getElementById('table4-container'),
-                    table5: document.getElementById('table5-container')
+                    table5: document.getElementById('table5-container'),
+                    table6: document.getElementById('table6-container')
                 };
                 
                 // Hide all containers
@@ -53,7 +54,7 @@ export class TabManager {
             wrapper.className = 'table-wrapper';
             wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
             
-            // Create tabs container with all five tabs
+            // Create tabs container with all six tabs
             var tabsContainer = document.createElement('div');
             tabsContainer.className = 'tabs-container';
             tabsContainer.innerHTML = `
@@ -63,6 +64,7 @@ export class TabManager {
                     <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
                     <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
                     <button class="tab-button" data-tab="table5">Batter Stats</button>
+                    <button class="tab-button" data-tab="table6">Pitcher Stats</button>
                 </div>
             `;
             
