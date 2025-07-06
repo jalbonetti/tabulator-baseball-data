@@ -2,6 +2,7 @@
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+import { TEAM_NAME_MAP } from '../shared/config.js';
 
 export class ModBatterStatsTable extends BaseTable {
     constructor(elementId) {
@@ -18,11 +19,55 @@ export class ModBatterStatsTable extends BaseTable {
                 {column: "Batter Stat Type", dir: "asc"},
                 {column: "Batter Prop Split ID", dir: "asc"}
             ],
-            rowFormatter: this.createRowFormatter()
+            rowFormatter: (row) => {
+                var data = row.getData();
+                if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
+                    var holderEl = document.createElement("div");
+                    holderEl.classList.add('subrow-container');
+                    holderEl.style.padding = "10px";
+                    holderEl.style.background = "#f8f9fa";
+                    
+                    var subtable1 = document.createElement("div");
+                    
+                    holderEl.appendChild(subtable1);
+                    row.getElement().appendChild(holderEl);
+                    
+                    this.createSubtable(subtable1, data);
+                } else if (!data._expanded) {
+                    var existingSubrow = row.getElement().querySelector('.subrow-container');
+                    if (existingSubrow) {
+                        existingSubrow.remove();
+                    }
+                }
+            }
         };
 
         this.table = new Tabulator(this.elementId, config);
-        this.setupRowExpansion();
+        
+        // Setup click handler for row expansion
+        this.table.on("cellClick", (e, cell) => {
+            if (cell.getField() === "Batter Name") {
+                var row = cell.getRow();
+                var data = row.getData();
+                data._expanded = !data._expanded;
+                row.update(data);
+                row.reformat();
+                
+                setTimeout(() => {
+                    try {
+                        var cellElement = cell.getElement();
+                        if (cellElement && cellElement.querySelector) {
+                            var expanderIcon = cellElement.querySelector('.row-expander');
+                            if (expanderIcon) {
+                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error updating expander icon:", error);
+                    }
+                }, 100);
+            }
+        });
         
         this.table.on("tableBuilt", () => {
             console.log("Mod Batter Stats table built successfully");
@@ -47,7 +92,46 @@ export class ModBatterStatsTable extends BaseTable {
                     sorter: "string", 
                     headerFilter: true,  // Text filter for name
                     resizable: false,
-                    formatter: this.createNameFormatter()
+                    formatter: function(cell, formatterParams, onRendered) {
+                        var value = cell.getValue();
+                        var row = cell.getRow();
+                        var expanded = row.getData()._expanded || false;
+                        
+                        onRendered(function() {
+                            try {
+                                var cellElement = cell.getElement();
+                                if (cellElement && cellElement.querySelector) {
+                                    cellElement.innerHTML = '';
+                                    
+                                    var container = document.createElement("div");
+                                    container.style.display = "flex";
+                                    container.style.alignItems = "center";
+                                    container.style.cursor = "pointer";
+                                    
+                                    var expander = document.createElement("span");
+                                    expander.innerHTML = expanded ? "−" : "+";
+                                    expander.style.marginRight = "8px";
+                                    expander.style.fontWeight = "bold";
+                                    expander.style.color = "#007bff";
+                                    expander.style.fontSize = "14px";
+                                    expander.style.minWidth = "12px";
+                                    expander.classList.add("row-expander");
+                                    
+                                    var textSpan = document.createElement("span");
+                                    textSpan.textContent = value || "";
+                                    
+                                    container.appendChild(expander);
+                                    container.appendChild(textSpan);
+                                    
+                                    cellElement.appendChild(container);
+                                }
+                            } catch (error) {
+                                console.error("Error in formatter onRendered:", error);
+                            }
+                        });
+                        
+                        return (expanded ? "− " : "+ ") + (value || "");
+                    }
                 },
                 {
                     title: "Team", 
@@ -57,7 +141,10 @@ export class ModBatterStatsTable extends BaseTable {
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
                     resizable: false,
-                    formatter: this.createTeamFormatter()
+                    formatter: function(cell) {
+                        var value = cell.getValue();
+                        return TEAM_NAME_MAP[value] || value;
+                    }
                 }
             ]},
             {title: "Stat Info", columns: [
@@ -236,8 +323,8 @@ export class ModBatterStatsTable extends BaseTable {
         ];
     }
 
-    // Override createSubtable1 for the specific subrow layout
-    createSubtable1(container, data) {
+    // Create subtable for the expanded row
+    createSubtable(container, data) {
         // Format bullpen info
         var bullpenInfo = data["R Relievers"] + " R / " + data["L Relievers"] + " L";
         
@@ -264,11 +351,5 @@ export class ModBatterStatsTable extends BaseTable {
                 {title: "Bullpen", field: "bullpen", headerSort: false, width: 120}
             ]
         });
-    }
-
-    // Override createSubtable2 - we only need one subtable for this view
-    createSubtable2(container, data) {
-        // This table doesn't need a second subtable, so we can leave this empty
-        // or add any additional information if needed
     }
 }
