@@ -357,6 +357,9 @@ export class ModPitcherStatsTable extends BaseTable {
         var statType = data["Pitcher Stat Type"];
         var pitcherHand = data["Handedness"];
         
+        // Get opponent team
+        var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
+        
         // Determine handedness matchups for batters
         var rbVersusText = pitcherHand === "L" ? "Lefties" : "Righties";
         var lbVersusText = pitcherHand === "R" ? "Righties" : "Lefties";
@@ -394,12 +397,12 @@ export class ModPitcherStatsTable extends BaseTable {
                     tbf: data["Pitcher TBF"] + " TBF"
                 },
                 {
-                    player: "Righty Batters (" + data["R Batters"] + ") Versus " + rbVersusText,
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + data["R Batters"] + ") Versus " + rbVersusText,
                     stat: data["RB Stat Total"] + " " + statType,
                     tbf: data["RB PA"] + " PA"
                 },
                 {
-                    player: "Lefty Batters (" + data["L Batters"] + ") Versus " + lbVersusText,
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + data["L Batters"] + ") Versus " + lbVersusText,
                     stat: data["LB Stat Total"] + " " + statType,
                     tbf: data["LB PA"] + " PA"
                 },
