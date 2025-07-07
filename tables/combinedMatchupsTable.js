@@ -15,27 +15,38 @@ export class CombinedMatchupsTable extends BaseTable {
 
     async fetchAllData() {
         try {
+            // Check the exact table names - they might be different
+            const tableNames = {
+                matchups: 'ModMatchupsData',
+                parkFactors: 'ModParkFactors', 
+                batters: 'ModBatterMatchups',
+                pitchers: 'ModPitcherMatchups',
+                bullpen: 'ModBullpenMatchups'
+            };
+            
+            console.log('Fetching data from tables:', tableNames);
+            
             // Fetch all data in parallel
             const [matchups, parkFactors, batters, pitchers, bullpen] = await Promise.all([
-                this.fetchData('ModMatchupsData'),
-                this.fetchData('ModParkFactors'),
-                this.fetchData('ModBatterMatchups'),
-                this.fetchData('ModPitcherMatchups'),
-                this.fetchData('ModBullpenMatchups')
+                this.fetchData(tableNames.matchups),
+                this.fetchData(tableNames.parkFactors),
+                this.fetchData(tableNames.batters),
+                this.fetchData(tableNames.pitchers),
+                this.fetchData(tableNames.bullpen)
             ]);
 
-            this.matchupsData = matchups;
-            this.parkFactorsData = parkFactors;
-            this.batterMatchupsData = batters;
-            this.pitcherMatchupsData = pitchers;
-            this.bullpenMatchupsData = bullpen;
+            this.matchupsData = matchups || [];
+            this.parkFactorsData = parkFactors || [];
+            this.batterMatchupsData = batters || [];
+            this.pitcherMatchupsData = pitchers || [];
+            this.bullpenMatchupsData = bullpen || [];
 
             console.log('All data fetched successfully', {
-                matchups: matchups.length,
-                parkFactors: parkFactors.length,
-                batters: batters.length,
-                pitchers: pitchers.length,
-                bullpen: bullpen.length
+                matchups: this.matchupsData.length,
+                parkFactors: this.parkFactorsData.length,
+                batters: this.batterMatchupsData.length,
+                pitchers: this.pitcherMatchupsData.length,
+                bullpen: this.bullpenMatchupsData.length
             });
 
             return this.combineData();
@@ -46,21 +57,44 @@ export class CombinedMatchupsTable extends BaseTable {
     }
 
     async fetchData(tableName) {
-        const response = await fetch(API_CONFIG.baseURL + tableName, {
-            method: 'GET',
-            headers: API_CONFIG.headers
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch ${tableName}`);
+        try {
+            console.log(`Fetching ${tableName}...`);
+            const response = await fetch(API_CONFIG.baseURL + tableName, {
+                method: 'GET',
+                headers: API_CONFIG.headers
+            });
+            
+            console.log(`Response status for ${tableName}:`, response.status);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ${tableName}: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log(`Fetched ${data.length} records from ${tableName}`);
+            return data;
+        } catch (error) {
+            console.error(`Error fetching ${tableName}:`, error);
+            throw error;
         }
-        
-        return response.json();
     }
 
     combineData() {
         // Group all data by Game ID
         const gameMap = new Map();
+        
+        console.log('Combining data...');
+        console.log('Matchups data:', this.matchupsData.length);
+        console.log('Park factors:', this.parkFactorsData.length);
+        console.log('Batter matchups:', this.batterMatchupsData.length);
+        console.log('Pitcher matchups:', this.pitcherMatchupsData.length);
+        console.log('Bullpen matchups:', this.bullpenMatchupsData.length);
+        
+        // Check if we have any matchups data
+        if (!this.matchupsData || this.matchupsData.length === 0) {
+            console.warn('No matchups data available');
+            return [];
+        }
         
         // Process matchups data (primary rows)
         this.matchupsData.forEach(matchup => {
@@ -204,7 +238,7 @@ export class CombinedMatchupsTable extends BaseTable {
             movableColumns: false,
             columns: this.getColumns(),
             initialSort: [
-                {column: "gameId", dir: "asc"}
+                {column: "team", dir: "asc"}
             ],
             rowFormatter: this.createRowFormatter(),
             placeholder: "Loading data..."
@@ -419,13 +453,41 @@ export class CombinedMatchupsTable extends BaseTable {
                     {title: "BB", field: "bb", headerSort: false, width: 60},
                     {title: "SO", field: "so", headerSort: false, width: 60}
                 ]}
-            ]
+            ],
+            rowFormatter: (row) => {
+                var data = row.getData();
+                if (data.splitId === 'A') {
+                    row.getElement().style.fontWeight = 'bold';
+                    row.getElement().style.backgroundColor = '#e9ecef';
+                }
+            }
         });
     }
 
     createPitcherSubtable(container, data) {
-        // Create nested structure for pitcher data
-        const pitcherRows = this.createNestedRows(data.pitcherMatchups, 'Starter');
+        // Group pitcher data by name and create rows only for Full Season as primary
+        const pitchersByName = new Map();
+        
+        data.pitcherMatchups.forEach(pitcher => {
+            const name = pitcher.name;
+            if (!pitchersByName.has(name)) {
+                pitchersByName.set(name, []);
+            }
+            pitchersByName.get(name).push(pitcher);
+        });
+        
+        // Create only the primary rows (Full Season)
+        const primaryRows = [];
+        pitchersByName.forEach((pitchers, name) => {
+            const fullSeason = pitchers.find(p => p.splitId === 'CSeason');
+            if (fullSeason) {
+                primaryRows.push({
+                    ...fullSeason,
+                    timeLocation: 'Full Season',
+                    isPrimary: true
+                });
+            }
+        });
         
         new Tabulator(container, {
             layout: "fitColumns",
@@ -433,7 +495,7 @@ export class CombinedMatchupsTable extends BaseTable {
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            data: pitcherRows,
+            data: primaryRows,
             columns: [
                 {title: "Starter", field: "name", headerSort: false, width: 200},
                 {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180},
@@ -449,11 +511,8 @@ export class CombinedMatchupsTable extends BaseTable {
                 {title: "SO", field: "so", headerSort: false, width: 60}
             ],
             rowFormatter: (row) => {
-                var data = row.getData();
-                if (data.isPrimary) {
-                    row.getElement().style.fontWeight = 'bold';
-                    row.getElement().style.backgroundColor = '#e9ecef';
-                }
+                row.getElement().style.fontWeight = 'bold';
+                row.getElement().style.backgroundColor = '#e9ecef';
             }
         });
     }
@@ -466,28 +525,27 @@ export class CombinedMatchupsTable extends BaseTable {
             return spotA - spotB;
         });
 
-        // Create nested structure for each batter
-        const batterRows = [];
-        const batterGroups = new Map();
-
-        // Group by batter spot
+        // Group by batter spot and get only Full Season rows
+        const battersBySpot = new Map();
         sortedBatters.forEach(batter => {
             const spot = batter.name.match(/\d+$/)?.[0] || '0';
-            if (!batterGroups.has(spot)) {
-                batterGroups.set(spot, []);
+            if (!battersBySpot.has(spot)) {
+                battersBySpot.set(spot, []);
             }
-            batterGroups.get(spot).push(batter);
+            battersBySpot.get(spot).push(batter);
         });
 
-        // Create rows for each batter
-        batterGroups.forEach((batters, spot) => {
-            batters.forEach(batter => {
-                batterRows.push({
-                    ...batter,
-                    timeLocation: this.mapSplitId(batter.splitId),
-                    isPrimary: batter.splitId === 'CSeason'
+        // Create only primary rows (Full Season)
+        const primaryRows = [];
+        battersBySpot.forEach((batters, spot) => {
+            const fullSeason = batters.find(b => b.splitId === 'CSeason');
+            if (fullSeason) {
+                primaryRows.push({
+                    ...fullSeason,
+                    timeLocation: 'Full Season',
+                    isPrimary: true
                 });
-            });
+            }
         });
 
         new Tabulator(container, {
@@ -496,7 +554,7 @@ export class CombinedMatchupsTable extends BaseTable {
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            data: batterRows,
+            data: primaryRows,
             columns: [
                 {title: "Batter", field: "name", headerSort: false, width: 200},
                 {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180},
@@ -512,11 +570,8 @@ export class CombinedMatchupsTable extends BaseTable {
                 {title: "SO", field: "so", headerSort: false, width: 60}
             ],
             rowFormatter: (row) => {
-                var data = row.getData();
-                if (data.isPrimary) {
-                    row.getElement().style.fontWeight = 'bold';
-                    row.getElement().style.backgroundColor = '#e9ecef';
-                }
+                row.getElement().style.fontWeight = 'bold';
+                row.getElement().style.backgroundColor = '#e9ecef';
             }
         });
     }
@@ -531,14 +586,39 @@ export class CombinedMatchupsTable extends BaseTable {
             return 0;
         });
 
-        // Create nested structure
-        const bullpenRows = [];
+        // Group by hand and create primary rows
+        const bullpenByHand = new Map();
         sortedBullpen.forEach(bullpen => {
-            bullpenRows.push({
+            // Extract hand type and number
+            const match = bullpen.hand.match(/(\d+)\s*(Righties|Lefties)/);
+            let displayHand = bullpen.hand;
+            if (match) {
+                const num = match[1];
+                const type = match[2];
+                displayHand = `${type} (${num})`;
+            }
+            
+            if (!bullpenByHand.has(displayHand)) {
+                bullpenByHand.set(displayHand, []);
+            }
+            bullpenByHand.get(displayHand).push({
                 ...bullpen,
-                timeLocation: this.mapSplitId(bullpen.splitId),
-                isPrimary: bullpen.splitId === 'CSeason'
+                displayHand: displayHand
             });
+        });
+
+        // Create only primary rows (Full Season)
+        const primaryRows = [];
+        bullpenByHand.forEach((bullpenGroup, hand) => {
+            const fullSeason = bullpenGroup.find(b => b.splitId === 'CSeason');
+            if (fullSeason) {
+                primaryRows.push({
+                    ...fullSeason,
+                    hand: fullSeason.displayHand,
+                    timeLocation: 'Full Season',
+                    isPrimary: true
+                });
+            }
         });
 
         new Tabulator(container, {
@@ -547,9 +627,9 @@ export class CombinedMatchupsTable extends BaseTable {
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            data: bullpenRows,
+            data: primaryRows,
             columns: [
-                {title: "Hand", field: "hand", headerSort: false, width: 100},
+                {title: "Bullpen", field: "hand", headerSort: false, width: 100},
                 {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180},
                 {title: "TBF", field: "tbf", headerSort: false, width: 60},
                 {title: "H", field: "h", headerSort: false, width: 60},
@@ -563,11 +643,8 @@ export class CombinedMatchupsTable extends BaseTable {
                 {title: "SO", field: "so", headerSort: false, width: 60}
             ],
             rowFormatter: (row) => {
-                var data = row.getData();
-                if (data.isPrimary) {
-                    row.getElement().style.fontWeight = 'bold';
-                    row.getElement().style.backgroundColor = '#e9ecef';
-                }
+                row.getElement().style.fontWeight = 'bold';
+                row.getElement().style.backgroundColor = '#e9ecef';
             }
         });
     }
