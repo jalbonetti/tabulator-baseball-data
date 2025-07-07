@@ -465,55 +465,170 @@ export class CombinedMatchupsTable extends BaseTable {
     }
 
     createPitcherSubtable(container, data) {
-        // Group pitcher data by name and create rows only for Full Season as primary
+        // Group pitcher data by name
         const pitchersByName = new Map();
         
         data.pitcherMatchups.forEach(pitcher => {
             const name = pitcher.name;
             if (!pitchersByName.has(name)) {
-                pitchersByName.set(name, []);
-            }
-            pitchersByName.get(name).push(pitcher);
-        });
-        
-        // Create only the primary rows (Full Season)
-        const primaryRows = [];
-        pitchersByName.forEach((pitchers, name) => {
-            const fullSeason = pitchers.find(p => p.splitId === 'CSeason');
-            if (fullSeason) {
-                primaryRows.push({
-                    ...fullSeason,
-                    timeLocation: 'Full Season',
-                    isPrimary: true
+                pitchersByName.set(name, {
+                    name: name,
+                    splits: [],
+                    _expanded: false
                 });
             }
+            pitchersByName.get(name).splits.push(pitcher);
         });
         
-        new Tabulator(container, {
+        // Sort splits within each pitcher
+        const splitOrder = ['CSeason', 'CSeason@', 'C30', 'C30@', 'RSeason', 'RSeason@', 'R30', 'R30@', 'LSeason', 'LSeason@', 'L30', 'L30@'];
+        pitchersByName.forEach(pitcher => {
+            pitcher.splits.sort((a, b) => {
+                const indexA = splitOrder.indexOf(a.splitId);
+                const indexB = splitOrder.indexOf(b.splitId);
+                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+            });
+        });
+        
+        const pitcherTable = new Tabulator(container, {
             layout: "fitColumns",
             columnHeaderSortMulti: false,
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            data: primaryRows,
+            data: Array.from(pitchersByName.values()),
             columns: [
                 {title: "Starter", field: "name", headerSort: false, width: 200},
-                {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180},
-                {title: "TBF", field: "tbf", headerSort: false, width: 60},
-                {title: "H", field: "h", headerSort: false, width: 60},
-                {title: "1B", field: "singles", headerSort: false, width: 60},
-                {title: "2B", field: "doubles", headerSort: false, width: 60},
-                {title: "3B", field: "triples", headerSort: false, width: 60},
-                {title: "HR", field: "hr", headerSort: false, width: 60},
-                {title: "R", field: "r", headerSort: false, width: 60},
-                {title: "ER", field: "er", headerSort: false, width: 60},
-                {title: "BB", field: "bb", headerSort: false, width: 60},
-                {title: "SO", field: "so", headerSort: false, width: 60}
+                {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180,
+                    formatter: () => "Full Season"
+                },
+                {title: "TBF", field: "tbf", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.tbf : '';
+                    }
+                },
+                {title: "H", field: "h", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.h : '';
+                    }
+                },
+                {title: "1B", field: "singles", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.singles : '';
+                    }
+                },
+                {title: "2B", field: "doubles", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.doubles : '';
+                    }
+                },
+                {title: "3B", field: "triples", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.triples : '';
+                    }
+                },
+                {title: "HR", field: "hr", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.hr : '';
+                    }
+                },
+                {title: "R", field: "r", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.r : '';
+                    }
+                },
+                {title: "ER", field: "er", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.er : '';
+                    }
+                },
+                {title: "BB", field: "bb", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.bb : '';
+                    }
+                },
+                {title: "SO", field: "so", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.so : '';
+                    }
+                }
             ],
             rowFormatter: (row) => {
+                const data = row.getData();
                 row.getElement().style.fontWeight = 'bold';
                 row.getElement().style.backgroundColor = '#e9ecef';
+                row.getElement().style.cursor = 'pointer';
+                
+                // Remove any existing expanded rows
+                const existingExpanded = row.getElement().nextSibling;
+                while (existingExpanded && existingExpanded.classList && existingExpanded.classList.contains('split-row')) {
+                    existingExpanded.remove();
+                }
+                
+                // If expanded, add the split rows
+                if (data._expanded) {
+                    const rowElement = row.getElement();
+                    data.splits.forEach((split, index) => {
+                        if (index === 0) return; // Skip Full Season as it's the primary row
+                        
+                        const splitRow = document.createElement('div');
+                        splitRow.className = 'tabulator-row split-row';
+                        splitRow.style.cssText = 'display: flex; border-bottom: 1px solid #ddd;';
+                        
+                        const cells = [
+                            { value: split.name, width: 200 },
+                            { value: this.mapSplitId(split.splitId), width: 180 },
+                            { value: split.tbf, width: 60 },
+                            { value: split.h, width: 60 },
+                            { value: split.singles, width: 60 },
+                            { value: split.doubles, width: 60 },
+                            { value: split.triples, width: 60 },
+                            { value: split.hr, width: 60 },
+                            { value: split.r, width: 60 },
+                            { value: split.er, width: 60 },
+                            { value: split.bb, width: 60 },
+                            { value: split.so, width: 60 }
+                        ];
+                        
+                        cells.forEach(cell => {
+                            const cellDiv = document.createElement('div');
+                            cellDiv.className = 'tabulator-cell';
+                            cellDiv.style.cssText = `width: ${cell.width}px; padding: 4px; text-align: center;`;
+                            cellDiv.textContent = cell.value || '';
+                            splitRow.appendChild(cellDiv);
+                        });
+                        
+                        rowElement.parentNode.insertBefore(splitRow, rowElement.nextSibling);
+                    });
+                }
             }
+        });
+        
+        // Add click handler
+        pitcherTable.on("rowClick", (e, row) => {
+            const data = row.getData();
+            data._expanded = !data._expanded;
+            row.reformat();
         });
     }
 
@@ -525,54 +640,173 @@ export class CombinedMatchupsTable extends BaseTable {
             return spotA - spotB;
         });
 
-        // Group by batter spot and get only Full Season rows
-        const battersBySpot = new Map();
+        // Group by batter name
+        const battersByName = new Map();
         sortedBatters.forEach(batter => {
-            const spot = batter.name.match(/\d+$/)?.[0] || '0';
-            if (!battersBySpot.has(spot)) {
-                battersBySpot.set(spot, []);
-            }
-            battersBySpot.get(spot).push(batter);
-        });
-
-        // Create only primary rows (Full Season)
-        const primaryRows = [];
-        battersBySpot.forEach((batters, spot) => {
-            const fullSeason = batters.find(b => b.splitId === 'CSeason');
-            if (fullSeason) {
-                primaryRows.push({
-                    ...fullSeason,
-                    timeLocation: 'Full Season',
-                    isPrimary: true
+            // Extract just the name without the spot number
+            const nameMatch = batter.name.match(/^(.+?)\s*\([^)]+\)\s*—\s*\d+$/);
+            const baseName = nameMatch ? nameMatch[1] : batter.name;
+            const key = batter.name; // Use full name as key to maintain uniqueness
+            
+            if (!battersByName.has(key)) {
+                battersByName.set(key, {
+                    name: batter.name,
+                    splits: [],
+                    _expanded: false
                 });
             }
+            battersByName.get(key).splits.push(batter);
         });
 
-        new Tabulator(container, {
+        // Sort splits within each batter
+        const splitOrder = ['CSeason', 'CSeason@', 'C30', 'C30@', 'RSeason', 'RSeason@', 'R30', 'R30@', 'LSeason', 'LSeason@', 'L30', 'L30@'];
+        battersByName.forEach(batter => {
+            batter.splits.sort((a, b) => {
+                const indexA = splitOrder.indexOf(a.splitId);
+                const indexB = splitOrder.indexOf(b.splitId);
+                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+            });
+        });
+
+        const batterTable = new Tabulator(container, {
             layout: "fitColumns",
             columnHeaderSortMulti: false,
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            data: primaryRows,
+            data: Array.from(battersByName.values()),
             columns: [
                 {title: "Batter", field: "name", headerSort: false, width: 200},
-                {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180},
-                {title: "PA", field: "pa", headerSort: false, width: 60},
-                {title: "H", field: "h", headerSort: false, width: 60},
-                {title: "1B", field: "singles", headerSort: false, width: 60},
-                {title: "2B", field: "doubles", headerSort: false, width: 60},
-                {title: "3B", field: "triples", headerSort: false, width: 60},
-                {title: "HR", field: "hr", headerSort: false, width: 60},
-                {title: "R", field: "r", headerSort: false, width: 60},
-                {title: "RBI", field: "rbi", headerSort: false, width: 60},
-                {title: "BB", field: "bb", headerSort: false, width: 60},
-                {title: "SO", field: "so", headerSort: false, width: 60}
+                {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180,
+                    formatter: () => "Full Season"
+                },
+                {title: "PA", field: "pa", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.pa : '';
+                    }
+                },
+                {title: "H", field: "h", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.h : '';
+                    }
+                },
+                {title: "1B", field: "singles", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.singles : '';
+                    }
+                },
+                {title: "2B", field: "doubles", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.doubles : '';
+                    }
+                },
+                {title: "3B", field: "triples", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.triples : '';
+                    }
+                },
+                {title: "HR", field: "hr", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.hr : '';
+                    }
+                },
+                {title: "R", field: "r", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.r : '';
+                    }
+                },
+                {title: "RBI", field: "rbi", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.rbi : '';
+                    }
+                },
+                {title: "BB", field: "bb", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.bb : '';
+                    }
+                },
+                {title: "SO", field: "so", headerSort: false, width: 60,
+                    formatter: (cell) => {
+                        const data = cell.getRow().getData();
+                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
+                        return fullSeason ? fullSeason.so : '';
+                    }
+                }
             ],
             rowFormatter: (row) => {
+                const data = row.getData();
                 row.getElement().style.fontWeight = 'bold';
                 row.getElement().style.backgroundColor = '#e9ecef';
+                row.getElement().style.cursor = 'pointer';
+                
+                // Remove any existing expanded rows
+                const existingExpanded = row.getElement().nextSibling;
+                while (existingExpanded && existingExpanded.classList && existingExpanded.classList.contains('split-row')) {
+                    existingExpanded.remove();
+                }
+                
+                // If expanded, add the split rows
+                if (data._expanded) {
+                    const rowElement = row.getElement();
+                    data.splits.forEach((split, index) => {
+                        if (index === 0) return; // Skip Full Season as it's the primary row
+                        
+                        const splitRow = document.createElement('div');
+                        splitRow.className = 'tabulator-row split-row';
+                        splitRow.style.cssText = 'display: flex; border-bottom: 1px solid #ddd;';
+                        
+                        const cells = [
+                            { value: split.name, width: 200 },
+                            { value: this.mapSplitId(split.splitId), width: 180 },
+                            { value: split.pa, width: 60 },
+                            { value: split.h, width: 60 },
+                            { value: split.singles, width: 60 },
+                            { value: split.doubles, width: 60 },
+                            { value: split.triples, width: 60 },
+                            { value: split.hr, width: 60 },
+                            { value: split.r, width: 60 },
+                            { value: split.rbi, width: 60 },
+                            { value: split.bb, width: 60 },
+                            { value: split.so, width: 60 }
+                        ];
+                        
+                        cells.forEach(cell => {
+                            const cellDiv = document.createElement('div');
+                            cellDiv.className = 'tabulator-cell';
+                            cellDiv.style.cssText = `width: ${cell.width}px; padding: 4px; text-align: center;`;
+                            cellDiv.textContent = cell.value || '';
+                            splitRow.appendChild(cellDiv);
+                        });
+                        
+                        rowElement.parentNode.insertBefore(splitRow, rowElement.nextSibling);
+                    });
+                }
             }
+        });
+        
+        // Add click handler
+        batterTable.on("rowClick", (e, row) => {
+            const data = row.getData();
+            data._expanded = !data._expanded;
+            row.reformat();
         });
     }
 
