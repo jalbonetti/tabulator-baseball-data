@@ -69,7 +69,7 @@ export function injectStyles() {
             opacity: 0 !important;
         }
         
-        #batter-table, #batter-table-alt {
+        #batter-table, #batter-table-alt, #matchups-table {
             width: 100% !important;
             margin: 0 auto !important;
         }
@@ -286,6 +286,55 @@ export function injectStyles() {
         
         .subrow-container .tabulator .tabulator-cell[tabulator-field="player"] .tabulator-cell-value {
             text-align: left !important;
+        }
+        
+        /* Sticky headers for subtables */
+        .subrow-container .tabulator {
+            max-height: 400px !important;
+            overflow: hidden !important;
+        }
+        
+        .subrow-container .tabulator .tabulator-header {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 100 !important;
+            background: white !important;
+            border-bottom: 2px solid #ddd !important;
+        }
+        
+        .subrow-container .tabulator .tabulator-tableHolder {
+            overflow-y: auto !important;
+            max-height: 350px !important;
+        }
+        
+        /* Frozen columns styling */
+        .tabulator .tabulator-frozen {
+            position: sticky !important;
+            left: 0 !important;
+            z-index: 10 !important;
+            background: white !important;
+            border-right: 2px solid #ddd !important;
+        }
+        
+        .tabulator .tabulator-frozen-left {
+            box-shadow: 3px 0 5px rgba(0,0,0,0.1) !important;
+        }
+        
+        /* Split row styling for expanded rows */
+        .split-row {
+            background-color: #ffffff !important;
+        }
+        
+        .split-row:nth-child(even) {
+            background-color: #f8f9fa !important;
+        }
+        
+        .split-row:hover {
+            background-color: #e9ecef !important;
+        }
+        
+        .split-row .tabulator-cell:first-child {
+            padding-left: 30px !important;
         }
         
         /* Webflow specific fixes */
