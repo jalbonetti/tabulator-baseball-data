@@ -1,5 +1,5 @@
 // main.js
-import { MatchupsTable } from './tables/matchupsTable.js';
+import { MatchupsTable } from './tables/combinedMatchupsTable.js';
 import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
 import { PitcherClearancesTable } from './tables/pitcherClearancesTable.js';
