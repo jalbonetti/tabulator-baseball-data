@@ -1,190 +1,136 @@
-// tables/baseTable.js
-import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
-import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
-import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+// main.js
+import { MatchupsTable } from './tables/combinedMatchupsTable.js';
+import { BatterClearancesTable } from './tables/batterClearancesTable.js';
+import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
+import { PitcherClearancesTable } from './tables/pitcherClearancesTable.js';
+import { PitcherClearancesAltTable } from './tables/pitcherClearancesAltTable.js';
+import { ModBatterStatsTable } from './tables/modBatterStats.js';
+import { ModPitcherStatsTable } from './tables/modPitcherStats.js';
+import { TabManager } from './components/tabManager.js';
+import { injectStyles } from './styles/tableStyles.js';
 
-export class BaseTable {
-    constructor(elementId, endpoint) {
-        this.elementId = elementId;
-        this.endpoint = endpoint;
-        this.table = null;
-        this.tableConfig = this.getBaseConfig();
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('GitHub Pages: DOM ready, initializing modular Tabulator functionality...');
+
+    // Inject styles
+    injectStyles();
+
+    // Check if required element exists
+    var tableElement = document.getElementById('batter-table');
+    if (!tableElement) {
+        console.error("Element 'batter-table' not found!");
+        return;
+    } else {
+        console.log("Found batter-table element, proceeding with initialization...");
     }
 
-    getBaseConfig() {
-        return {
-            ajaxURL: API_CONFIG.baseURL + this.endpoint,
-            ajaxConfig: {
-                method: "GET",
-                headers: API_CONFIG.headers
-            },
-            layout: "fitColumns",
-            responsiveLayout: "hide",
-            persistence: false,
-            ajaxContentType: "json",
-            paginationSize: false,
-            height: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            dataLoaded: (data) => {
-                console.log(`Table loaded ${data.length} total records`);
-                data.forEach(row => {
-                    row._expanded = false;
-                });
-            }
-        };
-    }
+    // Initialize tab manager and create structure
+    const tabManager = new TabManager({});
+    tabManager.createTabStructure(tableElement);
 
-    // NEW METHOD: Get the Tabulator instance
-    getTable() {
-        return this.table;
-    }
+    // Create matchups table element
+    var matchupsTableElement = document.createElement('div');
+    matchupsTableElement.id = 'matchups-table';
 
-    // Common formatter for Name column with expander
-    createNameFormatter() {
-        return function(cell, formatterParams, onRendered) {
-            var value = cell.getValue();
-            var row = cell.getRow();
-            var expanded = row.getData()._expanded || false;
-            
-            onRendered(function() {
-                try {
-                    var cellElement = cell.getElement();
-                    if (cellElement && cellElement.querySelector) {
-                        cellElement.innerHTML = '';
-                        
-                        var container = document.createElement("div");
-                        container.style.display = "flex";
-                        container.style.alignItems = "center";
-                        container.style.cursor = "pointer";
-                        
-                        var expander = document.createElement("span");
-                        expander.innerHTML = expanded ? "−" : "+";
-                        expander.style.marginRight = "8px";
-                        expander.style.fontWeight = "bold";
-                        expander.style.color = "#007bff";
-                        expander.style.fontSize = "14px";
-                        expander.style.minWidth = "12px";
-                        expander.classList.add("row-expander");
-                        
-                        var textSpan = document.createElement("span");
-                        textSpan.textContent = value || "";
-                        
-                        container.appendChild(expander);
-                        container.appendChild(textSpan);
-                        
-                        cellElement.appendChild(container);
-                    }
-                } catch (error) {
-                    console.error("Error in formatter onRendered:", error);
-                }
-            });
-            
-            return (expanded ? "− " : "+ ") + (value || "");
-        };
-    }
+    // Create pitcher table elements
+    var pitcherTableElement = document.createElement('div');
+    pitcherTableElement.id = 'pitcher-table';
+    
+    var pitcherTableAltElement = document.createElement('div');
+    pitcherTableAltElement.id = 'pitcher-table-alt';
 
-    // Common formatter for Team column
-    createTeamFormatter() {
-        return function(cell) {
-            var value = cell.getValue();
-            return TEAM_NAME_MAP[value] || value;
-        };
-    }
+    // Create mod batter stats table element
+    var modBatterStatsElement = document.createElement('div');
+    modBatterStatsElement.id = 'mod-batter-stats-table';
 
-    // Setup click handler for row expansion
-    setupRowExpansion() {
-        this.table.on("cellClick", (e, cell) => {
-            if (cell.getField() === "Batter Name") {
-                var row = cell.getRow();
-                var data = row.getData();
-                data._expanded = !data._expanded;
-                row.update(data);
-                row.reformat();
-                
-                setTimeout(() => {
-                    try {
-                        var cellElement = cell.getElement();
-                        if (cellElement && cellElement.querySelector) {
-                            var expanderIcon = cellElement.querySelector('.row-expander');
-                            if (expanderIcon) {
-                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                            }
-                        }
-                    } catch (error) {
-                        console.error("Error updating expander icon:", error);
-                    }
-                }, 100);
-            }
-        });
-    }
+    // Create mod pitcher stats table element
+    var modPitcherStatsElement = document.createElement('div');
+    modPitcherStatsElement.id = 'mod-pitcher-stats-table';
 
-    // Create subtable 1 (common info)
-    createSubtable1(container, data) {
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            data: [{
-                propFactor: data["Batter Prop Park Factor"],
-                lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
-                matchup: data["Matchup"],
-                opposingPitcher: data["SP"]
-            }],
-            columns: [
-                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 150},
-                {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 180},
-                {title: "Matchup", field: "matchup", headerSort: false, width: 280},
-                {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 180}
-            ]
-        });
+    // Add matchups table container - NOW ACTIVE BY DEFAULT
+    var table0Container = document.getElementById('table0-container');
+    if (!table0Container) {
+        table0Container = document.createElement('div');
+        table0Container.className = 'table-container active-table';  // Changed to active
+        table0Container.id = 'table0-container';
+        table0Container.style.cssText = 'width: 100%; display: block;';  // Changed to block
     }
+    table0Container.appendChild(matchupsTableElement);
 
-    // To be overridden by child classes
-    createSubtable2(container, data) {
-        throw new Error("createSubtable2 must be implemented by child class");
-    }
+    // Add pitcher tables to the DOM (hidden initially)
+    var table3Container = document.createElement('div');
+    table3Container.className = 'table-container inactive-table';
+    table3Container.id = 'table3-container';
+    table3Container.style.cssText = 'width: 100%; display: none;';
+    table3Container.appendChild(pitcherTableElement);
 
-    // Common row formatter
-    createRowFormatter() {
-        return (row) => {
-            var data = row.getData();
-            if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
-                var holderEl = document.createElement("div");
-                holderEl.classList.add('subrow-container');
-                holderEl.style.padding = "10px";
-                holderEl.style.background = "#f8f9fa";
-                
-                var subtable1 = document.createElement("div");
-                var subtable2 = document.createElement("div");
-                
-                holderEl.appendChild(subtable1);
-                holderEl.appendChild(subtable2);
-                row.getElement().appendChild(holderEl);
-                
-                this.createSubtable1(subtable1, data);
-                this.createSubtable2(subtable2, data);
-            } else if (!data._expanded) {
-                var existingSubrow = row.getElement().querySelector('.subrow-container');
-                if (existingSubrow) {
-                    existingSubrow.remove();
-                }
-            }
-        };
-    }
+    var table4Container = document.createElement('div');
+    table4Container.className = 'table-container inactive-table';
+    table4Container.id = 'table4-container';
+    table4Container.style.cssText = 'width: 100%; display: none;';
+    table4Container.appendChild(pitcherTableAltElement);
 
-    // Initialize the table
-    initialize() {
-        throw new Error("initialize must be implemented by child class");
-    }
+    // Add mod batter stats table container
+    var table5Container = document.createElement('div');
+    table5Container.className = 'table-container inactive-table';
+    table5Container.id = 'table5-container';
+    table5Container.style.cssText = 'width: 100%; display: none;';
+    table5Container.appendChild(modBatterStatsElement);
 
-    // Redraw the table
-    redraw() {
-        if (this.table) {
-            this.table.redraw();
+    // Add mod pitcher stats table container
+    var table6Container = document.createElement('div');
+    table6Container.className = 'table-container inactive-table';
+    table6Container.id = 'table6-container';
+    table6Container.style.cssText = 'width: 100%; display: none;';
+    table6Container.appendChild(modPitcherStatsElement);
+
+    // Add to tables container
+    var tablesContainer = document.querySelector('.tables-container');
+    if (tablesContainer) {
+        // Make sure table0Container is in the DOM
+        if (!document.getElementById('table0-container')) {
+            tablesContainer.appendChild(table0Container);
+        }
+        tablesContainer.appendChild(table3Container);
+        tablesContainer.appendChild(table4Container);
+        tablesContainer.appendChild(table5Container);
+        tablesContainer.appendChild(table6Container);
+        
+        // Set table1 (Batter Clearances) to inactive since Matchups is now default
+        var table1Container = document.getElementById('table1-container');
+        if (table1Container) {
+            table1Container.className = 'table-container inactive-table';
+            table1Container.style.display = 'none';
         }
     }
-}
+
+    // Initialize all tables
+    const table0 = new MatchupsTable("#matchups-table");
+    const table1 = new BatterClearancesTable("#batter-table");
+    const table2 = new BatterClearancesAltTable("#batter-table-alt");
+    const table3 = new PitcherClearancesTable("#pitcher-table");
+    const table4 = new PitcherClearancesAltTable("#pitcher-table-alt");
+    const table5 = new ModBatterStatsTable("#mod-batter-stats-table");
+    const table6 = new ModPitcherStatsTable("#mod-pitcher-stats-table");
+
+    table0.initialize();
+    table1.initialize();
+    table2.initialize();
+    table3.initialize();
+    table4.initialize();
+    table5.initialize();
+    table6.initialize();
+
+    // Update tab manager with table instances - using getTable() method
+    tabManager.tables = {
+        table0: table0.getTable(),
+        table1: table1.getTable(),
+        table2: table2.getTable(),
+        table3: table3.getTable(),
+        table4: table4.getTable(),
+        table5: table5.getTable(),
+        table6: table6.getTable()
+    };
+
+    console.log('All tables initialized successfully');
+});
