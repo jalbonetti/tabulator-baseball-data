@@ -1,11 +1,11 @@
 // main.js
+import { MatchupsTable } from './tables/matchupsTable.js';
 import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
 import { PitcherClearancesTable } from './tables/pitcherClearancesTable.js';
 import { PitcherClearancesAltTable } from './tables/pitcherClearancesAltTable.js';
 import { ModBatterStatsTable } from './tables/modBatterStats.js';
 import { ModPitcherStatsTable } from './tables/modPitcherStats.js';
-import { CombinedMatchupsTable } from './tables/combinedMatchupsTable.js';
 import { TabManager } from './components/tabManager.js';
 import { injectStyles } from './styles/tableStyles.js';
 
@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabManager = new TabManager({});
     tabManager.createTabStructure(tableElement);
 
+    // Create matchups table element
+    var matchupsTableElement = document.createElement('div');
+    matchupsTableElement.id = 'matchups-table';
+
     // Create pitcher table elements
     var pitcherTableElement = document.createElement('div');
     pitcherTableElement.id = 'pitcher-table';
@@ -43,9 +47,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var modPitcherStatsElement = document.createElement('div');
     modPitcherStatsElement.id = 'mod-pitcher-stats-table';
 
-    // Create combined matchups table element
-    var combinedMatchupsElement = document.createElement('div');
-    combinedMatchupsElement.id = 'combined-matchups-table';
+    // Add matchups table container (hidden initially)
+    var table0Container = document.createElement('div');
+    table0Container.className = 'table-container inactive-table';
+    table0Container.id = 'table0-container';
+    table0Container.style.cssText = 'width: 100%; display: none;';
+    table0Container.appendChild(matchupsTableElement);
 
     // Add pitcher tables to the DOM (hidden initially)
     var table3Container = document.createElement('div');
@@ -74,49 +81,42 @@ document.addEventListener('DOMContentLoaded', function() {
     table6Container.style.cssText = 'width: 100%; display: none;';
     table6Container.appendChild(modPitcherStatsElement);
 
-    // Add combined matchups table container
-    var table7Container = document.createElement('div');
-    table7Container.className = 'table-container inactive-table';
-    table7Container.id = 'table7-container';
-    table7Container.style.cssText = 'width: 100%; display: none;';
-    table7Container.appendChild(combinedMatchupsElement);
-
     // Add to tables container
     var tablesContainer = document.querySelector('.tables-container');
     if (tablesContainer) {
+        tablesContainer.appendChild(table0Container);
         tablesContainer.appendChild(table3Container);
         tablesContainer.appendChild(table4Container);
         tablesContainer.appendChild(table5Container);
         tablesContainer.appendChild(table6Container);
-        tablesContainer.appendChild(table7Container);
     }
 
     // Initialize all tables
+    const table0 = new MatchupsTable("#matchups-table");
     const table1 = new BatterClearancesTable("#batter-table");
     const table2 = new BatterClearancesAltTable("#batter-table-alt");
     const table3 = new PitcherClearancesTable("#pitcher-table");
     const table4 = new PitcherClearancesAltTable("#pitcher-table-alt");
     const table5 = new ModBatterStatsTable("#mod-batter-stats-table");
     const table6 = new ModPitcherStatsTable("#mod-pitcher-stats-table");
-    const table7 = new CombinedMatchupsTable("#combined-matchups-table");
 
+    table0.initialize();
     table1.initialize();
     table2.initialize();
     table3.initialize();
     table4.initialize();
     table5.initialize();
     table6.initialize();
-    table7.initialize();
 
     // Update tab manager with table instances
     tabManager.tables = {
+        table0: table0,
         table1: table1,
         table2: table2,
         table3: table3,
         table4: table4,
         table5: table5,
-        table6: table6,
-        table7: table7
+        table6: table6
     };
 
     console.log('All tables initialized successfully');
