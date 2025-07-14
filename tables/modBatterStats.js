@@ -496,7 +496,7 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     player: "Batter + SP Total",
                     stat: data["Batter + SP Stat Total"] + " " + statType,
-                    pa: "-",
+                    pa: data["Batter PA"] + " PA / " + data["SP TBF"] + " TBF",
                     ratio: formatRatio(data["Batter + SP Ratio"])
                 },
                 {
