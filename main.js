@@ -47,11 +47,14 @@ document.addEventListener('DOMContentLoaded', function() {
     var modPitcherStatsElement = document.createElement('div');
     modPitcherStatsElement.id = 'mod-pitcher-stats-table';
 
-    // Add matchups table container (hidden initially)
-    var table0Container = document.createElement('div');
-    table0Container.className = 'table-container inactive-table';
-    table0Container.id = 'table0-container';
-    table0Container.style.cssText = 'width: 100%; display: none;';
+    // Add matchups table container - NOW ACTIVE BY DEFAULT
+    var table0Container = document.getElementById('table0-container');
+    if (!table0Container) {
+        table0Container = document.createElement('div');
+        table0Container.className = 'table-container active-table';  // Changed to active
+        table0Container.id = 'table0-container';
+        table0Container.style.cssText = 'width: 100%; display: block;';  // Changed to block
+    }
     table0Container.appendChild(matchupsTableElement);
 
     // Add pitcher tables to the DOM (hidden initially)
@@ -84,11 +87,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add to tables container
     var tablesContainer = document.querySelector('.tables-container');
     if (tablesContainer) {
-        tablesContainer.appendChild(table0Container);
+        // Make sure table0Container is in the DOM
+        if (!document.getElementById('table0-container')) {
+            tablesContainer.appendChild(table0Container);
+        }
         tablesContainer.appendChild(table3Container);
         tablesContainer.appendChild(table4Container);
         tablesContainer.appendChild(table5Container);
         tablesContainer.appendChild(table6Container);
+        
+        // Set table1 (Batter Clearances) to inactive since Matchups is now default
+        var table1Container = document.getElementById('table1-container');
+        if (table1Container) {
+            table1Container.className = 'table-container inactive-table';
+            table1Container.style.display = 'none';
+        }
     }
 
     // Initialize all tables
@@ -110,13 +123,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update tab manager with table instances
     tabManager.tables = {
-        table0: table0,
-        table1: table1,
-        table2: table2,
-        table3: table3,
-        table4: table4,
-        table5: table5,
-        table6: table6
+        table0: table0.table,  // Note: need to pass the actual Tabulator instance
+        table1: table1.table,
+        table2: table2.table,
+        table3: table3.table,
+        table4: table4.table,
+        table5: table5.table,
+        table6: table6.table
     };
 
     console.log('All tables initialized successfully');
