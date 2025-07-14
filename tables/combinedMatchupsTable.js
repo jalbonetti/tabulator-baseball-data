@@ -115,6 +115,9 @@ export class MatchupsTable extends BaseTable {
             return [];
         }
         
+        // Log first matchup record to see field names
+        console.log('First matchup record:', this.matchupsData[0]);
+        
         // Process matchups data (primary rows)
         this.matchupsData.forEach(matchup => {
             const gameId = matchup['Matchup Game ID'];
@@ -228,6 +231,8 @@ export class MatchupsTable extends BaseTable {
         // Convert to array and sort by game ID pairs
         const combinedData = Array.from(gameMap.values());
         
+        console.log('Combined data sample:', combinedData[0]);
+        
         // Sort by game ID to maintain pair order (11, 12, 21, 22, etc.)
         combinedData.sort((a, b) => {
             const aPair = Math.floor(a.gameId / 10);
@@ -260,7 +265,11 @@ export class MatchupsTable extends BaseTable {
                 {column: "team", dir: "asc"}
             ],
             rowFormatter: this.createRowFormatter(),
-            placeholder: "Loading data..."
+            placeholder: "Loading data...",
+            dataLoaded: (data) => {
+                console.log(`Matchups table loaded ${data.length} records`);
+                console.log('First row data:', data[0]);
+            }
         };
 
         this.table = new Tabulator(this.elementId, config);
@@ -268,8 +277,11 @@ export class MatchupsTable extends BaseTable {
         
         // Then fetch and load the data
         this.fetchAllData().then(data => {
+            console.log('Setting data in table:', data);
             this.table.setData(data);
             console.log('Matchups table loaded with', data.length, 'rows');
+        }).catch(error => {
+            console.error('Error loading matchups data:', error);
         });
         
         this.table.on("tableBuilt", () => {
