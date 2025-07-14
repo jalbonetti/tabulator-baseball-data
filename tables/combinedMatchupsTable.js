@@ -1,9 +1,9 @@
-// tables/combinedMatchupsTable.js
+// tables/matchupsTable.js
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 
-export class CombinedMatchupsTable extends BaseTable {
+export class MatchupsTable extends BaseTable {
     constructor(elementId) {
         super(elementId, null); // No single endpoint - we'll fetch multiple
         this.matchupsData = [];
@@ -79,6 +79,25 @@ export class CombinedMatchupsTable extends BaseTable {
         }
     }
 
+    // Helper function to determine if team is home or away
+    isHomeGame(matchup, team) {
+        if (!matchup || !team) return false;
+        
+        // Check if the matchup contains "vs" which typically indicates home game
+        if (matchup.includes(' vs ')) {
+            const teams = matchup.split(' vs ');
+            return teams[0].includes(team);
+        }
+        
+        // Check if the matchup contains "@" which typically indicates away game
+        if (matchup.includes(' @ ')) {
+            const teams = matchup.split(' @ ');
+            return teams[1].includes(team);
+        }
+        
+        return false;
+    }
+
     combineData() {
         // Group all data by Game ID
         const gameMap = new Map();
@@ -108,7 +127,10 @@ export class CombinedMatchupsTable extends BaseTable {
                     spread: matchup['Matchup Spread'],
                     total: matchup['Matchup Total'],
                     lineupStatus: matchup['Matchup Lineup Status'],
-                    weather: `${matchup['Matchup Weather 1']} | ${matchup['Matchup Weather 2']} | ${matchup['Matchup Weather 3']} | ${matchup['Matchup Weather 4']}`,
+                    weather1: matchup['Matchup Weather 1'],
+                    weather2: matchup['Matchup Weather 2'],
+                    weather3: matchup['Matchup Weather 3'],
+                    weather4: matchup['Matchup Weather 4'],
                     parkFactors: [],
                     batterMatchups: [],
                     pitcherMatchups: [],
@@ -146,8 +168,7 @@ export class CombinedMatchupsTable extends BaseTable {
                     name: batter['Batter Name & Hand & Spot'],
                     splitId: batter['Batter Split ID'],
                     pa: batter['Batter PA'],
-                    avg: batter['Batter AVG'],
-                    h: batter['Batter H'],
+                    hits: batter['Batter H'],
                     singles: batter['Batter 1B'],
                     doubles: batter['Batter 2B'],
                     triples: batter['Batter 3B'],
@@ -169,14 +190,13 @@ export class CombinedMatchupsTable extends BaseTable {
                     name: pitcher['Starter Name & Hand'],
                     splitId: pitcher['Starter Split ID'],
                     tbf: pitcher['Starter TBF'],
-                    avg: pitcher['Starter AVG'],
-                    h: pitcher['Starter H'],
+                    hits: pitcher['Starter H'],
                     singles: pitcher['Starter 1B'],
                     doubles: pitcher['Starter 2B'],
                     triples: pitcher['Starter 3B'],
                     hr: pitcher['Starter HR'],
                     r: pitcher['Starter R'],
-                    er: pitcher['Starter ER'],
+                    era: pitcher['Starter ERA'],
                     bb: pitcher['Starter BB'],
                     so: pitcher['Starter SO']
                 });
@@ -192,14 +212,13 @@ export class CombinedMatchupsTable extends BaseTable {
                     hand: bullpen['Bullpen Hand & Number'],
                     splitId: bullpen['Bullpen Split ID'],
                     tbf: bullpen['Bullpen TBF'],
-                    avg: bullpen['Bullpen AVG'],
-                    h: bullpen['Bullpen H'],
+                    hits: bullpen['Bullpen H'],
                     singles: bullpen['Bullpen 1B'],
                     doubles: bullpen['Bullpen 2B'],
                     triples: bullpen['Bullpen 3B'],
                     hr: bullpen['Bullpen HR'],
                     r: bullpen['Bullpen R'],
-                    er: bullpen['Bullpen ER'],
+                    era: bullpen['Bullpen ERA'],
                     bb: bullpen['Bullpen BB'],
                     so: bullpen['Bullpen SO']
                 });
@@ -250,11 +269,11 @@ export class CombinedMatchupsTable extends BaseTable {
         // Then fetch and load the data
         this.fetchAllData().then(data => {
             this.table.setData(data);
-            console.log('Combined Matchups table loaded with', data.length, 'rows');
+            console.log('Matchups table loaded with', data.length, 'rows');
         });
         
         this.table.on("tableBuilt", () => {
-            console.log("Combined Matchups table built successfully");
+            console.log("Matchups table built successfully");
         });
     }
 
@@ -343,20 +362,6 @@ export class CombinedMatchupsTable extends BaseTable {
                 sorter: "string", 
                 headerFilter: createCustomMultiSelect,
                 resizable: false
-            },
-            {
-                title: "Ballpark", 
-                field: "ballpark", 
-                width: 200, 
-                minWidth: 150,
-                resizable: false
-            },
-            {
-                title: "Weather", 
-                field: "weather", 
-                width: 300, 
-                minWidth: 250,
-                resizable: false
             }
         ];
     }
@@ -398,15 +403,18 @@ export class CombinedMatchupsTable extends BaseTable {
                 holderEl.style.background = "#f8f9fa";
                 
                 // Create containers for each subtable
+                var weatherDiv = document.createElement("div");
                 var parkFactorsDiv = document.createElement("div");
                 var pitcherDiv = document.createElement("div");
                 var batterDiv = document.createElement("div");
                 var bullpenDiv = document.createElement("div");
                 
+                weatherDiv.style.marginBottom = "15px";
                 parkFactorsDiv.style.marginBottom = "15px";
                 pitcherDiv.style.marginBottom = "15px";
                 batterDiv.style.marginBottom = "15px";
                 
+                holderEl.appendChild(weatherDiv);
                 holderEl.appendChild(parkFactorsDiv);
                 holderEl.appendChild(pitcherDiv);
                 holderEl.appendChild(batterDiv);
@@ -414,6 +422,7 @@ export class CombinedMatchupsTable extends BaseTable {
                 row.getElement().appendChild(holderEl);
                 
                 // Create subtables
+                this.createWeatherSubtable(weatherDiv, data);
                 this.createParkFactorsSubtable(parkFactorsDiv, data);
                 this.createPitcherSubtable(pitcherDiv, data);
                 this.createBatterSubtable(batterDiv, data);
@@ -425,6 +434,30 @@ export class CombinedMatchupsTable extends BaseTable {
                 }
             }
         };
+    }
+
+    createWeatherSubtable(container, data) {
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            data: [{
+                ballpark: data.ballpark,
+                weather1: data.weather1,
+                weather2: data.weather2,
+                weather3: data.weather3,
+                weather4: data.weather4
+            }],
+            columns: [
+                {title: "Ballpark", field: "ballpark", headerSort: false, width: 200},
+                {title: "Weather 1", field: "weather1", headerSort: false, width: 150},
+                {title: "Weather 2", field: "weather2", headerSort: false, width: 150},
+                {title: "Weather 3", field: "weather3", headerSort: false, width: 150},
+                {title: "Weather 4", field: "weather4", headerSort: false, width: 150}
+            ]
+        });
     }
 
     createParkFactorsSubtable(container, data) {
@@ -443,7 +476,15 @@ export class CombinedMatchupsTable extends BaseTable {
             data: sortedParkFactors,
             columns: [
                 {title: "Park Factors", columns: [
-                    {title: "Split ID", field: "splitId", headerSort: false, width: 80},
+                    {title: "Split", field: "splitId", headerSort: false, width: 80,
+                        formatter: (cell) => {
+                            const value = cell.getValue();
+                            if (value === 'A') return 'All';
+                            if (value === 'R') return 'Right';
+                            if (value === 'L') return 'Left';
+                            return value;
+                        }
+                    },
                     {title: "H", field: "h", headerSort: false, width: 60},
                     {title: "1B", field: "singles", headerSort: false, width: 60},
                     {title: "2B", field: "doubles", headerSort: false, width: 60},
@@ -467,6 +508,7 @@ export class CombinedMatchupsTable extends BaseTable {
     createPitcherSubtable(container, data) {
         // Group pitcher data by name
         const pitchersByName = new Map();
+        const isHome = this.isHomeGame(data.game, data.team);
         
         data.pitcherMatchups.forEach(pitcher => {
             const name = pitcher.name;
@@ -481,7 +523,7 @@ export class CombinedMatchupsTable extends BaseTable {
         });
         
         // Sort splits within each pitcher
-        const splitOrder = ['CSeason', 'CSeason@', 'C30', 'C30@', 'RSeason', 'RSeason@', 'R30', 'R30@', 'LSeason', 'LSeason@', 'L30', 'L30@'];
+        const splitOrder = ['CSeason', 'RSeason', 'LSeason', 'CSeason@', 'RSeason@', 'LSeason@'];
         pitchersByName.forEach(pitcher => {
             pitcher.splits.sort((a, b) => {
                 const indexA = splitOrder.indexOf(a.splitId);
@@ -498,8 +540,8 @@ export class CombinedMatchupsTable extends BaseTable {
             movableColumns: false,
             data: Array.from(pitchersByName.values()),
             columns: [
-                {title: "Starter", field: "name", headerSort: false, width: 200},
-                {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180,
+                {title: "Starter", field: "name", headerSort: false, width: 200, frozen: true},
+                {title: "Split", field: "timeLocation", headerSort: false, width: 120, frozen: true,
                     formatter: () => "Full Season"
                 },
                 {title: "TBF", field: "tbf", headerSort: false, width: 60,
@@ -509,11 +551,14 @@ export class CombinedMatchupsTable extends BaseTable {
                         return fullSeason ? fullSeason.tbf : '';
                     }
                 },
-                {title: "H", field: "h", headerSort: false, width: 60,
+                {title: "Hits/TBF", field: "hitsPerTBF", headerSort: false, width: 80,
                     formatter: (cell) => {
                         const data = cell.getRow().getData();
                         const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.h : '';
+                        if (fullSeason && fullSeason.tbf > 0) {
+                            return (fullSeason.hits / fullSeason.tbf).toFixed(3);
+                        }
+                        return '';
                     }
                 },
                 {title: "1B", field: "singles", headerSort: false, width: 60,
@@ -551,11 +596,11 @@ export class CombinedMatchupsTable extends BaseTable {
                         return fullSeason ? fullSeason.r : '';
                     }
                 },
-                {title: "ER", field: "er", headerSort: false, width: 60,
+                {title: "ERA", field: "era", headerSort: false, width: 60,
                     formatter: (cell) => {
                         const data = cell.getRow().getData();
                         const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.er : '';
+                        return fullSeason ? fullSeason.era : '';
                     }
                 },
                 {title: "BB", field: "bb", headerSort: false, width: 60,
@@ -597,15 +642,15 @@ export class CombinedMatchupsTable extends BaseTable {
                         
                         const cells = [
                             { value: split.name, width: 200 },
-                            { value: this.mapSplitId(split.splitId), width: 180 },
+                            { value: this.mapSplitId(split.splitId, isHome), width: 120 },
                             { value: split.tbf, width: 60 },
-                            { value: split.h, width: 60 },
+                            { value: split.tbf > 0 ? (split.hits / split.tbf).toFixed(3) : '', width: 80 },
                             { value: split.singles, width: 60 },
                             { value: split.doubles, width: 60 },
                             { value: split.triples, width: 60 },
                             { value: split.hr, width: 60 },
                             { value: split.r, width: 60 },
-                            { value: split.er, width: 60 },
+                            { value: split.era, width: 60 },
                             { value: split.bb, width: 60 },
                             { value: split.so, width: 60 }
                         ];
@@ -642,6 +687,8 @@ export class CombinedMatchupsTable extends BaseTable {
 
         // Group by batter name
         const battersByName = new Map();
+        const isHome = this.isHomeGame(data.game, data.team);
+        
         sortedBatters.forEach(batter => {
             // Extract just the name without the spot number
             const nameMatch = batter.name.match(/^(.+?)\s*\([^)]+\)\s*—\s*\d+$/);
@@ -659,7 +706,7 @@ export class CombinedMatchupsTable extends BaseTable {
         });
 
         // Sort splits within each batter
-        const splitOrder = ['CSeason', 'CSeason@', 'C30', 'C30@', 'RSeason', 'RSeason@', 'R30', 'R30@', 'LSeason', 'LSeason@', 'L30', 'L30@'];
+        const splitOrder = ['CSeason', 'RSeason', 'LSeason', 'CSeason@', 'RSeason@', 'LSeason@'];
         battersByName.forEach(batter => {
             batter.splits.sort((a, b) => {
                 const indexA = splitOrder.indexOf(a.splitId);
@@ -676,8 +723,8 @@ export class CombinedMatchupsTable extends BaseTable {
             movableColumns: false,
             data: Array.from(battersByName.values()),
             columns: [
-                {title: "Batter", field: "name", headerSort: false, width: 200},
-                {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180,
+                {title: "Batter", field: "name", headerSort: false, width: 200, frozen: true},
+                {title: "Split", field: "timeLocation", headerSort: false, width: 120, frozen: true,
                     formatter: () => "Full Season"
                 },
                 {title: "PA", field: "pa", headerSort: false, width: 60,
@@ -687,11 +734,14 @@ export class CombinedMatchupsTable extends BaseTable {
                         return fullSeason ? fullSeason.pa : '';
                     }
                 },
-                {title: "H", field: "h", headerSort: false, width: 60,
+                {title: "Hits/PA", field: "hitsPerPA", headerSort: false, width: 80,
                     formatter: (cell) => {
                         const data = cell.getRow().getData();
                         const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.h : '';
+                        if (fullSeason && fullSeason.pa > 0) {
+                            return (fullSeason.hits / fullSeason.pa).toFixed(3);
+                        }
+                        return '';
                     }
                 },
                 {title: "1B", field: "singles", headerSort: false, width: 60,
@@ -775,9 +825,9 @@ export class CombinedMatchupsTable extends BaseTable {
                         
                         const cells = [
                             { value: split.name, width: 200 },
-                            { value: this.mapSplitId(split.splitId), width: 180 },
+                            { value: this.mapSplitId(split.splitId, isHome), width: 120 },
                             { value: split.pa, width: 60 },
-                            { value: split.h, width: 60 },
+                            { value: split.pa > 0 ? (split.hits / split.pa).toFixed(3) : '', width: 80 },
                             { value: split.singles, width: 60 },
                             { value: split.doubles, width: 60 },
                             { value: split.triples, width: 60 },
@@ -822,6 +872,8 @@ export class CombinedMatchupsTable extends BaseTable {
 
         // Group by hand and create primary rows
         const bullpenByHand = new Map();
+        const isHome = this.isHomeGame(data.game, data.team);
+        
         sortedBullpen.forEach(bullpen => {
             // Extract hand type and number
             const match = bullpen.hand.match(/(\d+)\s*(Righties|Lefties)/);
@@ -864,15 +916,23 @@ export class CombinedMatchupsTable extends BaseTable {
             data: primaryRows,
             columns: [
                 {title: "Bullpen", field: "hand", headerSort: false, width: 100},
-                {title: "Time/Location Split", field: "timeLocation", headerSort: false, width: 180},
+                {title: "Split", field: "timeLocation", headerSort: false, width: 120},
                 {title: "TBF", field: "tbf", headerSort: false, width: 60},
-                {title: "H", field: "h", headerSort: false, width: 60},
+                {title: "Hits/TBF", field: "hitsPerTBF", headerSort: false, width: 80,
+                    formatter: (cell) => {
+                        const data = cell.getData();
+                        if (data.tbf > 0) {
+                            return (data.hits / data.tbf).toFixed(3);
+                        }
+                        return '';
+                    }
+                },
                 {title: "1B", field: "singles", headerSort: false, width: 60},
                 {title: "2B", field: "doubles", headerSort: false, width: 60},
                 {title: "3B", field: "triples", headerSort: false, width: 60},
                 {title: "HR", field: "hr", headerSort: false, width: 60},
                 {title: "R", field: "r", headerSort: false, width: 60},
-                {title: "ER", field: "er", headerSort: false, width: 60},
+                {title: "ERA", field: "era", headerSort: false, width: 60},
                 {title: "BB", field: "bb", headerSort: false, width: 60},
                 {title: "SO", field: "so", headerSort: false, width: 60}
             ],
@@ -883,55 +943,14 @@ export class CombinedMatchupsTable extends BaseTable {
         });
     }
 
-    createNestedRows(matchups, type) {
-        const rows = [];
-        const groups = new Map();
-
-        // Group by name
-        matchups.forEach(matchup => {
-            const name = matchup.name;
-            if (!groups.has(name)) {
-                groups.set(name, []);
-            }
-            groups.get(name).push(matchup);
-        });
-
-        // Create rows in the specified order
-        groups.forEach((matchupGroup, name) => {
-            // Sort by split ID order
-            const splitOrder = ['CSeason', 'CSeason@', 'C30', 'C30@', 'RSeason', 'RSeason@', 'R30', 'R30@', 'LSeason', 'LSeason@', 'L30', 'L30@'];
-            matchupGroup.sort((a, b) => {
-                const indexA = splitOrder.indexOf(a.splitId);
-                const indexB = splitOrder.indexOf(b.splitId);
-                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-            });
-
-            matchupGroup.forEach(matchup => {
-                rows.push({
-                    ...matchup,
-                    timeLocation: this.mapSplitId(matchup.splitId),
-                    isPrimary: matchup.splitId === 'CSeason'
-                });
-            });
-        });
-
-        return rows;
-    }
-
-    mapSplitId(splitId) {
+    mapSplitId(splitId, isHome) {
         const mapping = {
             'CSeason': 'Full Season',
-            'CSeason@': 'Full Season (Home/Away)',
-            'C30': 'Last 30 Days',
-            'C30@': 'Last 30 Days (Home/Away)',
-            'RSeason': 'Full Season (V. R)',
-            'RSeason@': 'Full Season (Home/Away) (V. R)',
-            'R30': 'Last 30 Days (V. R)',
-            'R30@': 'Last 30 Days (Home/Away) (V. R)',
-            'LSeason': 'Full Season (V. L)',
-            'LSeason@': 'Full Season (Home/Away) (V. L)',
-            'L30': 'Last 30 Days (V. L)',
-            'L30@': 'Last 30 Days (Home/Away) (V. L)'
+            'CSeason@': isHome ? 'Home' : 'Away',
+            'RSeason': 'vs R',
+            'RSeason@': `vs R ${isHome ? 'Home' : 'Away'}`,
+            'LSeason': 'vs L',
+            'LSeason@': `vs L ${isHome ? 'Home' : 'Away'}`
         };
         return mapping[splitId] || splitId;
     }
