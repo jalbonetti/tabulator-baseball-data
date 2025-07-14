@@ -1,8 +1,8 @@
 // components/tabManager.js
 export class TabManager {
     constructor(tables) {
-        this.tables = tables; // { table1: tableInstance, table2: tableInstance, ..., table7: tableInstance }
-        this.currentActiveTab = 'table1';
+        this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table6: tableInstance }
+        this.currentActiveTab = 'table0';
         this.setupTabSwitching();
     }
 
@@ -18,13 +18,13 @@ export class TabManager {
                 
                 // Get all containers
                 var containers = {
+                    table0: document.getElementById('table0-container'),
                     table1: document.getElementById('table1-container'),
                     table2: document.getElementById('table2-container'),
                     table3: document.getElementById('table3-container'),
                     table4: document.getElementById('table4-container'),
                     table5: document.getElementById('table5-container'),
-                    table6: document.getElementById('table6-container'),
-                    table7: document.getElementById('table7-container')
+                    table6: document.getElementById('table6-container')
                 };
                 
                 // Hide all containers
@@ -55,18 +55,18 @@ export class TabManager {
             wrapper.className = 'table-wrapper';
             wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
             
-            // Create tabs container with all seven tabs
+            // Create tabs container with all tabs - Matchups now first
             var tabsContainer = document.createElement('div');
             tabsContainer.className = 'tabs-container';
             tabsContainer.innerHTML = `
                 <div class="tab-buttons">
-                    <button class="tab-button active" data-tab="table1">Batter Prop Clearances</button>
+                    <button class="tab-button active" data-tab="table0">Matchups</button>
+                    <button class="tab-button" data-tab="table1">Batter Prop Clearances</button>
                     <button class="tab-button" data-tab="table2">Batter Prop Clearances (Alt. View)</button>
                     <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
                     <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
                     <button class="tab-button" data-tab="table5">Batter Stats</button>
                     <button class="tab-button" data-tab="table6">Pitcher Stats</button>
-                    <button class="tab-button" data-tab="table7">Combined Matchups</button>
                 </div>
             `;
             
@@ -75,11 +75,17 @@ export class TabManager {
             tablesContainer.className = 'tables-container';
             tablesContainer.style.cssText = 'width: 100%; position: relative; min-height: 500px;';
             
-            // Move original table into first container
+            // Create matchups container - now the active table
+            var table0Container = document.createElement('div');
+            table0Container.className = 'table-container active-table';
+            table0Container.id = 'table0-container';
+            table0Container.style.cssText = 'width: 100%; display: block;';
+            
+            // Move original table into first container - now inactive
             var table1Container = document.createElement('div');
-            table1Container.className = 'table-container active-table';
+            table1Container.className = 'table-container inactive-table';
             table1Container.id = 'table1-container';
-            table1Container.style.cssText = 'width: 100%; display: block;';
+            table1Container.style.cssText = 'width: 100%; display: none;';
             
             // Create second table container
             var table2Container = document.createElement('div');
@@ -99,6 +105,7 @@ export class TabManager {
             table1Container.appendChild(tableElement);
             table2Container.appendChild(table2Element);
             
+            tablesContainer.appendChild(table0Container);
             tablesContainer.appendChild(table1Container);
             tablesContainer.appendChild(table2Container);
         }
