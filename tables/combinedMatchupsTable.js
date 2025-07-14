@@ -1,4 +1,4 @@
-// tables/matchupsTable.js
+// tables/combinedMatchupsTable.js
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
