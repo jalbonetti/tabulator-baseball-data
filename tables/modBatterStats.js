@@ -454,6 +454,14 @@ export class ModBatterStatsTable extends BaseTable {
             return parseFloat(value).toFixed(3);
         };
         
+        // Calculate ratios for vs R and vs L
+        const calculateRatio = (total, pa) => {
+            const totalNum = parseFloat(total);
+            const paNum = parseFloat(pa);
+            if (isNaN(totalNum) || isNaN(paNum) || paNum === 0) return "-";
+            return formatRatio(totalNum / paNum);
+        };
+        
         new Tabulator(container, {
             layout: "fitColumns",
             columnHeaderSortMulti: false,
@@ -465,13 +473,13 @@ export class ModBatterStatsTable extends BaseTable {
                     player: data["Batter Name"] + " (" + batterHand + ") Versus Righties",
                     stat: data["Batter Total vs R"] + " " + statType,
                     pa: data["Batter PA vs R"] + " PA",
-                    ratio: "-"
+                    ratio: calculateRatio(data["Batter Total vs R"], data["Batter PA vs R"])
                 },
                 {
                     player: data["Batter Name"] + " (" + batterHand + ") Versus Lefties",
                     stat: data["Batter Total vs L"] + " " + statType,
                     pa: data["Batter PA vs L"] + " PA",
-                    ratio: "-"
+                    ratio: calculateRatio(data["Batter Total vs L"], data["Batter PA vs L"])
                 },
                 {
                     player: data["Batter Name"] + " (" + batterHand + ") Total",
@@ -495,13 +503,13 @@ export class ModBatterStatsTable extends BaseTable {
                     player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + data["R Relievers"] + ") Versus " + rrVersusText,
                     stat: data["RR Stat Total"] + " " + statType,
                     pa: data["RR TBF"] + " TBF",
-                    ratio: "-"
+                    ratio: calculateRatio(data["RR Stat Total"], data["RR TBF"])
                 },
                 {
                     player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + data["L Relievers"] + ") Versus " + lrVersusText,
                     stat: data["LR Stat Total"] + " " + statType,
                     pa: data["LR TBF"] + " TBF",
-                    ratio: "-"
+                    ratio: calculateRatio(data["LR Stat Total"], data["LR TBF"])
                 },
                 {
                     player: "Bullpen Total",
