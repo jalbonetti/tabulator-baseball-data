@@ -13,6 +13,8 @@ export class MatchupsTable extends BaseTable {
         this.bullpenMatchupsData = [];
     }
 
+    // getTable() is now inherited from BaseTable
+
     async fetchAllData() {
         try {
             // Check the exact table names - they might be different
