@@ -85,6 +85,13 @@ export class ModPitcherStatsTable extends BaseTable {
             return parseFloat(value).toFixed(0);
         };
 
+        // Ratio formatter function (3 decimal places)
+        const ratioFormatter = function(cell) {
+            var value = cell.getValue();
+            if (value === null || value === undefined) return "-";
+            return parseFloat(value).toFixed(3);
+        };
+
         return [
             {title: "Player Info", columns: [
                 {
@@ -184,8 +191,8 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "V. R", 
                     field: "Pitcher Total vs R", 
-                    width: 80, 
-                    minWidth: 60,
+                    width: 65, 
+                    minWidth: 50,
                     sorter: "number",
                     resizable: false,
                     formatter: simpleNumberFormatter
@@ -193,8 +200,8 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "V. L", 
                     field: "Pitcher Total vs L", 
-                    width: 80, 
-                    minWidth: 60,
+                    width: 65, 
+                    minWidth: 50,
                     sorter: "number",
                     resizable: false,
                     formatter: simpleNumberFormatter
@@ -202,30 +209,28 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Total", 
                     field: "Pitcher Total", 
-                    width: 80, 
-                    minWidth: 60,
+                    width: 65, 
+                    minWidth: 50,
                     sorter: "number",
                     resizable: false,
                     formatter: simpleNumberFormatter
-                }
-            ]},
-            {title: "Batters", columns: [
+                },
                 {
-                    title: "Total", 
-                    field: "Opposing Batting Stat Total", 
-                    width: 80, 
-                    minWidth: 60,
+                    title: "Ratio", 
+                    field: "Pitcher Total Ratio", 
+                    width: 70, 
+                    minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: simpleNumberFormatter
+                    formatter: ratioFormatter
                 }
             ]},
             {title: "Lineup", columns: [
                 {
                     title: "R.", 
                     field: "RB Stat Total", 
-                    width: 70, 
-                    minWidth: 50,
+                    width: 55, 
+                    minWidth: 45,
                     sorter: "number",
                     resizable: false,
                     formatter: simpleNumberFormatter
@@ -233,30 +238,39 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "L.", 
                     field: "LB Stat Total", 
-                    width: 70, 
+                    width: 55, 
+                    minWidth: 45,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: simpleNumberFormatter
+                }
+            ]},
+            {title: "Opposing Batting", columns: [
+                {
+                    title: "Total", 
+                    field: "Opposing Batting Stat Total", 
+                    width: 65, 
                     minWidth: 50,
                     sorter: "number",
                     resizable: false,
                     formatter: simpleNumberFormatter
-                }
-            ]},
-            {title: "Total", columns: [
+                },
                 {
-                    title: "Total", 
-                    field: "Opposing Batting Stat Total", 
-                    width: 80, 
-                    minWidth: 60,
+                    title: "Ratio", 
+                    field: "Opposing Batting Total Ratio", 
+                    width: 70, 
+                    minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: simpleNumberFormatter
+                    formatter: ratioFormatter
                 }
             ]},
-            {title: "Righties Matchup", columns: [
+            {title: "Matchup V. R", columns: [
                 {
                     title: "Total", 
                     field: "Matchup Total vs R", 
-                    width: 80, 
-                    minWidth: 60,
+                    width: 65, 
+                    minWidth: 50,
                     sorter: "number",
                     resizable: false,
                     formatter: simpleNumberFormatter
@@ -264,23 +278,19 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Rate", 
                     field: "Matchup Rate vs R", 
-                    width: 85, 
-                    minWidth: 70,
+                    width: 70, 
+                    minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: function(cell) {
-                        var value = cell.getValue();
-                        if (value === null || value === undefined) return "-";
-                        return parseFloat(value).toFixed(3);
-                    }
+                    formatter: ratioFormatter
                 }
             ]},
-            {title: "Lefties Matchup", columns: [
+            {title: "Matchup V. L", columns: [
                 {
                     title: "Total", 
                     field: "Matchup Total vs L", 
-                    width: 80, 
-                    minWidth: 60,
+                    width: 65, 
+                    minWidth: 50,
                     sorter: "number",
                     resizable: false,
                     formatter: simpleNumberFormatter
@@ -288,23 +298,19 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Rate", 
                     field: "Matchup Rate vs L", 
-                    width: 85, 
-                    minWidth: 70,
+                    width: 70, 
+                    minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: function(cell) {
-                        var value = cell.getValue();
-                        if (value === null || value === undefined) return "-";
-                        return parseFloat(value).toFixed(3);
-                    }
+                    formatter: ratioFormatter
                 }
             ]},
             {title: "Matchup Total", columns: [
                 {
                     title: "Total", 
                     field: "Matchup Stat Total", 
-                    width: 80, 
-                    minWidth: 60,
+                    width: 65, 
+                    minWidth: 50,
                     sorter: "number",
                     resizable: false,
                     formatter: simpleNumberFormatter
@@ -312,15 +318,11 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Rate", 
                     field: "Matchup Rate", 
-                    width: 85, 
-                    minWidth: 70,
+                    width: 70, 
+                    minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: function(cell) {
-                        var value = cell.getValue();
-                        if (value === null || value === undefined) return "-";
-                        return parseFloat(value).toFixed(3);
-                    }
+                    formatter: ratioFormatter
                 }
             ]}
         ];
@@ -364,15 +366,11 @@ export class ModPitcherStatsTable extends BaseTable {
         var rbVersusText = pitcherHand === "L" ? "Lefties" : "Righties";
         var lbVersusText = pitcherHand === "R" ? "Righties" : "Lefties";
         
-        // Calculate combined TBF/PA for matchups
-        var tbfR = parseFloat(data["Pitcher TBF vs R"]) || 0;
-        var tbfL = parseFloat(data["Pitcher TBF vs L"]) || 0;
-        var paR = parseFloat(data["RB PA"]) || 0;
-        var paL = parseFloat(data["LB PA"]) || 0;
-        
-        var rightiesMatchupTBFPA = tbfR + " TBF / " + paR + " PA";
-        var leftiesMatchupTBFPA = tbfL + " TBF / " + paL + " PA";
-        var totalMatchupTBFPA = (parseFloat(data["Pitcher TBF"]) || 0) + " TBF / " + (parseFloat(data["Opposing Batting PA"]) || 0) + " PA";
+        // Format ratio values
+        const formatRatio = (value) => {
+            if (value === null || value === undefined) return "-";
+            return parseFloat(value).toFixed(3);
+        };
         
         new Tabulator(container, {
             layout: "fitColumns",
@@ -384,53 +382,63 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     player: data["Pitcher Name"] + " (" + pitcherHand + ") Versus Righties",
                     stat: data["Pitcher Total vs R"] + " " + statType,
-                    tbf: data["Pitcher TBF vs R"] + " TBF"
+                    tbf: data["Pitcher TBF vs R"] + " TBF",
+                    ratio: "-"
                 },
                 {
                     player: data["Pitcher Name"] + " (" + pitcherHand + ") Versus Lefties",
                     stat: data["Pitcher Total vs L"] + " " + statType,
-                    tbf: data["Pitcher TBF vs L"] + " TBF"
+                    tbf: data["Pitcher TBF vs L"] + " TBF",
+                    ratio: "-"
                 },
                 {
                     player: data["Pitcher Name"] + " (" + pitcherHand + ") Total",
                     stat: data["Pitcher Total"] + " " + statType,
-                    tbf: data["Pitcher TBF"] + " TBF"
+                    tbf: data["Pitcher TBF"] + " TBF",
+                    ratio: formatRatio(data["Pitcher Total Ratio"])
                 },
                 {
                     player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + data["R Batters"] + ") Versus " + rbVersusText,
                     stat: data["RB Stat Total"] + " " + statType,
-                    tbf: data["RB PA"] + " PA"
+                    tbf: data["RB PA"] + " PA",
+                    ratio: "-"
                 },
                 {
                     player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + data["L Batters"] + ") Versus " + lbVersusText,
                     stat: data["LB Stat Total"] + " " + statType,
-                    tbf: data["LB PA"] + " PA"
+                    tbf: data["LB PA"] + " PA",
+                    ratio: "-"
                 },
                 {
                     player: "Opposing Batting Total",
                     stat: data["Opposing Batting Stat Total"] + " " + statType,
-                    tbf: data["Opposing Batting PA"] + " PA"
+                    tbf: data["Opposing Batting PA"] + " PA",
+                    ratio: formatRatio(data["Opposing Batting Total Ratio"])
                 },
                 {
-                    player: "Righties Matchup Total",
+                    player: "Matchup Total V. Righties",
                     stat: data["Matchup Total vs R"] + " " + statType,
-                    tbf: rightiesMatchupTBFPA
+                    tbf: data["Pitcher TBF vs R"] + " TBF / " + data["RB PA"] + " PA",
+                    ratio: formatRatio(data["Matchup Rate vs R"])
                 },
                 {
-                    player: "Lefties Matchup Total",
+                    player: "Matchup Total V. Lefties",
                     stat: data["Matchup Total vs L"] + " " + statType,
-                    tbf: leftiesMatchupTBFPA
+                    tbf: data["Pitcher TBF vs L"] + " TBF / " + data["LB PA"] + " PA",
+                    ratio: formatRatio(data["Matchup Rate vs L"])
                 },
                 {
                     player: "Matchup Total",
                     stat: data["Matchup Stat Total"] + " " + statType,
-                    tbf: totalMatchupTBFPA
+                    tbf: data["Pitcher TBF"] + " TBF / " + data["Opposing Batting PA"] + " PA",
+                    ratio: formatRatio(data["Matchup Rate"])
                 }
             ],
             columns: [
-                {title: "Players", field: "player", headerSort: false, width: 350},
-                {title: statType + " Total", field: "stat", headerSort: false, width: 150},
-                {title: "Total Batters Faced / Plate Appearances", field: "tbf", headerSort: false, width: 200}
+                {title: "Players", field: "player", headerSort: false, width: 320},
+                {title: statType + " Total", field: "stat", headerSort: false, width: 140},
+                {title: "TBF / PA", field: "tbf", headerSort: false, width: 150},
+                {title: "Ratio/Rate", field: "ratio", headerSort: false, width: 90}
             ]
         });
     }
