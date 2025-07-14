@@ -36,6 +36,11 @@ export class BaseTable {
         };
     }
 
+    // NEW METHOD: Get the Tabulator instance
+    getTable() {
+        return this.table;
+    }
+
     // Common formatter for Name column with expander
     createNameFormatter() {
         return function(cell, formatterParams, onRendered) {
