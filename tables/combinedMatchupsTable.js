@@ -270,7 +270,11 @@ export class MatchupsTable extends BaseTable {
             placeholder: "Loading data...",
             dataLoaded: (data) => {
                 console.log(`Matchups table loaded ${data.length} records`);
-                console.log('First row data:', data[0]);
+                if (data.length > 0) {
+                    console.log('First row data:', data[0]);
+                    // Force redraw to ensure visibility
+                    this.table.redraw(true);
+                }
             }
         };
 
@@ -305,7 +309,8 @@ export class MatchupsTable extends BaseTable {
                     var value = cell.getValue();
                     var row = cell.getRow();
                     var expanded = row.getData()._expanded || false;
-                    var teamName = TEAM_NAME_MAP[value] || value;
+                    // The data already contains full team names, so we don't need to map them
+                    var teamName = value;
                     
                     onRendered(function() {
                         try {
