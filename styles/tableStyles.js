@@ -1,4 +1,4 @@
-// styles/tableStyles.js
+// styles/tableStyles.js - COMPLETE VERSION WITH MATCHUPS FIXES
 export function injectStyles() {
     var style = document.createElement('style');
     style.textContent = `
@@ -21,6 +21,7 @@ export function injectStyles() {
             display: flex;
             gap: 2px;
             margin-bottom: 10px;
+            flex-wrap: wrap;  /* Allow wrapping on smaller screens */
         }
         
         .tab-button {
@@ -43,10 +44,13 @@ export function injectStyles() {
             border-color: #007bff;
         }
         
-        /* Table container styling */
+        /* Table container styling - FIXED FOR MATCHUPS */
         .tables-container {
             width: 100% !important;
             position: relative !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0 !important;  /* Remove gaps between containers */
         }
         
         .table-container {
@@ -58,12 +62,16 @@ export function injectStyles() {
             position: relative !important;
             visibility: visible !important;
             opacity: 1 !important;
+            height: auto !important;
+            overflow: visible !important;
         }
         
         .table-container.inactive-table {
             display: none !important;
+            height: 0 !important;
+            overflow: hidden !important;
             position: absolute !important;
-            top: 0 !important;
+            top: -9999px !important;
             left: -9999px !important;
             visibility: hidden !important;
             opacity: 0 !important;
@@ -75,12 +83,35 @@ export function injectStyles() {
             margin: 0 auto !important;
         }
         
-        /* Ensure matchups table is visible */
+        /* Specific fixes for matchups table positioning */
+        #table0-container {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            overflow: visible !important;  /* Allow dropdowns */
+            max-height: 500px !important;  /* Limit height to prevent pushing */
+        }
+
+        #table0-container.inactive-table {
+            display: none !important;
+            max-height: 0 !important;
+        }
+
+        #table0-container.active-table {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* Ensure matchups table has proper height */
         #matchups-table {
             width: 100% !important;
+            height: 400px !important;  /* Fixed height */
             min-height: 200px !important;
             display: block !important;
             visibility: visible !important;
+            overflow: visible !important;
         }
 
         #matchups-table .tabulator-table {
@@ -102,20 +133,6 @@ export function injectStyles() {
         /* Hide placeholder when data is loaded */
         #matchups-table.tabulator-loaded .tabulator-placeholder {
             display: none !important;
-        }
-
-        /* Ensure table0 container is properly displayed */
-        #table0-container {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: relative !important;
-        }
-
-        #table0-container.active-table {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
         }
         
         /* Disable column resizing */
@@ -289,14 +306,16 @@ export function injectStyles() {
             width: 100% !important;
         }
         
-        /* Left align name columns */
+        /* Left align name/team columns */
         .tabulator .tabulator-cell[tabulator-field="Batter Name"],
-        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"] {
+        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"],
+        .tabulator .tabulator-cell[tabulator-field="Matchup Team"] {
             text-align: left !important;
         }
         
         .tabulator .tabulator-cell[tabulator-field="Batter Name"] .tabulator-cell-value,
-        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"] .tabulator-cell-value {
+        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"] .tabulator-cell-value,
+        .tabulator .tabulator-cell[tabulator-field="Matchup Team"] .tabulator-cell-value {
             text-align: left !important;
         }
         
@@ -391,6 +410,12 @@ export function injectStyles() {
         /* Ensure dropdowns appear above everything in Webflow */
         body {
             position: relative !important;
+        }
+        
+        /* Loading animation for data fetching */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
     `;
     document.head.appendChild(style);
