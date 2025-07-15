@@ -267,7 +267,10 @@ export class MatchupsTable extends BaseTable {
                 {column: "team", dir: "asc"}
             ],
             rowFormatter: this.createRowFormatter(),
-            placeholder: "Loading data..."
+            placeholder: "Loading data...",
+            renderComplete: function() {
+                console.log("Table render complete");
+            }
         };
 
         this.table = new Tabulator(this.elementId, config);
@@ -277,23 +280,29 @@ export class MatchupsTable extends BaseTable {
         this.fetchAllData().then(data => {
             console.log('Setting data in table:', data);
             if (this.table && data && data.length > 0) {
-                // Use replaceData instead of setData for better handling
-                this.table.replaceData(data).then(() => {
-                    console.log('Matchups table loaded with', data.length, 'rows');
-                    console.log('First row data:', data[0]);
+                // Use setData with a callback
+                this.table.setData(data);
+                console.log('Matchups table loaded with', data.length, 'rows');
+                
+                // Force the table to render after a short delay
+                setTimeout(() => {
+                    // Hide placeholder manually if still showing
+                    const placeholder = document.querySelector("#matchups-table .tabulator-placeholder");
+                    if (placeholder) {
+                        placeholder.style.display = 'none';
+                    }
                     
-                    // Force visibility and redraw
+                    // Force redraw
+                    this.table.redraw(true);
+                    
+                    // Ensure container visibility
                     const container = document.getElementById('table0-container');
                     if (container) {
                         container.style.display = 'block';
                         container.style.visibility = 'visible';
                         container.style.opacity = '1';
                     }
-                    
-                    this.table.redraw(true);
-                }).catch(error => {
-                    console.error('Error setting table data:', error);
-                });
+                }, 200);
             } else {
                 console.error('Table not initialized or no data');
             }
@@ -304,6 +313,15 @@ export class MatchupsTable extends BaseTable {
         
         this.table.on("tableBuilt", () => {
             console.log("Matchups table built successfully");
+        });
+        
+        this.table.on("dataLoaded", () => {
+            console.log("Matchups data loaded event fired");
+            // Hide placeholder when data loads
+            const placeholder = document.querySelector("#matchups-table .tabulator-placeholder");
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
         });
     }
 
