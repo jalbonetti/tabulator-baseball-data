@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - BASIC WORKING VERSION
+// tables/combinedMatchupsTable.js - WORKING VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -6,14 +6,13 @@ import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
         super(elementId, null);
-        this.combinedData = [];
+        this.isInitialized = false;
     }
 
-    async fetchAllData() {
+    async fetchMatchupsData() {
         try {
-            console.log('Fetching matchups data...');
+            console.log('Fetching basic matchups data...');
             
-            // Just fetch the main matchups table for now
             const response = await fetch(API_CONFIG.baseURL + 'ModMatchupsData', {
                 method: 'GET',
                 headers: API_CONFIG.headers
@@ -26,136 +25,166 @@ export class MatchupsTable extends BaseTable {
             const data = await response.json();
             console.log('Fetched matchups data:', data.length, 'records');
             
-            // Convert to simple format that definitely works with Tabulator
+            // Convert to simple, guaranteed-to-work format
             const simpleData = data.map(item => ({
-                team: item['Matchup Team'] || 'Unknown',
-                game: item['Matchup Game'] || 'Unknown',
-                spread: item['Matchup Spread'] || 0,
-                total: item['Matchup Total'] || 0,
-                lineupStatus: item['Matchup Lineup Status'] || 'Unknown',
-                ballpark: item['Matchup Ballpark'] || 'Unknown'
+                team: String(item['Matchup Team'] || 'Unknown'),
+                game: String(item['Matchup Game'] || 'Unknown'),
+                spread: String(item['Matchup Spread'] || ''),
+                total: String(item['Matchup Total'] || ''),
+                lineupStatus: String(item['Matchup Lineup Status'] || 'Unknown')
             }));
             
-            console.log('Converted to simple format:', simpleData.length, 'records');
-            console.log('Sample record:', simpleData[0]);
-            
+            console.log('Converted data sample:', simpleData[0]);
             return simpleData;
             
         } catch (error) {
-            console.error('Error fetching data:', error);
+            console.error('Error fetching matchups data:', error);
             return [];
         }
     }
 
-    initialize() {
-        console.log('Initializing basic matchups table...');
-        
-        // Create the most basic Tabulator configuration possible
-        this.table = new Tabulator(this.elementId, {
-            height: 400,
-            layout: "fitColumns",
-            placeholder: "Loading...",
-            columns: [
-                {title: "Team", field: "team", width: 200},
-                {title: "Game", field: "game", width: 300},
-                {title: "Spread", field: "spread", width: 100},
-                {title: "Total", field: "total", width: 100},
-                {title: "Lineup Status", field: "lineupStatus", width: 150}
-            ]
-        });
-        
-        console.log('Basic table created, fetching data...');
-        
-        // Fetch and set data
-        this.fetchAllData().then(data => {
-            console.log('Setting basic data:', data.length, 'rows');
-            
-            if (data && data.length > 0) {
-                this.table.setData(data).then(() => {
-                    console.log('✅ Basic data set successfully');
-                    
-                    // Force visibility
-                    setTimeout(() => {
-                        const tableEl = document.getElementById('matchups-table');
-                        const container = document.getElementById('table0-container');
-                        
-                        if (tableEl && container) {
-                            container.style.display = 'block';
-                            container.style.visibility = 'visible';
-                            tableEl.style.display = 'block';
-                            tableEl.style.visibility = 'visible';
-                            
-                            // Check if it worked
-                            const rows = tableEl.querySelectorAll('.tabulator-row');
-                            console.log('Basic table rows visible:', rows.length);
-                            
-                            if (rows.length > 0) {
-                                console.log('🎉 SUCCESS: Basic table is working!');
-                            } else {
-                                console.log('❌ Basic table still not showing rows');
-                                
-                                // Last resort: manual table creation
-                                this.createManualTable(data);
-                            }
-                        }
-                    }, 200);
-                    
-                }).catch(error => {
-                    console.error('Error setting data:', error);
-                });
-            } else {
-                console.error('No data to display');
-            }
-        }).catch(error => {
-            console.error('Error fetching data:', error);
-        });
-        
-        this.table.on("tableBuilt", () => {
-            console.log("Basic matchups table built");
-        });
-    }
-
-    // Manual table creation as last resort
+    // Create manual table if Tabulator fails
     createManualTable(data) {
-        console.log('Creating manual HTML table...');
+        console.log('Creating manual HTML table as fallback...');
         
-        const tableEl = document.getElementById('matchups-table');
+        const container = document.getElementById('matchups-table');
         
         let html = `
-            <div style="overflow: auto; border: 1px solid #ddd;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background: #f8f9fa;">
-                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Team</th>
-                            <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Game</th>
-                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Spread</th>
-                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Total</th>
-                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Lineup Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
+                <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold;">
+                    Matchups Data (${data.length} games)
+                </div>
+                <div style="overflow: auto; max-height: 600px;">
+                    <table style="width: 100%; border-collapse: collapse; margin: 0;">
+                        <thead style="background: #fff; position: sticky; top: 0;">
+                            <tr>
+                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: left; font-weight: bold;">Team</th>
+                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: left; font-weight: bold;">Game</th>
+                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: center; font-weight: bold;">Spread</th>
+                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: center; font-weight: bold;">Total</th>
+                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: center; font-weight: bold;">Lineup Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
         `;
         
         data.forEach((row, index) => {
             const bgColor = index % 2 === 0 ? '#fff' : '#f8f9fa';
             html += `
-                <tr style="background: ${bgColor};">
-                    <td style="padding: 8px; border: 1px solid #ddd;">${row.team}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${row.game}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${row.spread}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${row.total}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${row.lineupStatus}</td>
+                <tr style="background: ${bgColor}; cursor: pointer;" 
+                    onmouseover="this.style.background='#e9ecef'" 
+                    onmouseout="this.style.background='${bgColor}'">
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: 500;">${row.team}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd;">${row.game}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${row.spread}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${row.total}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">
+                        <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
+                            ${row.lineupStatus}
+                        </span>
+                    </td>
                 </tr>
             `;
         });
         
         html += `
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `;
         
-        tableEl.innerHTML = html;
-        console.log('✅ Manual table created with', data.length, 'rows');
+        container.innerHTML = html;
+        console.log('✅ Manual table created successfully with', data.length, 'rows');
+        
+        // Ensure container is visible
+        const tableContainer = document.getElementById('table0-container');
+        if (tableContainer) {
+            tableContainer.style.display = 'block';
+            tableContainer.style.visibility = 'visible';
+            tableContainer.style.opacity = '1';
+        }
+    }
+
+    // Try to create a working Tabulator instance
+    createWorkingTabulator(data) {
+        console.log('Attempting to create working Tabulator...');
+        
+        // Clear any existing content
+        const element = document.getElementById('matchups-table');
+        element.innerHTML = '';
+        
+        try {
+            // Most basic Tabulator configuration possible
+            const table = new Tabulator('#matchups-table', {
+                data: data, // Set data immediately
+                autoResize: false,
+                responsiveLayout: false,
+                height: 400,
+                layout: "fitData",
+                columns: [
+                    {title: "Team", field: "team", headerSort: false, resizable: false},
+                    {title: "Game", field: "game", headerSort: false, resizable: false},
+                    {title: "Spread", field: "spread", headerSort: false, resizable: false},
+                    {title: "Total", field: "total", headerSort: false, resizable: false},
+                    {title: "Status", field: "lineupStatus", headerSort: false, resizable: false}
+                ]
+            });
+            
+            // Check if it worked after a delay
+            setTimeout(() => {
+                const rows = element.querySelectorAll('.tabulator-row');
+                console.log('Tabulator rows created:', rows.length);
+                
+                if (rows.length === 0) {
+                    console.log('Tabulator failed, falling back to manual table');
+                    this.createManualTable(data);
+                } else {
+                    console.log('✅ Tabulator working!');
+                    this.table = table;
+                }
+            }, 500);
+            
+        } catch (error) {
+            console.error('Tabulator creation failed:', error);
+            this.createManualTable(data);
+        }
+    }
+
+    initialize() {
+        console.log('Initializing matchups table...');
+        
+        // Ensure we wait for everything to be ready
+        setTimeout(() => {
+            this.fetchMatchupsData().then(data => {
+                console.log('Fetched data for matchups:', data.length, 'rows');
+                
+                if (data && data.length > 0) {
+                    // Try Tabulator first, fall back to manual table
+                    this.createWorkingTabulator(data);
+                } else {
+                    console.error('No matchups data available');
+                    const element = document.getElementById('matchups-table');
+                    element.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No matchups data available</div>';
+                }
+            }).catch(error => {
+                console.error('Failed to fetch matchups data:', error);
+                const element = document.getElementById('matchups-table');
+                element.innerHTML = '<div style="padding: 20px; text-align: center; color: #d32f2f;">Error loading matchups data</div>';
+            });
+        }, 100); // Small delay to ensure DOM is ready
+    }
+
+    // Dummy methods to satisfy the BaseTable interface
+    setupRowExpansion() {
+        // Not needed for basic version
+    }
+
+    getColumns() {
+        return [];
+    }
+
+    createRowFormatter() {
+        return () => {};
     }
 }
