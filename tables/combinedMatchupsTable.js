@@ -267,15 +267,7 @@ export class MatchupsTable extends BaseTable {
                 {column: "team", dir: "asc"}
             ],
             rowFormatter: this.createRowFormatter(),
-            placeholder: "Loading data...",
-            dataLoaded: (data) => {
-                console.log(`Matchups table loaded ${data.length} records`);
-                if (data.length > 0) {
-                    console.log('First row data:', data[0]);
-                    // Force redraw to ensure visibility
-                    this.table.redraw(true);
-                }
-            }
+            placeholder: "Loading data..."
         };
 
         this.table = new Tabulator(this.elementId, config);
@@ -284,10 +276,22 @@ export class MatchupsTable extends BaseTable {
         // Then fetch and load the data
         this.fetchAllData().then(data => {
             console.log('Setting data in table:', data);
-            this.table.setData(data);
-            console.log('Matchups table loaded with', data.length, 'rows');
+            if (this.table) {
+                this.table.setData(data);
+                console.log('Matchups table loaded with', data.length, 'rows');
+                // Add dataLoaded callback here instead
+                if (data.length > 0) {
+                    console.log('First row data:', data[0]);
+                    setTimeout(() => {
+                        this.table.redraw(true);
+                    }, 100);
+                }
+            } else {
+                console.error('Table not initialized');
+            }
         }).catch(error => {
             console.error('Error loading matchups data:', error);
+            console.error('Error stack:', error.stack);
         });
         
         this.table.on("tableBuilt", () => {
