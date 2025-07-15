@@ -276,18 +276,26 @@ export class MatchupsTable extends BaseTable {
         // Then fetch and load the data
         this.fetchAllData().then(data => {
             console.log('Setting data in table:', data);
-            if (this.table) {
-                this.table.setData(data);
-                console.log('Matchups table loaded with', data.length, 'rows');
-                // Add dataLoaded callback here instead
-                if (data.length > 0) {
+            if (this.table && data && data.length > 0) {
+                // Use replaceData instead of setData for better handling
+                this.table.replaceData(data).then(() => {
+                    console.log('Matchups table loaded with', data.length, 'rows');
                     console.log('First row data:', data[0]);
-                    setTimeout(() => {
-                        this.table.redraw(true);
-                    }, 100);
-                }
+                    
+                    // Force visibility and redraw
+                    const container = document.getElementById('table0-container');
+                    if (container) {
+                        container.style.display = 'block';
+                        container.style.visibility = 'visible';
+                        container.style.opacity = '1';
+                    }
+                    
+                    this.table.redraw(true);
+                }).catch(error => {
+                    console.error('Error setting table data:', error);
+                });
             } else {
-                console.error('Table not initialized');
+                console.error('Table not initialized or no data');
             }
         }).catch(error => {
             console.error('Error loading matchups data:', error);
