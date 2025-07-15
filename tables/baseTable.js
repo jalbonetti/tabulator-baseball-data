@@ -1,4 +1,4 @@
-// tables/baseTable.js
+// tables/baseTable.js - UPDATED VERSION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -12,16 +12,10 @@ export class BaseTable {
     }
 
     getBaseConfig() {
-        return {
-            ajaxURL: API_CONFIG.baseURL + this.endpoint,
-            ajaxConfig: {
-                method: "GET",
-                headers: API_CONFIG.headers
-            },
+        const config = {
             layout: "fitColumns",
             responsiveLayout: "hide",
             persistence: false,
-            ajaxContentType: "json",
             paginationSize: false,
             height: false,
             resizableColumns: false,
@@ -29,14 +23,29 @@ export class BaseTable {
             movableColumns: false,
             dataLoaded: (data) => {
                 console.log(`Table loaded ${data.length} total records`);
+                // Initialize _expanded property if not present
                 data.forEach(row => {
-                    row._expanded = false;
+                    if (row._expanded === undefined) {
+                        row._expanded = false;
+                    }
                 });
             }
         };
+
+        // Only add AJAX config if endpoint is provided
+        if (this.endpoint) {
+            config.ajaxURL = API_CONFIG.baseURL + this.endpoint;
+            config.ajaxConfig = {
+                method: "GET",
+                headers: API_CONFIG.headers
+            };
+            config.ajaxContentType = "json";
+        }
+
+        return config;
     }
 
-    // NEW METHOD: Get the Tabulator instance
+    // Get the Tabulator instance
     getTable() {
         return this.table;
     }
@@ -95,10 +104,27 @@ export class BaseTable {
 
     // Setup click handler for row expansion
     setupRowExpansion() {
+        if (!this.table) return;
+        
         this.table.on("cellClick", (e, cell) => {
-            if (cell.getField() === "Batter Name") {
+            const field = cell.getField();
+            
+            // Support multiple expandable columns
+            const expandableFields = [
+                "Batter Name", 
+                "Pitcher Name", 
+                "Matchup Team"  // Added for matchups table
+            ];
+            
+            if (expandableFields.includes(field)) {
                 var row = cell.getRow();
                 var data = row.getData();
+                
+                // Initialize _expanded if it doesn't exist
+                if (data._expanded === undefined) {
+                    data._expanded = false;
+                }
+                
                 data._expanded = !data._expanded;
                 row.update(data);
                 row.reformat();
@@ -120,7 +146,7 @@ export class BaseTable {
         });
     }
 
-    // Create subtable 1 (common info)
+    // Create subtable 1 (common info) - used by batter/pitcher tables
     createSubtable1(container, data) {
         new Tabulator(container, {
             layout: "fitColumns",
@@ -129,7 +155,7 @@ export class BaseTable {
             resizableRows: false,
             movableColumns: false,
             data: [{
-                propFactor: data["Batter Prop Park Factor"],
+                propFactor: data["Batter Prop Park Factor"] || data["Pitcher Prop Park Factor"],
                 lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
                 matchup: data["Matchup"],
                 opposingPitcher: data["SP"]
@@ -145,28 +171,49 @@ export class BaseTable {
 
     // To be overridden by child classes
     createSubtable2(container, data) {
-        throw new Error("createSubtable2 must be implemented by child class");
+        // Default implementation - override in child classes
+        console.log("createSubtable2 should be overridden by child class");
     }
 
     // Common row formatter
     createRowFormatter() {
         return (row) => {
             var data = row.getData();
+            
+            // Initialize _expanded if it doesn't exist
+            if (data._expanded === undefined) {
+                data._expanded = false;
+            }
+            
             if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
                 var holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
                 holderEl.style.padding = "10px";
                 holderEl.style.background = "#f8f9fa";
                 
-                var subtable1 = document.createElement("div");
-                var subtable2 = document.createElement("div");
-                
-                holderEl.appendChild(subtable1);
-                holderEl.appendChild(subtable2);
-                row.getElement().appendChild(holderEl);
-                
-                this.createSubtable1(subtable1, data);
-                this.createSubtable2(subtable2, data);
+                // Check if this is the matchups table (has Matchup Team field)
+                if (data["Matchup Team"] !== undefined) {
+                    // For matchups table, only create one subtable
+                    var subtableEl = document.createElement("div");
+                    holderEl.appendChild(subtableEl);
+                    row.getElement().appendChild(holderEl);
+                    
+                    // Call matchups-specific subtable method if it exists
+                    if (this.createMatchupsSubtable) {
+                        this.createMatchupsSubtable(subtableEl, data);
+                    }
+                } else {
+                    // For other tables, create two subtables
+                    var subtable1 = document.createElement("div");
+                    var subtable2 = document.createElement("div");
+                    
+                    holderEl.appendChild(subtable1);
+                    holderEl.appendChild(subtable2);
+                    row.getElement().appendChild(holderEl);
+                    
+                    this.createSubtable1(subtable1, data);
+                    this.createSubtable2(subtable2, data);
+                }
             } else if (!data._expanded) {
                 var existingSubrow = row.getElement().querySelector('.subrow-container');
                 if (existingSubrow) {
