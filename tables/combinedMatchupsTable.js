@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js
+// tables/combinedMatchupsTable.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -13,11 +13,8 @@ export class MatchupsTable extends BaseTable {
         this.bullpenMatchupsData = [];
     }
 
-    // getTable() is now inherited from BaseTable
-
     async fetchAllData() {
         try {
-            // Check the exact table names - they might be different
             const tableNames = {
                 matchups: 'ModMatchupsData',
                 parkFactors: 'ModParkFactors', 
@@ -81,17 +78,14 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // Helper function to determine if team is home or away
     isHomeGame(matchup, team) {
         if (!matchup || !team) return false;
         
-        // Check if the matchup contains "vs" which typically indicates home game
         if (matchup.includes(' vs ')) {
             const teams = matchup.split(' vs ');
             return teams[0].includes(team);
         }
         
-        // Check if the matchup contains "@" which typically indicates away game
         if (matchup.includes(' @ ')) {
             const teams = matchup.split(' @ ');
             return teams[1].includes(team);
@@ -101,7 +95,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     combineData() {
-        // Group all data by Game ID
         const gameMap = new Map();
         
         console.log('Combining data...');
@@ -111,13 +104,11 @@ export class MatchupsTable extends BaseTable {
         console.log('Pitcher matchups:', this.pitcherMatchupsData.length);
         console.log('Bullpen matchups:', this.bullpenMatchupsData.length);
         
-        // Check if we have any matchups data
         if (!this.matchupsData || this.matchupsData.length === 0) {
             console.warn('No matchups data available');
             return [];
         }
         
-        // Log first matchup record to see field names
         console.log('First matchup record:', this.matchupsData[0]);
         
         // Process matchups data (primary rows)
@@ -230,12 +221,10 @@ export class MatchupsTable extends BaseTable {
             }
         });
 
-        // Convert to array and sort by game ID pairs
         const combinedData = Array.from(gameMap.values());
         
         console.log('Combined data sample:', combinedData[0]);
         
-        // Sort by game ID to maintain pair order (11, 12, 21, 22, etc.)
         combinedData.sort((a, b) => {
             const aPair = Math.floor(a.gameId / 10);
             const bPair = Math.floor(b.gameId / 10);
@@ -243,7 +232,6 @@ export class MatchupsTable extends BaseTable {
             return a.gameId - b.gameId;
         });
 
-        // Add expansion state
         combinedData.forEach(row => {
             row._expanded = false;
         });
@@ -251,8 +239,58 @@ export class MatchupsTable extends BaseTable {
         return combinedData;
     }
 
+    // FIXED: Force table visibility after initialization
+    forceTableVisibility() {
+        setTimeout(() => {
+            const tableEl = document.getElementById('matchups-table');
+            const container = document.getElementById('table0-container');
+            
+            if (tableEl && container) {
+                // Force container visibility
+                container.style.display = 'block';
+                container.style.visibility = 'visible';
+                container.style.opacity = '1';
+                container.style.position = 'relative';
+                
+                // Force table visibility
+                tableEl.style.display = 'block';
+                tableEl.style.visibility = 'visible';
+                tableEl.style.opacity = '1';
+                
+                // Remove any lingering placeholders
+                const placeholder = tableEl.querySelector('.tabulator-placeholder');
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+                
+                // Force table holder visibility
+                const tableHolder = tableEl.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.style.display = 'block';
+                    tableHolder.style.visibility = 'visible';
+                    tableHolder.style.opacity = '1';
+                }
+                
+                // Force actual table visibility
+                const actualTable = tableEl.querySelector('.tabulator-table');
+                if (actualTable) {
+                    actualTable.style.display = 'table';
+                    actualTable.style.visibility = 'visible';
+                    actualTable.style.opacity = '1';
+                }
+                
+                // Force redraw
+                if (this.table) {
+                    this.table.redraw(true);
+                }
+                
+                console.log('✅ Forced matchups table visibility');
+            }
+        }, 100);
+    }
+
     initialize() {
-        // First create the table structure without data
+        // Create the table structure without data first
         const config = {
             layout: "fitColumns",
             responsiveLayout: "hide",
@@ -267,9 +305,10 @@ export class MatchupsTable extends BaseTable {
                 {column: "team", dir: "asc"}
             ],
             rowFormatter: this.createRowFormatter(),
-            placeholder: "Loading data...",
-            renderComplete: function() {
-                console.log("Table render complete");
+            placeholder: "Loading matchups data...",
+            renderComplete: () => {
+                console.log("Matchups table render complete");
+                this.forceTableVisibility();
             }
         };
 
@@ -280,48 +319,40 @@ export class MatchupsTable extends BaseTable {
         this.fetchAllData().then(data => {
             console.log('Setting data in table:', data);
             if (this.table && data && data.length > 0) {
-                // Use setData with a callback
-                this.table.setData(data);
-                console.log('Matchups table loaded with', data.length, 'rows');
-                
-                // Force the table to render after a short delay
-                setTimeout(() => {
-                    // Hide placeholder manually if still showing
-                    const placeholder = document.querySelector("#matchups-table .tabulator-placeholder");
-                    if (placeholder) {
-                        placeholder.style.display = 'none';
-                    }
+                this.table.setData(data).then(() => {
+                    console.log('Matchups table loaded with', data.length, 'rows');
                     
-                    // Force redraw
-                    this.table.redraw(true);
+                    // Force visibility after data is set
+                    this.forceTableVisibility();
                     
-                    // Ensure container visibility
-                    const container = document.getElementById('table0-container');
-                    if (container) {
-                        container.style.display = 'block';
-                        container.style.visibility = 'visible';
-                        container.style.opacity = '1';
-                    }
-                }, 200);
+                    // Additional forced redraw
+                    setTimeout(() => {
+                        this.forceTableVisibility();
+                        if (this.table) {
+                            this.table.redraw(true);
+                        }
+                    }, 500);
+                });
             } else {
                 console.error('Table not initialized or no data');
             }
         }).catch(error => {
             console.error('Error loading matchups data:', error);
-            console.error('Error stack:', error.stack);
         });
         
         this.table.on("tableBuilt", () => {
             console.log("Matchups table built successfully");
+            this.forceTableVisibility();
         });
         
         this.table.on("dataLoaded", () => {
             console.log("Matchups data loaded event fired");
-            // Hide placeholder when data loads
-            const placeholder = document.querySelector("#matchups-table .tabulator-placeholder");
-            if (placeholder) {
-                placeholder.style.display = 'none';
-            }
+            this.forceTableVisibility();
+        });
+        
+        this.table.on("renderComplete", () => {
+            console.log("Matchups render complete event fired");
+            this.forceTableVisibility();
         });
     }
 
@@ -339,7 +370,6 @@ export class MatchupsTable extends BaseTable {
                     var value = cell.getValue();
                     var row = cell.getRow();
                     var expanded = row.getData()._expanded || false;
-                    // The data already contains full team names, so we don't need to map them
                     var teamName = value;
                     
                     onRendered(function() {
@@ -415,7 +445,6 @@ export class MatchupsTable extends BaseTable {
         ];
     }
 
-    // Override setupRowExpansion to use Team field
     setupRowExpansion() {
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "team") {
@@ -451,7 +480,6 @@ export class MatchupsTable extends BaseTable {
                 holderEl.style.padding = "10px";
                 holderEl.style.background = "#f8f9fa";
                 
-                // Create containers for each subtable
                 var weatherDiv = document.createElement("div");
                 var parkFactorsDiv = document.createElement("div");
                 var pitcherDiv = document.createElement("div");
@@ -470,7 +498,6 @@ export class MatchupsTable extends BaseTable {
                 holderEl.appendChild(bullpenDiv);
                 row.getElement().appendChild(holderEl);
                 
-                // Create subtables
                 this.createWeatherSubtable(weatherDiv, data);
                 this.createParkFactorsSubtable(parkFactorsDiv, data);
                 this.createPitcherSubtable(pitcherDiv, data);
@@ -510,7 +537,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     createParkFactorsSubtable(container, data) {
-        // Sort park factors by split ID (A first, then R, then L)
         const sortedParkFactors = [...data.parkFactors].sort((a, b) => {
             const order = {A: 0, R: 1, L: 2};
             return (order[a.splitId] || 999) - (order[b.splitId] || 999);
@@ -555,7 +581,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     createPitcherSubtable(container, data) {
-        // Group pitcher data by name
         const pitchersByName = new Map();
         const isHome = this.isHomeGame(data.game, data.team);
         
@@ -571,7 +596,6 @@ export class MatchupsTable extends BaseTable {
             pitchersByName.get(name).splits.push(pitcher);
         });
         
-        // Sort splits within each pitcher
         const splitOrder = ['CSeason', 'RSeason', 'LSeason', 'CSeason@', 'RSeason@', 'LSeason@'];
         pitchersByName.forEach(pitcher => {
             pitcher.splits.sort((a, b) => {
@@ -672,53 +696,9 @@ export class MatchupsTable extends BaseTable {
                 row.getElement().style.fontWeight = 'bold';
                 row.getElement().style.backgroundColor = '#e9ecef';
                 row.getElement().style.cursor = 'pointer';
-                
-                // Remove any existing expanded rows
-                const existingExpanded = row.getElement().nextSibling;
-                while (existingExpanded && existingExpanded.classList && existingExpanded.classList.contains('split-row')) {
-                    existingExpanded.remove();
-                }
-                
-                // If expanded, add the split rows
-                if (data._expanded) {
-                    const rowElement = row.getElement();
-                    data.splits.forEach((split, index) => {
-                        if (index === 0) return; // Skip Full Season as it's the primary row
-                        
-                        const splitRow = document.createElement('div');
-                        splitRow.className = 'tabulator-row split-row';
-                        splitRow.style.cssText = 'display: flex; border-bottom: 1px solid #ddd;';
-                        
-                        const cells = [
-                            { value: split.name, width: 200 },
-                            { value: this.mapSplitId(split.splitId, isHome), width: 120 },
-                            { value: split.tbf, width: 60 },
-                            { value: split.tbf > 0 ? (split.hits / split.tbf).toFixed(3) : '', width: 80 },
-                            { value: split.singles, width: 60 },
-                            { value: split.doubles, width: 60 },
-                            { value: split.triples, width: 60 },
-                            { value: split.hr, width: 60 },
-                            { value: split.r, width: 60 },
-                            { value: split.era, width: 60 },
-                            { value: split.bb, width: 60 },
-                            { value: split.so, width: 60 }
-                        ];
-                        
-                        cells.forEach(cell => {
-                            const cellDiv = document.createElement('div');
-                            cellDiv.className = 'tabulator-cell';
-                            cellDiv.style.cssText = `width: ${cell.width}px; padding: 4px; text-align: center;`;
-                            cellDiv.textContent = cell.value || '';
-                            splitRow.appendChild(cellDiv);
-                        });
-                        
-                        rowElement.parentNode.insertBefore(splitRow, rowElement.nextSibling);
-                    });
-                }
             }
         });
         
-        // Add click handler
         pitcherTable.on("rowClick", (e, row) => {
             const data = row.getData();
             data._expanded = !data._expanded;
@@ -727,22 +707,17 @@ export class MatchupsTable extends BaseTable {
     }
 
     createBatterSubtable(container, data) {
-        // Sort batters by spot (1-9)
         const sortedBatters = [...data.batterMatchups].sort((a, b) => {
             const spotA = parseInt(a.name.match(/\d+$/)?.[0] || '999');
             const spotB = parseInt(b.name.match(/\d+$/)?.[0] || '999');
             return spotA - spotB;
         });
 
-        // Group by batter name
         const battersByName = new Map();
         const isHome = this.isHomeGame(data.game, data.team);
         
         sortedBatters.forEach(batter => {
-            // Extract just the name without the spot number
-            const nameMatch = batter.name.match(/^(.+?)\s*\([^)]+\)\s*—\s*\d+$/);
-            const baseName = nameMatch ? nameMatch[1] : batter.name;
-            const key = batter.name; // Use full name as key to maintain uniqueness
+            const key = batter.name;
             
             if (!battersByName.has(key)) {
                 battersByName.set(key, {
@@ -754,7 +729,6 @@ export class MatchupsTable extends BaseTable {
             battersByName.get(key).splits.push(batter);
         });
 
-        // Sort splits within each batter
         const splitOrder = ['CSeason', 'RSeason', 'LSeason', 'CSeason@', 'RSeason@', 'LSeason@'];
         battersByName.forEach(batter => {
             batter.splits.sort((a, b) => {
@@ -855,53 +829,9 @@ export class MatchupsTable extends BaseTable {
                 row.getElement().style.fontWeight = 'bold';
                 row.getElement().style.backgroundColor = '#e9ecef';
                 row.getElement().style.cursor = 'pointer';
-                
-                // Remove any existing expanded rows
-                const existingExpanded = row.getElement().nextSibling;
-                while (existingExpanded && existingExpanded.classList && existingExpanded.classList.contains('split-row')) {
-                    existingExpanded.remove();
-                }
-                
-                // If expanded, add the split rows
-                if (data._expanded) {
-                    const rowElement = row.getElement();
-                    data.splits.forEach((split, index) => {
-                        if (index === 0) return; // Skip Full Season as it's the primary row
-                        
-                        const splitRow = document.createElement('div');
-                        splitRow.className = 'tabulator-row split-row';
-                        splitRow.style.cssText = 'display: flex; border-bottom: 1px solid #ddd;';
-                        
-                        const cells = [
-                            { value: split.name, width: 200 },
-                            { value: this.mapSplitId(split.splitId, isHome), width: 120 },
-                            { value: split.pa, width: 60 },
-                            { value: split.pa > 0 ? (split.hits / split.pa).toFixed(3) : '', width: 80 },
-                            { value: split.singles, width: 60 },
-                            { value: split.doubles, width: 60 },
-                            { value: split.triples, width: 60 },
-                            { value: split.hr, width: 60 },
-                            { value: split.r, width: 60 },
-                            { value: split.rbi, width: 60 },
-                            { value: split.bb, width: 60 },
-                            { value: split.so, width: 60 }
-                        ];
-                        
-                        cells.forEach(cell => {
-                            const cellDiv = document.createElement('div');
-                            cellDiv.className = 'tabulator-cell';
-                            cellDiv.style.cssText = `width: ${cell.width}px; padding: 4px; text-align: center;`;
-                            cellDiv.textContent = cell.value || '';
-                            splitRow.appendChild(cellDiv);
-                        });
-                        
-                        rowElement.parentNode.insertBefore(splitRow, rowElement.nextSibling);
-                    });
-                }
             }
         });
         
-        // Add click handler
         batterTable.on("rowClick", (e, row) => {
             const data = row.getData();
             data._expanded = !data._expanded;
@@ -910,7 +840,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     createBullpenSubtable(container, data) {
-        // Sort bullpen by hand (R before L)
         const sortedBullpen = [...data.bullpenMatchups].sort((a, b) => {
             const handA = a.hand.charAt(0);
             const handB = b.hand.charAt(0);
@@ -919,12 +848,10 @@ export class MatchupsTable extends BaseTable {
             return 0;
         });
 
-        // Group by hand and create primary rows
         const bullpenByHand = new Map();
         const isHome = this.isHomeGame(data.game, data.team);
         
         sortedBullpen.forEach(bullpen => {
-            // Extract hand type and number
             const match = bullpen.hand.match(/(\d+)\s*(Righties|Lefties)/);
             let displayHand = bullpen.hand;
             if (match) {
@@ -942,7 +869,6 @@ export class MatchupsTable extends BaseTable {
             });
         });
 
-        // Create only primary rows (Full Season)
         const primaryRows = [];
         bullpenByHand.forEach((bullpenGroup, hand) => {
             const fullSeason = bullpenGroup.find(b => b.splitId === 'CSeason');
