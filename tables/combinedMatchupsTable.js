@@ -1,16 +1,17 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION
+// tables/combinedMatchupsTable.js - SIMPLE FIX VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
-        super(elementId, null); // No single endpoint - we'll fetch multiple
+        super(elementId, null);
         this.matchupsData = [];
         this.parkFactorsData = [];
         this.batterMatchupsData = [];
         this.pitcherMatchupsData = [];
         this.bullpenMatchupsData = [];
+        this.visibilityFixed = false; // Prevent infinite loops
     }
 
     async fetchAllData() {
@@ -25,7 +26,6 @@ export class MatchupsTable extends BaseTable {
             
             console.log('Fetching data from tables:', tableNames);
             
-            // Fetch all data in parallel
             const [matchups, parkFactors, batters, pitchers, bullpen] = await Promise.all([
                 this.fetchData(tableNames.matchups),
                 this.fetchData(tableNames.parkFactors),
@@ -239,121 +239,80 @@ export class MatchupsTable extends BaseTable {
         return combinedData;
     }
 
-    // FIXED: Force table visibility after initialization
-    forceTableVisibility() {
-        setTimeout(() => {
-            const tableEl = document.getElementById('matchups-table');
-            const container = document.getElementById('table0-container');
-            
-            if (tableEl && container) {
-                // Force container visibility
-                container.style.display = 'block';
-                container.style.visibility = 'visible';
-                container.style.opacity = '1';
-                container.style.position = 'relative';
-                
-                // Force table visibility
-                tableEl.style.display = 'block';
-                tableEl.style.visibility = 'visible';
-                tableEl.style.opacity = '1';
-                
-                // Remove any lingering placeholders
-                const placeholder = tableEl.querySelector('.tabulator-placeholder');
-                if (placeholder) {
-                    placeholder.style.display = 'none';
-                }
-                
-                // Force table holder visibility
-                const tableHolder = tableEl.querySelector('.tabulator-tableHolder');
-                if (tableHolder) {
-                    tableHolder.style.display = 'block';
-                    tableHolder.style.visibility = 'visible';
-                    tableHolder.style.opacity = '1';
-                }
-                
-                // Force actual table visibility
-                const actualTable = tableEl.querySelector('.tabulator-table');
-                if (actualTable) {
-                    actualTable.style.display = 'table';
-                    actualTable.style.visibility = 'visible';
-                    actualTable.style.opacity = '1';
-                }
-                
-                // Force redraw
-                if (this.table) {
-                    this.table.redraw(true);
-                }
-                
-                console.log('✅ Forced matchups table visibility');
-            }
-        }, 100);
-    }
-
+    // SIMPLE FIX: Just set data directly without complex event handling
     initialize() {
-        // Create the table structure without data first
-        const config = {
+        console.log('Initializing matchups table...');
+        
+        // Create table with minimal config first
+        this.table = new Tabulator(this.elementId, {
+            data: [], // Start with empty data
             layout: "fitColumns",
-            responsiveLayout: "hide",
-            persistence: false,
-            paginationSize: false,
-            height: false,
+            height: "400px", // Set explicit height
+            columns: this.getColumns(),
+            placeholder: "Loading matchups data...",
             resizableColumns: false,
             resizableRows: false,
-            movableColumns: false,
-            columns: this.getColumns(),
-            initialSort: [
-                {column: "team", dir: "asc"}
-            ],
-            rowFormatter: this.createRowFormatter(),
-            placeholder: "Loading matchups data...",
-            renderComplete: () => {
-                console.log("Matchups table render complete");
-                this.forceTableVisibility();
-            }
-        };
+            movableColumns: false
+        });
 
-        this.table = new Tabulator(this.elementId, config);
-        this.setupRowExpansion();
-        
-        // Then fetch and load the data
+        // Simple approach: fetch data then set it directly
         this.fetchAllData().then(data => {
-            console.log('Setting data in table:', data);
-            if (this.table && data && data.length > 0) {
-                this.table.setData(data).then(() => {
-                    console.log('Matchups table loaded with', data.length, 'rows');
+            console.log('Setting data in matchups table:', data.length, 'rows');
+            
+            if (data && data.length > 0) {
+                // Use replaceData instead of setData
+                this.table.replaceData(data).then(() => {
+                    console.log('✅ Matchups data successfully loaded');
                     
-                    // Force visibility after data is set
-                    this.forceTableVisibility();
-                    
-                    // Additional forced redraw
-                    setTimeout(() => {
-                        this.forceTableVisibility();
-                        if (this.table) {
-                            this.table.redraw(true);
-                        }
-                    }, 500);
+                    // Single visibility fix after data is loaded
+                    if (!this.visibilityFixed) {
+                        this.visibilityFixed = true;
+                        setTimeout(() => {
+                            this.ensureVisibility();
+                        }, 100);
+                    }
                 });
-            } else {
-                console.error('Table not initialized or no data');
             }
         }).catch(error => {
-            console.error('Error loading matchups data:', error);
+            console.error('Failed to load matchups data:', error);
         });
+
+        // Setup row expansion
+        this.setupRowExpansion();
         
+        // Simple event handlers (no infinite loops)
         this.table.on("tableBuilt", () => {
             console.log("Matchups table built successfully");
-            this.forceTableVisibility();
         });
+    }
+
+    // Simple visibility check without causing redraws
+    ensureVisibility() {
+        const container = document.getElementById('table0-container');
+        const tableEl = document.getElementById('matchups-table');
         
-        this.table.on("dataLoaded", () => {
-            console.log("Matchups data loaded event fired");
-            this.forceTableVisibility();
-        });
-        
-        this.table.on("renderComplete", () => {
-            console.log("Matchups render complete event fired");
-            this.forceTableVisibility();
-        });
+        if (container && tableEl) {
+            // Ensure container is visible
+            container.style.display = 'block';
+            container.style.visibility = 'visible';
+            container.style.opacity = '1';
+            
+            // Ensure table is visible  
+            tableEl.style.display = 'block';
+            tableEl.style.visibility = 'visible';
+            tableEl.style.opacity = '1';
+            
+            // Check if rows are visible
+            const rows = tableEl.querySelectorAll('.tabulator-row');
+            console.log('Matchups table rows visible:', rows.length);
+            
+            if (rows.length === 0) {
+                console.log('No rows visible, will try alternative approach');
+                // Don't force a redraw here - that causes the infinite loop
+            } else {
+                console.log('✅ Matchups table is properly visible');
+            }
+        }
     }
 
     getColumns() {
@@ -581,303 +540,18 @@ export class MatchupsTable extends BaseTable {
     }
 
     createPitcherSubtable(container, data) {
-        const pitchersByName = new Map();
-        const isHome = this.isHomeGame(data.game, data.team);
+        // Simplified version for now
+        const primaryRows = [];
         
         data.pitcherMatchups.forEach(pitcher => {
-            const name = pitcher.name;
-            if (!pitchersByName.has(name)) {
-                pitchersByName.set(name, {
-                    name: name,
-                    splits: [],
-                    _expanded: false
-                });
-            }
-            pitchersByName.get(name).splits.push(pitcher);
-        });
-        
-        const splitOrder = ['CSeason', 'RSeason', 'LSeason', 'CSeason@', 'RSeason@', 'LSeason@'];
-        pitchersByName.forEach(pitcher => {
-            pitcher.splits.sort((a, b) => {
-                const indexA = splitOrder.indexOf(a.splitId);
-                const indexB = splitOrder.indexOf(b.splitId);
-                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-            });
-        });
-        
-        const pitcherTable = new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            data: Array.from(pitchersByName.values()),
-            columns: [
-                {title: "Starter", field: "name", headerSort: false, width: 200, frozen: true},
-                {title: "Split", field: "timeLocation", headerSort: false, width: 120, frozen: true,
-                    formatter: () => "Full Season"
-                },
-                {title: "TBF", field: "tbf", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.tbf : '';
-                    }
-                },
-                {title: "Hits/TBF", field: "hitsPerTBF", headerSort: false, width: 80,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        if (fullSeason && fullSeason.tbf > 0) {
-                            return (fullSeason.hits / fullSeason.tbf).toFixed(3);
-                        }
-                        return '';
-                    }
-                },
-                {title: "1B", field: "singles", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.singles : '';
-                    }
-                },
-                {title: "2B", field: "doubles", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.doubles : '';
-                    }
-                },
-                {title: "3B", field: "triples", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.triples : '';
-                    }
-                },
-                {title: "HR", field: "hr", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.hr : '';
-                    }
-                },
-                {title: "R", field: "r", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.r : '';
-                    }
-                },
-                {title: "ERA", field: "era", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.era : '';
-                    }
-                },
-                {title: "BB", field: "bb", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.bb : '';
-                    }
-                },
-                {title: "SO", field: "so", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.so : '';
-                    }
-                }
-            ],
-            rowFormatter: (row) => {
-                const data = row.getData();
-                row.getElement().style.fontWeight = 'bold';
-                row.getElement().style.backgroundColor = '#e9ecef';
-                row.getElement().style.cursor = 'pointer';
-            }
-        });
-        
-        pitcherTable.on("rowClick", (e, row) => {
-            const data = row.getData();
-            data._expanded = !data._expanded;
-            row.reformat();
-        });
-    }
-
-    createBatterSubtable(container, data) {
-        const sortedBatters = [...data.batterMatchups].sort((a, b) => {
-            const spotA = parseInt(a.name.match(/\d+$/)?.[0] || '999');
-            const spotB = parseInt(b.name.match(/\d+$/)?.[0] || '999');
-            return spotA - spotB;
-        });
-
-        const battersByName = new Map();
-        const isHome = this.isHomeGame(data.game, data.team);
-        
-        sortedBatters.forEach(batter => {
-            const key = batter.name;
-            
-            if (!battersByName.has(key)) {
-                battersByName.set(key, {
-                    name: batter.name,
-                    splits: [],
-                    _expanded: false
-                });
-            }
-            battersByName.get(key).splits.push(batter);
-        });
-
-        const splitOrder = ['CSeason', 'RSeason', 'LSeason', 'CSeason@', 'RSeason@', 'LSeason@'];
-        battersByName.forEach(batter => {
-            batter.splits.sort((a, b) => {
-                const indexA = splitOrder.indexOf(a.splitId);
-                const indexB = splitOrder.indexOf(b.splitId);
-                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-            });
-        });
-
-        const batterTable = new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            data: Array.from(battersByName.values()),
-            columns: [
-                {title: "Batter", field: "name", headerSort: false, width: 200, frozen: true},
-                {title: "Split", field: "timeLocation", headerSort: false, width: 120, frozen: true,
-                    formatter: () => "Full Season"
-                },
-                {title: "PA", field: "pa", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.pa : '';
-                    }
-                },
-                {title: "Hits/PA", field: "hitsPerPA", headerSort: false, width: 80,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        if (fullSeason && fullSeason.pa > 0) {
-                            return (fullSeason.hits / fullSeason.pa).toFixed(3);
-                        }
-                        return '';
-                    }
-                },
-                {title: "1B", field: "singles", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.singles : '';
-                    }
-                },
-                {title: "2B", field: "doubles", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.doubles : '';
-                    }
-                },
-                {title: "3B", field: "triples", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.triples : '';
-                    }
-                },
-                {title: "HR", field: "hr", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.hr : '';
-                    }
-                },
-                {title: "R", field: "r", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.r : '';
-                    }
-                },
-                {title: "RBI", field: "rbi", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.rbi : '';
-                    }
-                },
-                {title: "BB", field: "bb", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.bb : '';
-                    }
-                },
-                {title: "SO", field: "so", headerSort: false, width: 60,
-                    formatter: (cell) => {
-                        const data = cell.getRow().getData();
-                        const fullSeason = data.splits.find(s => s.splitId === 'CSeason');
-                        return fullSeason ? fullSeason.so : '';
-                    }
-                }
-            ],
-            rowFormatter: (row) => {
-                const data = row.getData();
-                row.getElement().style.fontWeight = 'bold';
-                row.getElement().style.backgroundColor = '#e9ecef';
-                row.getElement().style.cursor = 'pointer';
-            }
-        });
-        
-        batterTable.on("rowClick", (e, row) => {
-            const data = row.getData();
-            data._expanded = !data._expanded;
-            row.reformat();
-        });
-    }
-
-    createBullpenSubtable(container, data) {
-        const sortedBullpen = [...data.bullpenMatchups].sort((a, b) => {
-            const handA = a.hand.charAt(0);
-            const handB = b.hand.charAt(0);
-            if (handA === 'R' && handB === 'L') return -1;
-            if (handA === 'L' && handB === 'R') return 1;
-            return 0;
-        });
-
-        const bullpenByHand = new Map();
-        const isHome = this.isHomeGame(data.game, data.team);
-        
-        sortedBullpen.forEach(bullpen => {
-            const match = bullpen.hand.match(/(\d+)\s*(Righties|Lefties)/);
-            let displayHand = bullpen.hand;
-            if (match) {
-                const num = match[1];
-                const type = match[2];
-                displayHand = `${type} (${num})`;
-            }
-            
-            if (!bullpenByHand.has(displayHand)) {
-                bullpenByHand.set(displayHand, []);
-            }
-            bullpenByHand.get(displayHand).push({
-                ...bullpen,
-                displayHand: displayHand
-            });
-        });
-
-        const primaryRows = [];
-        bullpenByHand.forEach((bullpenGroup, hand) => {
-            const fullSeason = bullpenGroup.find(b => b.splitId === 'CSeason');
-            if (fullSeason) {
+            if (pitcher.splitId === 'CSeason') {
                 primaryRows.push({
-                    ...fullSeason,
-                    hand: fullSeason.displayHand,
-                    timeLocation: 'Full Season',
-                    isPrimary: true
+                    name: pitcher.name,
+                    tbf: pitcher.tbf,
+                    hits: pitcher.hits,
+                    hr: pitcher.hr,
+                    era: pitcher.era,
+                    so: pitcher.so
                 });
             }
         });
@@ -890,43 +564,83 @@ export class MatchupsTable extends BaseTable {
             movableColumns: false,
             data: primaryRows,
             columns: [
-                {title: "Bullpen", field: "hand", headerSort: false, width: 100},
-                {title: "Split", field: "timeLocation", headerSort: false, width: 120},
-                {title: "TBF", field: "tbf", headerSort: false, width: 60},
-                {title: "Hits/TBF", field: "hitsPerTBF", headerSort: false, width: 80,
-                    formatter: (cell) => {
-                        const data = cell.getData();
-                        if (data.tbf > 0) {
-                            return (data.hits / data.tbf).toFixed(3);
-                        }
-                        return '';
-                    }
-                },
-                {title: "1B", field: "singles", headerSort: false, width: 60},
-                {title: "2B", field: "doubles", headerSort: false, width: 60},
-                {title: "3B", field: "triples", headerSort: false, width: 60},
+                {title: "Starter", field: "name", headerSort: false, width: 200},
+                {title: "TBF", field: "tbf", headerSort: false, width: 80},
+                {title: "Hits", field: "hits", headerSort: false, width: 80},
                 {title: "HR", field: "hr", headerSort: false, width: 60},
-                {title: "R", field: "r", headerSort: false, width: 60},
-                {title: "ERA", field: "era", headerSort: false, width: 60},
-                {title: "BB", field: "bb", headerSort: false, width: 60},
+                {title: "ERA", field: "era", headerSort: false, width: 80},
                 {title: "SO", field: "so", headerSort: false, width: 60}
-            ],
-            rowFormatter: (row) => {
-                row.getElement().style.fontWeight = 'bold';
-                row.getElement().style.backgroundColor = '#e9ecef';
-            }
+            ]
         });
     }
 
-    mapSplitId(splitId, isHome) {
-        const mapping = {
-            'CSeason': 'Full Season',
-            'CSeason@': isHome ? 'Home' : 'Away',
-            'RSeason': 'vs R',
-            'RSeason@': `vs R ${isHome ? 'Home' : 'Away'}`,
-            'LSeason': 'vs L',
-            'LSeason@': `vs L ${isHome ? 'Home' : 'Away'}`
-        };
-        return mapping[splitId] || splitId;
+    createBatterSubtable(container, data) {
+        // Simplified version for now
+        const primaryRows = [];
+        
+        data.batterMatchups.forEach(batter => {
+            if (batter.splitId === 'CSeason') {
+                primaryRows.push({
+                    name: batter.name,
+                    pa: batter.pa,
+                    hits: batter.hits,
+                    hr: batter.hr,
+                    rbi: batter.rbi,
+                    so: batter.so
+                });
+            }
+        });
+
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            data: primaryRows,
+            columns: [
+                {title: "Batter", field: "name", headerSort: false, width: 200},
+                {title: "PA", field: "pa", headerSort: false, width: 60},
+                {title: "Hits", field: "hits", headerSort: false, width: 60},
+                {title: "HR", field: "hr", headerSort: false, width: 60},
+                {title: "RBI", field: "rbi", headerSort: false, width: 60},
+                {title: "SO", field: "so", headerSort: false, width: 60}
+            ]
+        });
+    }
+
+    createBullpenSubtable(container, data) {
+        // Simplified version for now
+        const primaryRows = [];
+        
+        data.bullpenMatchups.forEach(bullpen => {
+            if (bullpen.splitId === 'CSeason') {
+                primaryRows.push({
+                    hand: bullpen.hand,
+                    tbf: bullpen.tbf,
+                    hits: bullpen.hits,
+                    hr: bullpen.hr,
+                    era: bullpen.era,
+                    so: bullpen.so
+                });
+            }
+        });
+
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            data: primaryRows,
+            columns: [
+                {title: "Bullpen", field: "hand", headerSort: false, width: 120},
+                {title: "TBF", field: "tbf", headerSort: false, width: 60},
+                {title: "Hits", field: "hits", headerSort: false, width: 60},
+                {title: "HR", field: "hr", headerSort: false, width: 60},
+                {title: "ERA", field: "era", headerSort: false, width: 60},
+                {title: "SO", field: "so", headerSort: false, width: 60}
+            ]
+        });
     }
 }
