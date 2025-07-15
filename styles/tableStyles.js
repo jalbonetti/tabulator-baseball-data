@@ -92,6 +92,17 @@ export function injectStyles() {
             overflow: auto !important;
             max-height: none !important;
         }
+        
+        /* Force table rows to be visible */
+        #matchups-table .tabulator-row {
+            display: table-row !important;
+            visibility: visible !important;
+        }
+        
+        /* Hide placeholder when data is loaded */
+        #matchups-table.tabulator-loaded .tabulator-placeholder {
+            display: none !important;
+        }
 
         /* Ensure table0 container is properly displayed */
         #table0-container {
