@@ -1,190 +1,249 @@
-// tables/combinedMatchupsTable.js - WORKING VERSION
+// tables/combinedMatchupsTable.js - ENHANCED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
-        super(elementId, null);
-        this.isInitialized = false;
-    }
-
-    async fetchMatchupsData() {
-        try {
-            console.log('Fetching basic matchups data...');
-            
-            const response = await fetch(API_CONFIG.baseURL + 'ModMatchupsData', {
-                method: 'GET',
-                headers: API_CONFIG.headers
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Failed to fetch: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log('Fetched matchups data:', data.length, 'records');
-            
-            // Convert to simple, guaranteed-to-work format
-            const simpleData = data.map(item => ({
-                team: String(item['Matchup Team'] || 'Unknown'),
-                game: String(item['Matchup Game'] || 'Unknown'),
-                spread: String(item['Matchup Spread'] || ''),
-                total: String(item['Matchup Total'] || ''),
-                lineupStatus: String(item['Matchup Lineup Status'] || 'Unknown')
-            }));
-            
-            console.log('Converted data sample:', simpleData[0]);
-            return simpleData;
-            
-        } catch (error) {
-            console.error('Error fetching matchups data:', error);
-            return [];
-        }
-    }
-
-    // Create manual table if Tabulator fails
-    createManualTable(data) {
-        console.log('Creating manual HTML table as fallback...');
-        
-        const container = document.getElementById('matchups-table');
-        
-        let html = `
-            <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
-                <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold;">
-                    Matchups Data (${data.length} games)
-                </div>
-                <div style="overflow: auto; max-height: 600px;">
-                    <table style="width: 100%; border-collapse: collapse; margin: 0;">
-                        <thead style="background: #fff; position: sticky; top: 0;">
-                            <tr>
-                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: left; font-weight: bold;">Team</th>
-                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: left; font-weight: bold;">Game</th>
-                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: center; font-weight: bold;">Spread</th>
-                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: center; font-weight: bold;">Total</th>
-                                <th style="padding: 12px; border-bottom: 2px solid #007bff; text-align: center; font-weight: bold;">Lineup Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-        `;
-        
-        data.forEach((row, index) => {
-            const bgColor = index % 2 === 0 ? '#fff' : '#f8f9fa';
-            html += `
-                <tr style="background: ${bgColor}; cursor: pointer;" 
-                    onmouseover="this.style.background='#e9ecef'" 
-                    onmouseout="this.style.background='${bgColor}'">
-                    <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: 500;">${row.team}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #ddd;">${row.game}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${row.spread}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${row.total}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">
-                        <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
-                            ${row.lineupStatus}
-                        </span>
-                    </td>
-                </tr>
-            `;
-        });
-        
-        html += `
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        
-        container.innerHTML = html;
-        console.log('✅ Manual table created successfully with', data.length, 'rows');
-        
-        // Ensure container is visible
-        const tableContainer = document.getElementById('table0-container');
-        if (tableContainer) {
-            tableContainer.style.display = 'block';
-            tableContainer.style.visibility = 'visible';
-            tableContainer.style.opacity = '1';
-        }
-    }
-
-    // Try to create a working Tabulator instance
-    createWorkingTabulator(data) {
-        console.log('Attempting to create working Tabulator...');
-        
-        // Clear any existing content
-        const element = document.getElementById('matchups-table');
-        element.innerHTML = '';
-        
-        try {
-            // Most basic Tabulator configuration possible
-            const table = new Tabulator('#matchups-table', {
-                data: data, // Set data immediately
-                autoResize: false,
-                responsiveLayout: false,
-                height: 400,
-                layout: "fitData",
-                columns: [
-                    {title: "Team", field: "team", headerSort: false, resizable: false},
-                    {title: "Game", field: "game", headerSort: false, resizable: false},
-                    {title: "Spread", field: "spread", headerSort: false, resizable: false},
-                    {title: "Total", field: "total", headerSort: false, resizable: false},
-                    {title: "Status", field: "lineupStatus", headerSort: false, resizable: false}
-                ]
-            });
-            
-            // Check if it worked after a delay
-            setTimeout(() => {
-                const rows = element.querySelectorAll('.tabulator-row');
-                console.log('Tabulator rows created:', rows.length);
-                
-                if (rows.length === 0) {
-                    console.log('Tabulator failed, falling back to manual table');
-                    this.createManualTable(data);
-                } else {
-                    console.log('✅ Tabulator working!');
-                    this.table = table;
-                }
-            }, 500);
-            
-        } catch (error) {
-            console.error('Tabulator creation failed:', error);
-            this.createManualTable(data);
-        }
+        super(elementId, 'ModMatchupsData');
+        this.matchupsData = [];
     }
 
     initialize() {
-        console.log('Initializing matchups table...');
+        console.log('Initializing enhanced matchups table...');
         
-        // Ensure we wait for everything to be ready
-        setTimeout(() => {
-            this.fetchMatchupsData().then(data => {
-                console.log('Fetched data for matchups:', data.length, 'rows');
-                
-                if (data && data.length > 0) {
-                    // Try Tabulator first, fall back to manual table
-                    this.createWorkingTabulator(data);
-                } else {
-                    console.error('No matchups data available');
-                    const element = document.getElementById('matchups-table');
-                    element.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No matchups data available</div>';
-                }
-            }).catch(error => {
-                console.error('Failed to fetch matchups data:', error);
-                const element = document.getElementById('matchups-table');
-                element.innerHTML = '<div style="padding: 20px; text-align: center; color: #d32f2f;">Error loading matchups data</div>';
-            });
-        }, 100); // Small delay to ensure DOM is ready
-    }
+        const config = {
+            ...this.tableConfig,
+            columns: this.getColumns(),
+            height: 400,
+            layout: "fitColumns",
+            placeholder: "Loading matchups data...",
+            initialSort: [
+                {column: "Matchup Team", dir: "asc"}
+            ],
+            rowFormatter: this.createRowFormatter(),
+            dataLoaded: (data) => {
+                console.log(`✅ Matchups data successfully loaded: ${data.length} rows`);
+                // Initialize expansion state
+                data.forEach(row => {
+                    row._expanded = false;
+                });
+                this.matchupsData = data;
+            }
+        };
 
-    // Dummy methods to satisfy the BaseTable interface
-    setupRowExpansion() {
-        // Not needed for basic version
+        // Create the Tabulator instance
+        this.table = new Tabulator(this.elementId, config);
+        
+        // Setup row expansion for matchups
+        this.setupRowExpansion();
+        
+        this.table.on("tableBuilt", () => {
+            console.log("Enhanced matchups table built successfully");
+        });
     }
 
     getColumns() {
-        return [];
+        return [
+            {
+                title: "Team", 
+                field: "Matchup Team",
+                width: 200,
+                headerFilter: true,  // Text search filter
+                headerFilterPlaceholder: "Search teams...",
+                sorter: "string",
+                formatter: (cell, formatterParams, onRendered) => {
+                    const value = cell.getValue();
+                    const row = cell.getRow();
+                    const expanded = row.getData()._expanded || false;
+                    
+                    // Use the team name formatter and add expander
+                    const teamName = TEAM_NAME_MAP[value] || value;
+                    
+                    onRendered(function() {
+                        try {
+                            const cellElement = cell.getElement();
+                            if (cellElement) {
+                                cellElement.innerHTML = '';
+                                
+                                const container = document.createElement("div");
+                                container.style.display = "flex";
+                                container.style.alignItems = "center";
+                                container.style.cursor = "pointer";
+                                
+                                const expander = document.createElement("span");
+                                expander.innerHTML = expanded ? "−" : "+";
+                                expander.style.marginRight = "8px";
+                                expander.style.fontWeight = "bold";
+                                expander.style.color = "#007bff";
+                                expander.style.fontSize = "14px";
+                                expander.style.minWidth = "12px";
+                                expander.classList.add("row-expander");
+                                
+                                const textSpan = document.createElement("span");
+                                textSpan.textContent = teamName;
+                                
+                                container.appendChild(expander);
+                                container.appendChild(textSpan);
+                                
+                                cellElement.appendChild(container);
+                                cellElement.style.textAlign = "left";
+                            }
+                        } catch (error) {
+                            console.error("Error in team formatter:", error);
+                        }
+                    });
+                    
+                    return (expanded ? "− " : "+ ") + teamName;
+                }
+            },
+            {
+                title: "Game", 
+                field: "Matchup Game",
+                width: 300,
+                headerFilter: createCustomMultiSelect,  // Dropdown filter
+                sorter: "string"
+            },
+            {
+                title: "Spread", 
+                field: "Matchup Spread",
+                width: 120,
+                hozAlign: "center",
+                sorter: "string"
+            },
+            {
+                title: "Total", 
+                field: "Matchup Total",
+                width: 120,
+                hozAlign: "center",
+                sorter: "string"
+            },
+            {
+                title: "Lineup Status",  // Changed from "Status"
+                field: "Matchup Lineup Status",
+                width: 150,
+                hozAlign: "center",
+                headerFilter: createCustomMultiSelect,
+                formatter: (cell) => {
+                    const value = cell.getValue();
+                    if (!value) return "";
+                    
+                    // Add styling to the status
+                    const color = value.toLowerCase().includes('confirmed') ? '#28a745' : '#6c757d';
+                    return `<span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${value}</span>`;
+                }
+            }
+        ];
     }
 
+    // Override setupRowExpansion to work with Team column
+    setupRowExpansion() {
+        this.table.on("cellClick", (e, cell) => {
+            if (cell.getField() === "Matchup Team") {
+                const row = cell.getRow();
+                const data = row.getData();
+                data._expanded = !data._expanded;
+                row.update(data);
+                row.reformat();
+                
+                setTimeout(() => {
+                    try {
+                        const cellElement = cell.getElement();
+                        if (cellElement) {
+                            const expanderIcon = cellElement.querySelector('.row-expander');
+                            if (expanderIcon) {
+                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error updating expander icon:", error);
+                    }
+                }, 100);
+            }
+        });
+    }
+
+    // Override createRowFormatter for matchups-specific subtable
     createRowFormatter() {
-        return () => {};
+        return (row) => {
+            const data = row.getData();
+            if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
+                const holderEl = document.createElement("div");
+                holderEl.classList.add('subrow-container');
+                holderEl.style.padding = "10px";
+                holderEl.style.background = "#f8f9fa";
+                
+                const subtableEl = document.createElement("div");
+                holderEl.appendChild(subtableEl);
+                row.getElement().appendChild(holderEl);
+                
+                // Create the matchups-specific subtable
+                this.createMatchupsSubtable(subtableEl, data);
+            } else if (!data._expanded) {
+                const existingSubrow = row.getElement().querySelector('.subrow-container');
+                if (existingSubrow) {
+                    existingSubrow.remove();
+                }
+            }
+        };
+    }
+
+    // Create matchups-specific subtable
+    createMatchupsSubtable(container, data) {
+        // Combine weather data with "/" separator
+        const weatherData = [
+            data["Matchup Weather 1"],
+            data["Matchup Weather 2"],
+            data["Matchup Weather 3"],
+            data["Matchup Weather 4"]
+        ].filter(w => w !== null && w !== undefined && w !== '')
+         .join(' / ');
+
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            data: [{
+                ballpark: data["Matchup Ballpark"] || "Unknown",
+                weather: weatherData || "No weather data"
+            }],
+            columns: [
+                {
+                    title: "Ballpark", 
+                    field: "ballpark", 
+                    headerSort: false, 
+                    width: 400,
+                    formatter: (cell) => {
+                        // Left align ballpark name
+                        const el = cell.getElement();
+                        if (el) {
+                            el.style.textAlign = "left";
+                        }
+                        return cell.getValue();
+                    }
+                },
+                {
+                    title: "Weather", 
+                    field: "weather", 
+                    headerSort: false,
+                    formatter: (cell) => {
+                        const value = cell.getValue();
+                        // Style the weather data
+                        return `<span style="color: #666; font-style: italic;">${value}</span>`;
+                    }
+                }
+            ]
+        });
+    }
+
+    // We don't need the other subtable methods for matchups
+    createSubtable1(container, data) {
+        // Not used for matchups table
+    }
+
+    createSubtable2(container, data) {
+        // Not used for matchups table
     }
 }
