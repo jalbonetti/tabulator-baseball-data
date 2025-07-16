@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH ALL SUBTABLES
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH ALL ISSUES RESOLVED
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -262,6 +262,12 @@ export class MatchupsTable extends BaseTable {
     setupRowExpansion() {
         this.table.on("cellClick", async (e, cell) => {
             if (cell.getField() === "Matchup Team") {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Store current scroll position
+                const currentScrollY = window.scrollY;
+                
                 const row = cell.getRow();
                 const data = row.getData();
                 
@@ -295,7 +301,10 @@ export class MatchupsTable extends BaseTable {
                 row.update(data);
                 row.reformat();
                 
+                // Restore scroll position after a brief delay
                 setTimeout(() => {
+                    window.scrollTo(0, currentScrollY);
+                    
                     try {
                         const cellElement = cell.getElement();
                         if (cellElement) {
@@ -384,7 +393,7 @@ export class MatchupsTable extends BaseTable {
             tableHTML += `
                 <div style="margin-top: 20px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
-                    <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
+                    <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: visible;"></div>
                 </div>
             `;
         }
@@ -477,11 +486,11 @@ export class MatchupsTable extends BaseTable {
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
                 "Full Season": "Full Season",
-                "vs R": "vs R",
-                "vs L": "vs L",
+                "vs R": "vs Righties",
+                "vs L": "vs Lefties",
                 "Full Season@": `Full Season ${opposingLocationText}`,
-                "vs R @": `vs R ${opposingLocationText}`,
-                "vs L @": `vs L ${opposingLocationText}`
+                "vs R @": `vs Righties ${opposingLocationText}`,
+                "vs L @": `vs Lefties ${opposingLocationText}`
             };
 
             const sortedPitcherStats = data._pitcherStats
@@ -555,7 +564,11 @@ export class MatchupsTable extends BaseTable {
                 });
 
                 pitcherTable.on("cellClick", function(e, cell) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
                     if (cell.getField() === "name") {
+                        const currentScrollY = window.scrollY;
                         const row = cell.getRow();
                         const rowData = row.getData();
                         
@@ -605,6 +618,7 @@ export class MatchupsTable extends BaseTable {
                             }
                             
                             pitcherTable.redraw();
+                            window.scrollTo(0, currentScrollY);
                         }
                     }
                 });
@@ -621,11 +635,11 @@ export class MatchupsTable extends BaseTable {
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
                 "Full Season": "Full Season",
-                "vs R": "vs R",
-                "vs L": "vs L",
+                "vs R": "vs Righties",
+                "vs L": "vs Lefties",
                 "Full Season@": `Full Season ${batterLocationText}`,
-                "vs R @": `vs R ${batterLocationText}`,
-                "vs L @": `vs L ${batterLocationText}`
+                "vs R @": `vs Righties ${batterLocationText}`,
+                "vs L @": `vs Lefties ${batterLocationText}`
             };
             
             // Group batters by batting order
@@ -716,13 +730,17 @@ export class MatchupsTable extends BaseTable {
                     {title: "BB", field: "BB", width: 45, hozAlign: "center", headerSort: false},
                     {title: "SO", field: "SO", width: 45, hozAlign: "center", headerSort: false}
                 ],
-                height: false,
+                height: false,  // Auto height
                 headerHeight: 30,
                 rowHeight: 28
             });
 
             batterTable.on("cellClick", function(e, cell) {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 if (cell.getField() === "name") {
+                    const currentScrollY = window.scrollY;
                     const row = cell.getRow();
                     const rowData = row.getData();
                     
@@ -773,6 +791,7 @@ export class MatchupsTable extends BaseTable {
                         }
                         
                         batterTable.redraw();
+                        window.scrollTo(0, currentScrollY);
                     }
                 }
             });
@@ -785,11 +804,11 @@ export class MatchupsTable extends BaseTable {
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
                 "Full Season": "Full Season",
-                "vs R": "vs R",
-                "vs L": "vs L",
+                "vs R": "vs Righties",
+                "vs L": "vs Lefties",
                 "Full Season@": `Full Season ${opposingLocationText}`,
-                "vs R @": `vs R ${opposingLocationText}`,
-                "vs L @": `vs L ${opposingLocationText}`
+                "vs R @": `vs Righties ${opposingLocationText}`,
+                "vs L @": `vs Lefties ${opposingLocationText}`
             };
             
             // Group by hand type (Righties/Lefties)
@@ -884,7 +903,11 @@ export class MatchupsTable extends BaseTable {
             });
 
             bullpenTable.on("cellClick", function(e, cell) {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 if (cell.getField() === "name") {
+                    const currentScrollY = window.scrollY;
                     const row = cell.getRow();
                     const rowData = row.getData();
                     
@@ -935,6 +958,7 @@ export class MatchupsTable extends BaseTable {
                         }
                         
                         bullpenTable.redraw();
+                        window.scrollTo(0, currentScrollY);
                     }
                 }
             });
