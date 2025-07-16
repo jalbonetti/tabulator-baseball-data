@@ -104,16 +104,30 @@ export function injectStyles() {
             opacity: 1 !important;
         }
         
-        /* Ensure matchups table has proper height */
-        #matchups-table {
-            width: 100% !important;
-            height: auto !important;  /* Fixed height */
-            min-height: 200px !important;
-            display: block !important;
-            visibility: visible !important;
-            overflow: visible !important;
-        }
+/* Ensure matchups table has proper height */
+#matchups-table {
+    width: 100% !important;
+    height: 600px !important;  /* Fixed height for sticky headers */
+    min-height: 200px !important;
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    position: relative !important;
+}
 
+/* Sticky header for main matchups table */
+#matchups-table .tabulator-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    background: white !important;
+    border-bottom: 2px solid #ddd !important;
+}
+
+#matchups-table .tabulator-tableHolder {
+    overflow-y: auto !important;
+    max-height: calc(600px - 50px) !important; /* Account for header height */
+}
         #matchups-table .tabulator-table {
             display: table !important;
             width: 100% !important;
