@@ -1,4 +1,4 @@
-// styles/tableStyles.js - COMPLETE VERSION WITH MATCHUPS FIXES
+// styles/tableStyles.js - FIXED VERSION WITH PROPER STICKY HEADERS
 export function injectStyles() {
     var style = document.createElement('style');
     style.textContent = `
@@ -15,6 +15,11 @@ export function injectStyles() {
         .tabs-container {
             margin-bottom: 20px;
             z-index: 10;
+            position: sticky !important;
+            top: 0 !important;
+            background: white !important;
+            padding: 10px 0 !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         }
         
         .tab-buttons {
@@ -89,8 +94,7 @@ export function injectStyles() {
             visibility: visible !important;
             opacity: 1 !important;
             position: relative !important;
-            overflow: visible !important;  /* Allow dropdowns */
-            max-height: 500px !important;  /* Limit height to prevent pushing */
+            overflow: visible !important;
         }
 
         #table0-container.inactive-table {
@@ -104,48 +108,66 @@ export function injectStyles() {
             opacity: 1 !important;
         }
         
-/* Ensure matchups table has proper height */
-#matchups-table {
-    width: 100% !important;
-    height: 600px !important;  /* Fixed height for sticky headers */
-    min-height: 200px !important;
-    display: block !important;
-    visibility: visible !important;
-    overflow: visible !important;
-    position: relative !important;
-}
+        /* ENHANCED STICKY HEADERS FOR ALL MAIN TABLES */
+        #matchups-table,
+        #batter-table,
+        #batter-table-alt,
+        #pitcher-table,
+        #pitcher-table-alt,
+        #mod-batter-stats-table,
+        #mod-pitcher-stats-table {
+            width: 100% !important;
+            height: 600px !important;  /* Fixed height for sticky headers */
+            min-height: 200px !important;
+            display: block !important;
+            visibility: visible !important;
+            overflow: hidden !important;
+            position: relative !important;
+        }
 
-/* Sticky header for main matchups table */
-#matchups-table .tabulator-header {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 100 !important;
-    background: white !important;
-    border-bottom: 2px solid #ddd !important;
-}
+        /* Sticky header for ALL main tables */
+        #matchups-table .tabulator-header,
+        #batter-table .tabulator-header,
+        #batter-table-alt .tabulator-header,
+        #pitcher-table .tabulator-header,
+        #pitcher-table-alt .tabulator-header,
+        #mod-batter-stats-table .tabulator-header,
+        #mod-pitcher-stats-table .tabulator-header {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 100 !important;
+            background: white !important;
+            border-bottom: 2px solid #ddd !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        }
 
-#matchups-table .tabulator-tableHolder {
-    overflow-y: auto !important;
-    max-height: calc(600px - 50px) !important; /* Account for header height */
-}
-        #matchups-table .tabulator-table {
+        /* Table holder with scroll */
+        #matchups-table .tabulator-tableHolder,
+        #batter-table .tabulator-tableHolder,
+        #batter-table-alt .tabulator-tableHolder,
+        #pitcher-table .tabulator-tableHolder,
+        #pitcher-table-alt .tabulator-tableHolder,
+        #mod-batter-stats-table .tabulator-tableHolder,
+        #mod-pitcher-stats-table .tabulator-tableHolder {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            max-height: calc(600px - 50px) !important; /* Account for header height */
+        }
+
+        /* Ensure proper table display */
+        .tabulator-table {
             display: table !important;
             width: 100% !important;
         }
 
-        #matchups-table .tabulator-tableHolder {
-            overflow: auto !important;
-            max-height: none !important;
-        }
-        
         /* Force table rows to be visible */
-        #matchups-table .tabulator-row {
+        .tabulator-row {
             display: table-row !important;
             visibility: visible !important;
         }
         
         /* Hide placeholder when data is loaded */
-        #matchups-table.tabulator-loaded .tabulator-placeholder {
+        .tabulator-loaded .tabulator-placeholder {
             display: none !important;
         }
         
@@ -186,7 +208,6 @@ export function injectStyles() {
         .tabulator .tabulator-tableHolder {
             position: relative !important;
             z-index: 1 !important;
-            overflow: auto !important;
         }
         
         /* Make sure rows don't overflow and cover dropdowns */
@@ -337,6 +358,13 @@ export function injectStyles() {
         .subrow-container {
             position: relative !important;
             z-index: 1 !important;
+            overflow: visible !important;
+        }
+        
+        .subrow-container .tabulator {
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
         }
         
         .subrow-container .tabulator .tabulator-header .tabulator-col {
@@ -367,23 +395,19 @@ export function injectStyles() {
             text-align: left !important;
         }
         
-        /* Sticky headers for subtables */
-        .subrow-container .tabulator {
-            max-height: 400px !important;
-            overflow: hidden !important;
-        }
-        
+        /* Remove sticky headers from subtables */
         .subrow-container .tabulator .tabulator-header {
-            position: sticky !important;
-            top: 0 !important;
-            z-index: 100 !important;
-            background: white !important;
-            border-bottom: 2px solid #ddd !important;
+            position: relative !important;
+            top: auto !important;
+            z-index: 1 !important;
+            background: #f8f9fa !important;
+            border-bottom: 1px solid #ddd !important;
         }
         
         .subrow-container .tabulator .tabulator-tableHolder {
-            overflow-y: auto !important;
-            max-height: 350px !important;
+            overflow: visible !important;
+            max-height: none !important;
+            height: auto !important;
         }
         
         /* Frozen columns styling */
@@ -430,6 +454,22 @@ export function injectStyles() {
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
+        }
+        
+        /* Expansion animation */
+        .subrow-container {
+            animation: slideDown 0.2s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     `;
     document.head.appendChild(style);
