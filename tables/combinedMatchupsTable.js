@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - LAZY LOADING VERSION
+// tables/combinedMatchupsTable.js - UPDATED WITH PARK FACTORS
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -7,7 +7,7 @@ export class MatchupsTable extends BaseTable {
     constructor(elementId) {
         super(elementId, 'ModMatchupsData');
         this.matchupsData = [];
-        this.additionalDataCache = new Map(); // Cache for additional data
+        this.parkFactorsCache = new Map(); // Cache for park factors data
     }
 
     initialize() {
@@ -16,7 +16,8 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
-            height: 400,
+            // Remove fixed height to allow natural expansion
+            height: false,
             layout: "fitColumns",
             placeholder: "Loading matchups data...",
             initialSort: [
@@ -29,7 +30,7 @@ export class MatchupsTable extends BaseTable {
                 // Initialize expansion state
                 data.forEach(row => {
                     row._expanded = false;
-                    row._additionalDataFetched = false;
+                    row._parkFactorsFetched = false;
                 });
                 this.matchupsData = data;
             }
@@ -146,46 +147,18 @@ export class MatchupsTable extends BaseTable {
         ];
     }
 
-    // Fetch additional data for a specific matchup (lazy loading)
-    async fetchAdditionalData(matchupId) {
+    // Fetch park factors data for a specific matchup (lazy loading)
+    async fetchParkFactors(matchupId) {
         // Check cache first
-        if (this.additionalDataCache.has(matchupId)) {
-            return this.additionalDataCache.get(matchupId);
+        if (this.parkFactorsCache.has(matchupId)) {
+            return this.parkFactorsCache.get(matchupId);
         }
 
         try {
-            console.log(`Fetching additional data for matchup ${matchupId}...`);
+            console.log(`Fetching park factors for matchup ${matchupId}...`);
             
-            // Fetch from multiple tables in parallel
-            const [parkFactors, batterMatchups, pitcherMatchups, bullpenMatchups] = await Promise.all([
-                this.fetchTableData('ModParkFactors', matchupId),
-                this.fetchTableData('ModBatterMatchups', matchupId),
-                this.fetchTableData('ModPitcherMatchups', matchupId),
-                this.fetchTableData('ModBullpenMatchups', matchupId)
-            ]);
-
-            const additionalData = {
-                parkFactors,
-                batterMatchups,
-                pitcherMatchups,
-                bullpenMatchups
-            };
-
-            // Cache the result
-            this.additionalDataCache.set(matchupId, additionalData);
-            
-            return additionalData;
-        } catch (error) {
-            console.error('Error fetching additional data:', error);
-            return null;
-        }
-    }
-
-    // Helper to fetch data from a specific table
-    async fetchTableData(tableName, matchupId) {
-        try {
             const response = await fetch(
-                `${API_CONFIG.baseURL}${tableName}?Matchup_Game_ID=eq.${matchupId}`,
+                `${API_CONFIG.baseURL}ModParkFactors?Park Factor Game ID=eq.${matchupId}`,
                 {
                     method: 'GET',
                     headers: API_CONFIG.headers
@@ -193,13 +166,18 @@ export class MatchupsTable extends BaseTable {
             );
             
             if (!response.ok) {
-                throw new Error(`Failed to fetch ${tableName}`);
+                throw new Error('Failed to fetch park factors');
             }
             
-            return await response.json();
+            const parkFactors = await response.json();
+            
+            // Cache the result
+            this.parkFactorsCache.set(matchupId, parkFactors);
+            
+            return parkFactors;
         } catch (error) {
-            console.error(`Error fetching ${tableName}:`, error);
-            return [];
+            console.error('Error fetching park factors:', error);
+            return null;
         }
     }
 
@@ -210,8 +188,8 @@ export class MatchupsTable extends BaseTable {
                 const row = cell.getRow();
                 const data = row.getData();
                 
-                // If expanding and no additional data yet, fetch it
-                if (!data._expanded && !data._additionalDataFetched) {
+                // If expanding and no park factors yet, fetch them
+                if (!data._expanded && !data._parkFactorsFetched) {
                     // Show loading indicator
                     const cellElement = cell.getElement();
                     const expanderIcon = cellElement.querySelector('.row-expander');
@@ -220,14 +198,14 @@ export class MatchupsTable extends BaseTable {
                         expanderIcon.style.animation = 'spin 1s linear infinite';
                     }
                     
-                    // Fetch additional data
+                    // Fetch park factors data
                     const matchupId = data["Matchup Game ID"];
-                    const additionalData = await this.fetchAdditionalData(matchupId);
+                    const parkFactors = await this.fetchParkFactors(matchupId);
                     
-                    if (additionalData) {
-                        // Add the additional data to the row
-                        data._additionalData = additionalData;
-                        data._additionalDataFetched = true;
+                    if (parkFactors) {
+                        // Add the park factors to the row data
+                        data._parkFactors = parkFactors;
+                        data._parkFactorsFetched = true;
                         row.update(data);
                     }
                     
@@ -284,7 +262,7 @@ export class MatchupsTable extends BaseTable {
         };
     }
 
-    // Create matchups-specific subtable with weather time periods
+    // Create matchups-specific subtable with park factors
     createMatchupsSubtable(container, data) {
         // Weather data - these are full weather strings with times
         const weatherData = [
@@ -325,37 +303,63 @@ export class MatchupsTable extends BaseTable {
             </table>
         `;
 
-        // If additional data is available, show it
-        if (data._additionalData) {
-            const { parkFactors, batterMatchups, pitcherMatchups, bullpenMatchups } = data._additionalData;
-            
-            // Add a summary section with more detailed information
+        // If park factors data is available, show it
+        if (data._parkFactors && data._parkFactors.length > 0) {
+            // Transform Split ID values
+            const splitIdMap = {
+                'A': 'All',
+                'R': 'Righties',
+                'L': 'Lefties'
+            };
+
+            // Sort park factors by split ID (A, R, L order)
+            const sortedParkFactors = data._parkFactors.sort((a, b) => {
+                const order = { 'A': 0, 'R': 1, 'L': 2 };
+                return order[a["Park Factor Split ID"]] - order[b["Park Factor Split ID"]];
+            });
+
+            // Create the park factors table
             tableHTML += `
-                <div style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 4px;">
-                    <h4 style="margin: 0 0 10px 0; color: #333;">Additional Matchup Data</h4>
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                        <div>
-                            <strong style="color: #1976d2;">Park Factors:</strong> 
-                            <span>${parkFactors.length} records loaded</span>
-                        </div>
-                        <div>
-                            <strong style="color: #1976d2;">Batter Matchups:</strong> 
-                            <span>${batterMatchups.length} records loaded</span>
-                        </div>
-                        <div>
-                            <strong style="color: #1976d2;">Pitcher Matchups:</strong> 
-                            <span>${pitcherMatchups.length} records loaded</span>
-                        </div>
-                        <div>
-                            <strong style="color: #1976d2;">Bullpen Matchups:</strong> 
-                            <span>${bullpenMatchups.length} records loaded</span>
-                        </div>
-                    </div>
+                <div style="margin-top: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Park Factors</h4>
+                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
             `;
-        }
 
-        container.innerHTML = tableHTML;
+            container.innerHTML = tableHTML;
+
+            // Create Tabulator instance for park factors
+            new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
+                layout: "fitColumns",
+                data: sortedParkFactors.map(pf => ({
+                    split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
+                    H: pf["Park Factor H"],
+                    "1B": pf["Park Factor 1B"],
+                    "2B": pf["Park Factor 2B"],
+                    "3B": pf["Park Factor 3B"],
+                    HR: pf["Park Factor HR"],
+                    R: pf["Park Factor R"],
+                    BB: pf["Park Factor BB"],
+                    SO: pf["Park Factor SO"]
+                })),
+                columns: [
+                    {title: "Split", field: "split", width: 100, headerSort: false},
+                    {title: "H", field: "H", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "1B", field: "1B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "2B", field: "2B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "3B", field: "3B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "HR", field: "HR", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "R", field: "R", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "BB", field: "BB", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
+                ],
+                height: false,  // Allow natural height
+                headerHeight: 30,
+                rowHeight: 28
+            });
+        } else {
+            container.innerHTML = tableHTML;
+        }
         
         // Add loading animation CSS if not already added
         if (!document.getElementById('matchups-loading-css')) {
