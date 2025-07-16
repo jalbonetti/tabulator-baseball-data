@@ -57,8 +57,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Prop", 
                     field: "Batter Prop Type", 
-                    width: 140, 
-                    minWidth: 100,
+                    width: 200, 
+                    minWidth: 140,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
@@ -66,8 +66,8 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Value", 
                     field: "Batter Prop Value", 
-                    width: 90, 
-                    minWidth: 70,
+                    width: 200, 
+                    minWidth: 140,
                     sorter: "number", 
                     headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
@@ -211,10 +211,10 @@ export class BatterClearancesTable extends BaseTable {
             ],
             columns: [
                 {title: "Players", field: "player", headerSort: false, width: 350},
-                {title: "Full Season", field: "fullSeason", headerSort: false, width: 130},
-                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 180},
-                {title: "Last 30 Days", field: "last30", headerSort: false, width: 130},
-                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 180}
+                {title: "Full Season", field: "fullSeason", headerSort: false, width: 220},
+                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 220},
+                {title: "Last 30 Days", field: "last30", headerSort: false, width: 220},
+                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 220}
             ]
         });
     }
