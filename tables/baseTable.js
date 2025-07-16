@@ -1,4 +1,4 @@
-// tables/baseTable.js - UPDATED VERSION
+// tables/baseTable.js - FIXED VERSION WITH SCROLL POSITION FIX
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -17,7 +17,7 @@ export class BaseTable {
             responsiveLayout: "hide",
             persistence: false,
             paginationSize: false,
-            height: false,
+            height: "600px", // Fixed height for sticky headers
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
@@ -102,7 +102,7 @@ export class BaseTable {
         };
     }
 
-    // Setup click handler for row expansion
+    // Setup click handler for row expansion WITH SCROLL FIX
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -117,6 +117,14 @@ export class BaseTable {
             ];
             
             if (expandableFields.includes(field)) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Store current scroll position
+                const currentScrollY = window.scrollY;
+                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                const tableScrollY = tableHolder ? tableHolder.scrollTop : 0;
+                
                 var row = cell.getRow();
                 var data = row.getData();
                 
@@ -130,6 +138,12 @@ export class BaseTable {
                 row.reformat();
                 
                 setTimeout(() => {
+                    // Restore scroll positions
+                    window.scrollTo(0, currentScrollY);
+                    if (tableHolder) {
+                        tableHolder.scrollTop = tableScrollY;
+                    }
+                    
                     try {
                         var cellElement = cell.getElement();
                         if (cellElement && cellElement.querySelector) {
@@ -154,6 +168,7 @@ export class BaseTable {
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
+            height: false, // Auto height
             data: [{
                 propFactor: data["Batter Prop Park Factor"] || data["Pitcher Prop Park Factor"],
                 lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
