@@ -107,7 +107,7 @@ export function injectStyles() {
         /* Ensure matchups table has proper height */
         #matchups-table {
             width: 100% !important;
-            height: 400px !important;  /* Fixed height */
+            height: auto !important;  /* Fixed height */
             min-height: 200px !important;
             display: block !important;
             visibility: visible !important;
