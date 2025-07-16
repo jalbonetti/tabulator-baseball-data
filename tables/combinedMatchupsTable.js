@@ -19,9 +19,13 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
-            height: false,
+            height: "600px", // Fixed height to enable sticky headers
             layout: "fitColumns",
             placeholder: "Loading matchups data...",
+            headerVisible: true,
+            headerHozAlign: "center",
+            renderVertical: "virtual",
+            renderHorizontal: "virtual",
             initialSort: [
                 {column: "Matchup Game ID", dir: "asc"}
             ],
@@ -610,36 +614,96 @@ export class MatchupsTable extends BaseTable {
 
     createBatterMatchupsTable(data) {
         if (data._batterMatchups && data._batterMatchups.length > 0) {
-            // Extract batting order number and sort
-            const sortedBatters = data._batterMatchups
-                .map(batter => {
-                    const nameHandSpot = batter["Batter Name & Hand & Spot"];
-                    const match = nameHandSpot.match(/(\d+)$/);
-                    const battingOrder = match ? parseInt(match[1]) : 999;
-                    return { ...batter, battingOrder };
-                })
-                .sort((a, b) => a.battingOrder - b.battingOrder);
+            const isTeamAway = this.isTeamAway(data["Matchup Game"]);
+            const batterLocationText = isTeamAway ? "Away" : "at Home";
+            
+            // Define split order and mapping (same as pitcher)
+            const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
+            const splitMap = {
+                "Full Season": "Full Season",
+                "vs R": "vs R",
+                "vs L": "vs L",
+                "Full Season@": `Full Season ${batterLocationText}`,
+                "vs R @": `vs R ${batterLocationText}`,
+                "vs L @": `vs L ${batterLocationText}`
+            };
+            
+            // Group batters by batting order
+            const battersByOrder = {};
+            data._batterMatchups.forEach(batter => {
+                const nameHandSpot = batter["Batter Name & Hand & Spot"];
+                const match = nameHandSpot.match(/(.+?)\s+(\d+)$/);
+                if (match) {
+                    const batterName = match[1];
+                    const battingOrder = parseInt(match[2]);
+                    
+                    if (!battersByOrder[battingOrder]) {
+                        battersByOrder[battingOrder] = {
+                            name: batterName,
+                            order: battingOrder,
+                            splits: []
+                        };
+                    }
+                    battersByOrder[battingOrder].splits.push(batter);
+                }
+            });
+            
+            // Create table data with main rows (Full Season) for each batter
+            const tableData = [];
+            Object.keys(battersByOrder)
+                .sort((a, b) => parseInt(a) - parseInt(b))
+                .forEach(order => {
+                    const batterData = battersByOrder[order];
+                    const fullSeasonData = batterData.splits.find(s => s["Batter Split ID"] === "Full Season");
+                    
+                    if (fullSeasonData) {
+                        tableData.push({
+                            _id: `${data["Matchup Game ID"]}-batter-${order}`,
+                            _isExpanded: false,
+                            _rowType: 'main',
+                            _batterOrder: order,
+                            name: `${batterData.name} ${order}`,
+                            split: "Full Season",
+                            PA: fullSeasonData["Batter PA"],
+                            "H/PA": parseFloat(fullSeasonData["Batter H/PA"]).toFixed(3),
+                            H: fullSeasonData["Batter H"],
+                            "1B": fullSeasonData["Batter 1B"],
+                            "2B": fullSeasonData["Batter 2B"],
+                            "3B": fullSeasonData["Batter 3B"],
+                            HR: fullSeasonData["Batter HR"],
+                            R: fullSeasonData["Batter R"],
+                            RBI: fullSeasonData["Batter RBI"],
+                            BB: fullSeasonData["Batter BB"],
+                            SO: fullSeasonData["Batter SO"],
+                            _childData: batterData.splits
+                        });
+                    }
+                });
 
-            new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
+            const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
                 layout: "fitColumns",
-                data: sortedBatters.map(batter => ({
-                    name: batter["Batter Name & Hand & Spot"],
-                    split: batter["Batter Split ID"],
-                    PA: batter["Batter PA"],
-                    "H/PA": parseFloat(batter["Batter H/PA"]).toFixed(3),
-                    H: batter["Batter H"],
-                    "1B": batter["Batter 1B"],
-                    "2B": batter["Batter 2B"],
-                    "3B": batter["Batter 3B"],
-                    HR: batter["Batter HR"],
-                    R: batter["Batter R"],
-                    RBI: batter["Batter RBI"],
-                    BB: batter["Batter BB"],
-                    SO: batter["Batter SO"]
-                })),
+                data: tableData,
                 columns: [
-                    {title: "Name", field: "name", width: 200, headerSort: false},
-                    {title: "Split", field: "split", width: 100, headerSort: false},
+                    {
+                        title: "Name", 
+                        field: "name", 
+                        width: 200,
+                        headerSort: false,
+                        formatter: function(cell) {
+                            const rowData = cell.getRow().getData();
+                            const value = cell.getValue();
+                            
+                            if (rowData._rowType === 'main') {
+                                const expanded = rowData._isExpanded || false;
+                                return `<div style="cursor: pointer; display: flex; align-items: center;">
+                                    <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;">${expanded ? '−' : '+'}</span>
+                                    <span>${value}</span>
+                                </div>`;
+                            }
+                            return `<div style="margin-left: 30px;">${value}</div>`;
+                        }
+                    },
+                    {title: "Split", field: "split", width: 150, headerSort: false},
                     {title: "PA", field: "PA", width: 50, hozAlign: "center", headerSort: false},
                     {title: "H/PA", field: "H/PA", width: 60, hozAlign: "center", headerSort: false},
                     {title: "H", field: "H", width: 45, hozAlign: "center", headerSort: false},
@@ -656,56 +720,125 @@ export class MatchupsTable extends BaseTable {
                 headerHeight: 30,
                 rowHeight: 28
             });
+
+            batterTable.on("cellClick", function(e, cell) {
+                if (cell.getField() === "name") {
+                    const row = cell.getRow();
+                    const rowData = row.getData();
+                    
+                    if (rowData._rowType === 'main') {
+                        rowData._isExpanded = !rowData._isExpanded;
+                        row.update(rowData);
+                        
+                        if (rowData._isExpanded) {
+                            const childRows = [];
+                            let insertPosition = row.getPosition() + 1;
+                            
+                            // Add the other splits in order
+                            ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
+                                const statData = rowData._childData.find(s => s["Batter Split ID"] === splitId);
+                                if (statData) {
+                                    childRows.push({
+                                        _id: `${data["Matchup Game ID"]}-batter-child-${rowData._batterOrder}-${index}`,
+                                        _rowType: 'child',
+                                        _parentId: rowData._id,
+                                        name: `${rowData.name.replace(/ \d+$/, '')} ${rowData._batterOrder}`,
+                                        split: splitMap[splitId],
+                                        PA: statData["Batter PA"],
+                                        "H/PA": parseFloat(statData["Batter H/PA"]).toFixed(3),
+                                        H: statData["Batter H"],
+                                        "1B": statData["Batter 1B"],
+                                        "2B": statData["Batter 2B"],
+                                        "3B": statData["Batter 3B"],
+                                        HR: statData["Batter HR"],
+                                        R: statData["Batter R"],
+                                        RBI: statData["Batter RBI"],
+                                        BB: statData["Batter BB"],
+                                        SO: statData["Batter SO"]
+                                    });
+                                }
+                            });
+                            
+                            childRows.forEach((childRow, index) => {
+                                batterTable.addRow(childRow, false, insertPosition + index);
+                            });
+                        } else {
+                            const allRows = batterTable.getRows();
+                            allRows.forEach(r => {
+                                const data = r.getData();
+                                if (data._rowType === 'child' && data._parentId === rowData._id) {
+                                    r.delete();
+                                }
+                            });
+                        }
+                        
+                        batterTable.redraw();
+                    }
+                }
+            });
         }
     }
 
     createBullpenMatchupsTable(data, opposingLocationText) {
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
+            // Define split order and mapping (same as pitcher)
+            const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
+            const splitMap = {
+                "Full Season": "Full Season",
+                "vs R": "vs R",
+                "vs L": "vs L",
+                "Full Season@": `Full Season ${opposingLocationText}`,
+                "vs R @": `vs R ${opposingLocationText}`,
+                "vs L @": `vs L ${opposingLocationText}`
+            };
+            
             // Group by hand type (Righties/Lefties)
-            const groupedData = {};
+            const groupedData = {
+                "Righties": [],
+                "Lefties": []
+            };
             
             data._bullpenMatchups.forEach(bullpen => {
                 const handNumber = bullpen["Bullpen Hand & Number"];
                 const match = handNumber.match(/(\d+)\s+(Righties|Lefties)/);
                 if (match) {
                     const handType = match[2];
-                    if (!groupedData[handType]) {
-                        groupedData[handType] = [];
-                    }
                     groupedData[handType].push(bullpen);
                 }
             });
 
-            // Create main rows for Righties and Lefties
+            // Create table data with Full Season as main rows
             const tableData = [];
             const handOrder = ["Righties", "Lefties"];
             
-            handOrder.forEach((handType, index) => {
+            handOrder.forEach((handType) => {
                 const handData = groupedData[handType];
                 if (handData && handData.length > 0) {
-                    // Calculate totals for main row
-                    const totalData = handData[0]; // Use first row as template
+                    // Find Full Season data for this hand type
+                    const fullSeasonData = handData.find(d => d["Bullpen Split ID"] === "Full Season");
                     
-                    tableData.push({
-                        _id: `${data["Matchup Game ID"]}-bullpen-${handType}`,
-                        _isExpanded: false,
-                        _rowType: 'main',
-                        _handType: handType,
-                        name: `${handType} (${handData.length})`,
-                        split: "Combined",
-                        TBF: handData.reduce((sum, d) => sum + parseInt(d["Bullpen TBF"] || 0), 0),
-                        "H/TBF": "-", // Would need calculation
-                        H: handData.reduce((sum, d) => sum + parseInt(d["Bullpen H"] || 0), 0),
-                        "1B": handData.reduce((sum, d) => sum + parseInt(d["Bullpen 1B"] || 0), 0),
-                        "2B": handData.reduce((sum, d) => sum + parseInt(d["Bullpen 2B"] || 0), 0),
-                        "3B": handData.reduce((sum, d) => sum + parseInt(d["Bullpen 3B"] || 0), 0),
-                        HR: handData.reduce((sum, d) => sum + parseInt(d["Bullpen HR"] || 0), 0),
-                        R: handData.reduce((sum, d) => sum + parseInt(d["Bullpen R"] || 0), 0),
-                        ERA: "-", // Would need calculation
-                        BB: handData.reduce((sum, d) => sum + parseInt(d["Bullpen BB"] || 0), 0),
-                        SO: handData.reduce((sum, d) => sum + parseInt(d["Bullpen SO"] || 0), 0),
-                        _childData: handData
-                    });
+                    if (fullSeasonData) {
+                        tableData.push({
+                            _id: `${data["Matchup Game ID"]}-bullpen-${handType}`,
+                            _isExpanded: false,
+                            _rowType: 'main',
+                            _handType: handType,
+                            name: fullSeasonData["Bullpen Hand & Number"],
+                            split: "Full Season",
+                            TBF: fullSeasonData["Bullpen TBF"],
+                            "H/TBF": parseFloat(fullSeasonData["Bullpen H/TBF"]).toFixed(3),
+                            H: fullSeasonData["Bullpen H"],
+                            "1B": fullSeasonData["Bullpen 1B"],
+                            "2B": fullSeasonData["Bullpen 2B"],
+                            "3B": fullSeasonData["Bullpen 3B"],
+                            HR: fullSeasonData["Bullpen HR"],
+                            R: fullSeasonData["Bullpen R"],
+                            ERA: parseFloat(fullSeasonData["Bullpen ERA"]).toFixed(2),
+                            BB: fullSeasonData["Bullpen BB"],
+                            SO: fullSeasonData["Bullpen SO"],
+                            _childData: handData
+                        });
+                    }
                 }
             });
 
@@ -732,7 +865,7 @@ export class MatchupsTable extends BaseTable {
                             return `<div style="margin-left: 30px;">${value}</div>`;
                         }
                     },
-                    {title: "Split", field: "split", width: 120, headerSort: false},
+                    {title: "Split", field: "split", width: 150, headerSort: false},
                     {title: "TBF", field: "TBF", width: 60, hozAlign: "center", headerSort: false},
                     {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
                     {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
@@ -763,35 +896,29 @@ export class MatchupsTable extends BaseTable {
                             const childRows = [];
                             let insertPosition = row.getPosition() + 1;
                             
-                            // Transform split IDs
-                            const splitMap = {
-                                "Full Season": "Full Season",
-                                "Full Season@": `Full Season ${opposingLocationText}`,
-                                "vs L": "vs L",
-                                "vs R": "vs R",
-                                "vs L @": `vs L ${opposingLocationText}`,
-                                "vs R @": `vs R ${opposingLocationText}`
-                            };
-                            
-                            rowData._childData.forEach((childData, index) => {
-                                childRows.push({
-                                    _id: `${data["Matchup Game ID"]}-bullpen-child-${rowData._handType}-${index}`,
-                                    _rowType: 'child',
-                                    _parentId: rowData._id,
-                                    name: childData["Bullpen Hand & Number"],
-                                    split: splitMap[childData["Bullpen Split ID"]] || childData["Bullpen Split ID"],
-                                    TBF: childData["Bullpen TBF"],
-                                    "H/TBF": parseFloat(childData["Bullpen H/TBF"]).toFixed(3),
-                                    H: childData["Bullpen H"],
-                                    "1B": childData["Bullpen 1B"],
-                                    "2B": childData["Bullpen 2B"],
-                                    "3B": childData["Bullpen 3B"],
-                                    HR: childData["Bullpen HR"],
-                                    R: childData["Bullpen R"],
-                                    ERA: parseFloat(childData["Bullpen ERA"]).toFixed(2),
-                                    BB: childData["Bullpen BB"],
-                                    SO: childData["Bullpen SO"]
-                                });
+                            // Add the other splits in order (excluding Full Season)
+                            ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
+                                const statData = rowData._childData.find(s => s["Bullpen Split ID"] === splitId);
+                                if (statData) {
+                                    childRows.push({
+                                        _id: `${data["Matchup Game ID"]}-bullpen-child-${rowData._handType}-${index}`,
+                                        _rowType: 'child',
+                                        _parentId: rowData._id,
+                                        name: statData["Bullpen Hand & Number"],
+                                        split: splitMap[splitId],
+                                        TBF: statData["Bullpen TBF"],
+                                        "H/TBF": parseFloat(statData["Bullpen H/TBF"]).toFixed(3),
+                                        H: statData["Bullpen H"],
+                                        "1B": statData["Bullpen 1B"],
+                                        "2B": statData["Bullpen 2B"],
+                                        "3B": statData["Bullpen 3B"],
+                                        HR: statData["Bullpen HR"],
+                                        R: statData["Bullpen R"],
+                                        ERA: parseFloat(statData["Bullpen ERA"]).toFixed(2),
+                                        BB: statData["Bullpen BB"],
+                                        SO: statData["Bullpen SO"]
+                                    });
+                                }
                             });
                             
                             childRows.forEach((childRow, index) => {
