@@ -1,16 +1,26 @@
-// components/tabManager.js
+// components/tabManager.js - FIXED VERSION WITH SCROLL POSITION PRESERVATION
 export class TabManager {
     constructor(tables) {
         this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table6: tableInstance }
         this.currentActiveTab = 'table0';
+        this.scrollPositions = {}; // Store scroll positions for each tab
         this.setupTabSwitching();
     }
 
     setupTabSwitching() {
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('tab-button')) {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 var targetTab = e.target.dataset.tab;
                 console.log('Switching to tab:', targetTab);
+                
+                // Save current scroll position
+                this.scrollPositions[this.currentActiveTab] = {
+                    window: window.scrollY,
+                    table: this.getTableScrollPosition(this.currentActiveTab)
+                };
                 
                 // Update button states
                 document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -43,10 +53,35 @@ export class TabManager {
                         if (this.tables[targetTab]) {
                             this.tables[targetTab].redraw();
                         }
+                        
+                        // Restore scroll positions
+                        if (this.scrollPositions[targetTab]) {
+                            window.scrollTo(0, this.scrollPositions[targetTab].window || 0);
+                            this.setTableScrollPosition(targetTab, this.scrollPositions[targetTab].table || 0);
+                        }
                     }, 100);
                 }
             }
         });
+    }
+
+    getTableScrollPosition(tabId) {
+        const container = document.getElementById(`${tabId}-container`);
+        if (container) {
+            const tableHolder = container.querySelector('.tabulator-tableHolder');
+            return tableHolder ? tableHolder.scrollTop : 0;
+        }
+        return 0;
+    }
+
+    setTableScrollPosition(tabId, position) {
+        const container = document.getElementById(`${tabId}-container`);
+        if (container) {
+            const tableHolder = container.querySelector('.tabulator-tableHolder');
+            if (tableHolder) {
+                tableHolder.scrollTop = position;
+            }
+        }
     }
 
     createTabStructure(tableElement) {
