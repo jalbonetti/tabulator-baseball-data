@@ -1,4 +1,4 @@
-// tables/baseTable.js - FIXED VERSION WITH SCROLL POSITION FIX
+// tables/baseTable.js - FIXED VERSION WITH BETTER SCROLL HANDLING
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -102,7 +102,7 @@ export class BaseTable {
         };
     }
 
-    // Setup click handler for row expansion WITH SCROLL FIX
+    // Setup click handler for row expansion WITH BETTER SCROLL FIX
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -120,10 +120,10 @@ export class BaseTable {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Store current scroll position
-                const currentScrollY = window.scrollY;
+                // Store current scroll positions before any DOM changes
                 const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
                 const tableScrollY = tableHolder ? tableHolder.scrollTop : 0;
+                const windowScrollY = window.scrollY;
                 
                 var row = cell.getRow();
                 var data = row.getData();
@@ -137,12 +137,13 @@ export class BaseTable {
                 row.update(data);
                 row.reformat();
                 
-                setTimeout(() => {
+                // Use requestAnimationFrame to ensure DOM has updated
+                requestAnimationFrame(() => {
                     // Restore scroll positions
-                    window.scrollTo(0, currentScrollY);
                     if (tableHolder) {
                         tableHolder.scrollTop = tableScrollY;
                     }
+                    window.scrollTo(0, windowScrollY);
                     
                     try {
                         var cellElement = cell.getElement();
@@ -155,7 +156,7 @@ export class BaseTable {
                     } catch (error) {
                         console.error("Error updating expander icon:", error);
                     }
-                }, 100);
+                });
             }
         });
     }
@@ -243,10 +244,15 @@ export class BaseTable {
         throw new Error("initialize must be implemented by child class");
     }
 
-    // Redraw the table
+    // Redraw the table with better state management
     redraw() {
         if (this.table) {
-            this.table.redraw();
+            this.table.redraw(true); // Force full redraw
         }
+    }
+    
+    // Get the internal Tabulator instance
+    getTabulator() {
+        return this.table;
     }
 }
