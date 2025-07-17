@@ -168,7 +168,7 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Lineup Status",
                 field: "Matchup Lineup Status",
-                width: 220,
+                width: 240,
                 hozAlign: "center",
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
