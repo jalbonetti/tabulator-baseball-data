@@ -1,4 +1,4 @@
-// main.js
+// main.js - UPDATED VERSION WITH FIXED TAB MANAGEMENT
 import { MatchupsTable } from './tables/combinedMatchupsTable.js';
 import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
@@ -64,9 +64,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var table0Container = document.getElementById('table0-container');
     if (!table0Container) {
         table0Container = document.createElement('div');
-        table0Container.className = 'table-container active-table';  // Changed to active
+        table0Container.className = 'table-container active-table';
         table0Container.id = 'table0-container';
-        table0Container.style.cssText = 'width: 100%; display: block;';  // Changed to block
+        table0Container.style.cssText = 'width: 100%; display: block;';
     }
     table0Container.appendChild(matchupsTableElement);
 
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Initialize all tables
+    // Initialize all table instances
     const table0 = new MatchupsTable("#matchups-table");
     const table1 = new BatterClearancesTable("#batter-table");
     const table2 = new BatterClearancesAltTable("#batter-table-alt");
@@ -151,6 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const table8 = new PitcherPropsTable("#pitcher-props-table");
     const table9 = new GamePropsTable("#game-props-table");
 
+    // Initialize all tables
     table0.initialize();
     table1.initialize();
     table2.initialize();
@@ -162,18 +163,19 @@ document.addEventListener('DOMContentLoaded', function() {
     table8.initialize();
     table9.initialize();
 
-    // Update tab manager with table instances - using getTable() method
+    // Update tab manager with table instances - passing the class instances
+    // TabManager will call the redraw method on these instances
     tabManager.tables = {
-        table0: table0.getTable(),
-        table1: table1.getTable(),
-        table2: table2.getTable(),
-        table3: table3.getTable(),
-        table4: table4.getTable(),
-        table5: table5.getTable(),
-        table6: table6.getTable(),
-        table7: table7.getTable(),
-        table8: table8.getTable(),
-        table9: table9.getTable()
+        table0: table0,
+        table1: table1,
+        table2: table2,
+        table3: table3,
+        table4: table4,
+        table5: table5,
+        table6: table6,
+        table7: table7,
+        table8: table8,
+        table9: table9
     };
 
     console.log('All tables initialized successfully');
