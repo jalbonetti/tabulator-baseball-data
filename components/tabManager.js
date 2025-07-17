@@ -1,9 +1,10 @@
-// components/tabManager.js - UPDATED VERSION WITH PROPS TABS
+// components/tabManager.js - UPDATED VERSION WITH BETTER STATE MANAGEMENT
 export class TabManager {
     constructor(tables) {
         this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table9: tableInstance }
         this.currentActiveTab = 'table0';
         this.scrollPositions = {}; // Store scroll positions for each tab
+        this.tableStates = {}; // Store table states for each tab
         this.setupTabSwitching();
     }
 
@@ -16,11 +17,8 @@ export class TabManager {
                 var targetTab = e.target.dataset.tab;
                 console.log('Switching to tab:', targetTab);
                 
-                // Save current scroll position
-                this.scrollPositions[this.currentActiveTab] = {
-                    window: window.scrollY,
-                    table: this.getTableScrollPosition(this.currentActiveTab)
-                };
+                // Save current tab state
+                this.saveCurrentTabState();
                 
                 // Update button states
                 document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -41,31 +39,95 @@ export class TabManager {
                 };
                 
                 // Hide all containers
-                Object.values(containers).forEach(container => {
+                Object.entries(containers).forEach(([tabId, container]) => {
                     if (container) {
                         container.className = 'table-container inactive-table';
+                        container.style.display = 'none';
                     }
                 });
                 
                 // Show target container
                 if (containers[targetTab]) {
                     containers[targetTab].className = 'table-container active-table';
+                    containers[targetTab].style.display = 'block';
                     this.currentActiveTab = targetTab;
                     
+                    // Restore tab state and redraw
                     setTimeout(() => {
-                        if (this.tables[targetTab]) {
-                            this.tables[targetTab].redraw();
-                        }
-                        
-                        // Restore scroll positions
-                        if (this.scrollPositions[targetTab]) {
-                            window.scrollTo(0, this.scrollPositions[targetTab].window || 0);
-                            this.setTableScrollPosition(targetTab, this.scrollPositions[targetTab].table || 0);
-                        }
+                        this.restoreTabState(targetTab);
                     }, 100);
                 }
             }
         });
+    }
+
+    saveCurrentTabState() {
+        // Save scroll positions
+        this.scrollPositions[this.currentActiveTab] = {
+            window: window.scrollY,
+            table: this.getTableScrollPosition(this.currentActiveTab)
+        };
+        
+        // Save expanded rows state for matchups table
+        if (this.currentActiveTab === 'table0' && this.tables[this.currentActiveTab]) {
+            const expandedRows = new Set();
+            const tableWrapper = this.tables[this.currentActiveTab];
+            const tableInstance = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+            
+            if (tableInstance && tableInstance.getRows) {
+                const rows = tableInstance.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    if (data._expanded) {
+                        expandedRows.add(data["Matchup Game ID"] || data["_id"]);
+                    }
+                });
+                
+                this.tableStates[this.currentActiveTab] = {
+                    expandedRows: Array.from(expandedRows)
+                };
+            }
+        }
+    }
+
+    restoreTabState(tabId) {
+        const tableWrapper = this.tables[tabId];
+        
+        if (tableWrapper) {
+            // First redraw the table
+            if (tableWrapper.redraw) {
+                tableWrapper.redraw(); // Call the wrapper's redraw method
+            }
+            
+            // Get the actual Tabulator instance
+            const tableInstance = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+            
+            // Restore expanded rows for matchups table
+            if (tabId === 'table0' && this.tableStates[tabId] && this.tableStates[tabId].expandedRows && tableInstance) {
+                setTimeout(() => {
+                    const expandedRows = this.tableStates[tabId].expandedRows;
+                    if (tableInstance.getRows && expandedRows.length > 0) {
+                        const rows = tableInstance.getRows();
+                        rows.forEach(row => {
+                            const data = row.getData();
+                            const rowId = data["Matchup Game ID"] || data["_id"];
+                            if (expandedRows.includes(rowId) && !data._expanded) {
+                                data._expanded = true;
+                                row.reformat();
+                            }
+                        });
+                    }
+                }, 200);
+            }
+            
+            // Restore scroll positions
+            if (this.scrollPositions[tabId]) {
+                setTimeout(() => {
+                    window.scrollTo(0, this.scrollPositions[tabId].window || 0);
+                    this.setTableScrollPosition(tabId, this.scrollPositions[tabId].table || 0);
+                }, 300);
+            }
+        }
     }
 
     getTableScrollPosition(tabId) {
