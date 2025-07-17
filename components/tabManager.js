@@ -1,7 +1,7 @@
-// components/tabManager.js - FIXED VERSION WITH SCROLL POSITION PRESERVATION
+// components/tabManager.js - UPDATED VERSION WITH PROPS TABS
 export class TabManager {
     constructor(tables) {
-        this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table6: tableInstance }
+        this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table9: tableInstance }
         this.currentActiveTab = 'table0';
         this.scrollPositions = {}; // Store scroll positions for each tab
         this.setupTabSwitching();
@@ -34,7 +34,10 @@ export class TabManager {
                     table3: document.getElementById('table3-container'),
                     table4: document.getElementById('table4-container'),
                     table5: document.getElementById('table5-container'),
-                    table6: document.getElementById('table6-container')
+                    table6: document.getElementById('table6-container'),
+                    table7: document.getElementById('table7-container'),
+                    table8: document.getElementById('table8-container'),
+                    table9: document.getElementById('table9-container')
                 };
                 
                 // Hide all containers
@@ -90,7 +93,7 @@ export class TabManager {
             wrapper.className = 'table-wrapper';
             wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
             
-            // Create tabs container with all tabs - Matchups now first
+            // Create tabs container with all tabs including new props tabs
             var tabsContainer = document.createElement('div');
             tabsContainer.className = 'tabs-container';
             tabsContainer.innerHTML = `
@@ -102,6 +105,9 @@ export class TabManager {
                     <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
                     <button class="tab-button" data-tab="table5">Batter Stats</button>
                     <button class="tab-button" data-tab="table6">Pitcher Stats</button>
+                    <button class="tab-button" data-tab="table7">Batter Props</button>
+                    <button class="tab-button" data-tab="table8">Pitcher Props</button>
+                    <button class="tab-button" data-tab="table9">Game Props</button>
                 </div>
             `;
             
