@@ -1,4 +1,4 @@
-// styles/tableStyles.js - FIXED VERSION WITH PROPER STICKY HEADERS
+// styles/tableStyles.js - UPDATED VERSION WITH PROPS TABLE STYLING
 export function injectStyles() {
     var style = document.createElement('style');
     style.textContent = `
@@ -49,7 +49,7 @@ export function injectStyles() {
             border-color: #007bff;
         }
         
-        /* Table container styling - FIXED FOR MATCHUPS */
+        /* Table container styling - FIXED FOR MATCHUPS AND ALL TABLES */
         .tables-container {
             width: 100% !important;
             position: relative !important;
@@ -83,13 +83,16 @@ export function injectStyles() {
         }
         
         #batter-table, #batter-table-alt, #matchups-table,
-        #pitcher-table, #pitcher-table-alt, #mod-batter-stats-table, #mod-pitcher-stats-table {
+        #pitcher-table, #pitcher-table-alt, #mod-batter-stats-table, #mod-pitcher-stats-table,
+        #batter-props-table, #pitcher-props-table, #game-props-table {
             width: 100% !important;
             margin: 0 auto !important;
         }
         
-        /* Specific fixes for matchups table positioning */
-        #table0-container {
+        /* Specific fixes for all table positioning */
+        #table0-container, #table1-container, #table2-container, #table3-container, 
+        #table4-container, #table5-container, #table6-container, #table7-container, 
+        #table8-container, #table9-container {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
@@ -97,25 +100,36 @@ export function injectStyles() {
             overflow: visible !important;
         }
 
-        #table0-container.inactive-table {
+        #table0-container.inactive-table, #table1-container.inactive-table, 
+        #table2-container.inactive-table, #table3-container.inactive-table,
+        #table4-container.inactive-table, #table5-container.inactive-table,
+        #table6-container.inactive-table, #table7-container.inactive-table,
+        #table8-container.inactive-table, #table9-container.inactive-table {
             display: none !important;
             max-height: 0 !important;
         }
 
-        #table0-container.active-table {
+        #table0-container.active-table, #table1-container.active-table,
+        #table2-container.active-table, #table3-container.active-table,
+        #table4-container.active-table, #table5-container.active-table,
+        #table6-container.active-table, #table7-container.active-table,
+        #table8-container.active-table, #table9-container.active-table {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
         }
         
-        /* ENHANCED STICKY HEADERS FOR ALL MAIN TABLES */
+        /* ENHANCED STICKY HEADERS FOR ALL MAIN TABLES INCLUDING PROPS */
         #matchups-table,
         #batter-table,
         #batter-table-alt,
         #pitcher-table,
         #pitcher-table-alt,
         #mod-batter-stats-table,
-        #mod-pitcher-stats-table {
+        #mod-pitcher-stats-table,
+        #batter-props-table,
+        #pitcher-props-table,
+        #game-props-table {
             width: 100% !important;
             height: 600px !important;  /* Fixed height for sticky headers */
             min-height: 200px !important;
@@ -125,14 +139,17 @@ export function injectStyles() {
             position: relative !important;
         }
 
-        /* Sticky header for ALL main tables */
+        /* Sticky header for ALL main tables including props */
         #matchups-table .tabulator-header,
         #batter-table .tabulator-header,
         #batter-table-alt .tabulator-header,
         #pitcher-table .tabulator-header,
         #pitcher-table-alt .tabulator-header,
         #mod-batter-stats-table .tabulator-header,
-        #mod-pitcher-stats-table .tabulator-header {
+        #mod-pitcher-stats-table .tabulator-header,
+        #batter-props-table .tabulator-header,
+        #pitcher-props-table .tabulator-header,
+        #game-props-table .tabulator-header {
             position: sticky !important;
             top: 0 !important;
             z-index: 100 !important;
@@ -148,7 +165,10 @@ export function injectStyles() {
         #pitcher-table .tabulator-tableHolder,
         #pitcher-table-alt .tabulator-tableHolder,
         #mod-batter-stats-table .tabulator-tableHolder,
-        #mod-pitcher-stats-table .tabulator-tableHolder {
+        #mod-pitcher-stats-table .tabulator-tableHolder,
+        #batter-props-table .tabulator-tableHolder,
+        #pitcher-props-table .tabulator-tableHolder,
+        #game-props-table .tabulator-tableHolder {
             overflow-y: auto !important;
             overflow-x: hidden !important;
             max-height: calc(600px - 50px) !important; /* Account for header height */
