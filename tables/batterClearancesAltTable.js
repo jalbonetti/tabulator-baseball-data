@@ -90,8 +90,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Prop", 
                     field: "Batter Prop Type", 
-                    width: 140, 
-                    minWidth: 100,
+                    width: 200, 
+                    minWidth: 140,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
@@ -99,8 +99,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Value", 
                     field: "Batter Prop Value", 
-                    width: 90, 
-                    minWidth: 70,
+                    width: 200, 
+                    minWidth: 140,
                     sorter: "number", 
                     headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
@@ -108,8 +108,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Time/Location Split", 
                     field: "Batter Prop Split ID", 
-                    width: 220, 
-                    minWidth: 180,
+                    width: 300, 
+                    minWidth: 220,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false,
