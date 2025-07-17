@@ -6,6 +6,9 @@ import { PitcherClearancesTable } from './tables/pitcherClearancesTable.js';
 import { PitcherClearancesAltTable } from './tables/pitcherClearancesAltTable.js';
 import { ModBatterStatsTable } from './tables/modBatterStats.js';
 import { ModPitcherStatsTable } from './tables/modPitcherStats.js';
+import { BatterPropsTable } from './tables/batterProps.js';
+import { PitcherPropsTable } from './tables/pitcherProps.js';
+import { GamePropsTable } from './tables/gameProps.js';
 import { TabManager } from './components/tabManager.js';
 import { injectStyles } from './styles/tableStyles.js';
 
@@ -47,6 +50,16 @@ document.addEventListener('DOMContentLoaded', function() {
     var modPitcherStatsElement = document.createElement('div');
     modPitcherStatsElement.id = 'mod-pitcher-stats-table';
 
+    // Create props table elements
+    var batterPropsElement = document.createElement('div');
+    batterPropsElement.id = 'batter-props-table';
+
+    var pitcherPropsElement = document.createElement('div');
+    pitcherPropsElement.id = 'pitcher-props-table';
+
+    var gamePropsElement = document.createElement('div');
+    gamePropsElement.id = 'game-props-table';
+
     // Add matchups table container - NOW ACTIVE BY DEFAULT
     var table0Container = document.getElementById('table0-container');
     if (!table0Container) {
@@ -84,6 +97,25 @@ document.addEventListener('DOMContentLoaded', function() {
     table6Container.style.cssText = 'width: 100%; display: none;';
     table6Container.appendChild(modPitcherStatsElement);
 
+    // Add props table containers
+    var table7Container = document.createElement('div');
+    table7Container.className = 'table-container inactive-table';
+    table7Container.id = 'table7-container';
+    table7Container.style.cssText = 'width: 100%; display: none;';
+    table7Container.appendChild(batterPropsElement);
+
+    var table8Container = document.createElement('div');
+    table8Container.className = 'table-container inactive-table';
+    table8Container.id = 'table8-container';
+    table8Container.style.cssText = 'width: 100%; display: none;';
+    table8Container.appendChild(pitcherPropsElement);
+
+    var table9Container = document.createElement('div');
+    table9Container.className = 'table-container inactive-table';
+    table9Container.id = 'table9-container';
+    table9Container.style.cssText = 'width: 100%; display: none;';
+    table9Container.appendChild(gamePropsElement);
+
     // Add to tables container
     var tablesContainer = document.querySelector('.tables-container');
     if (tablesContainer) {
@@ -95,6 +127,9 @@ document.addEventListener('DOMContentLoaded', function() {
         tablesContainer.appendChild(table4Container);
         tablesContainer.appendChild(table5Container);
         tablesContainer.appendChild(table6Container);
+        tablesContainer.appendChild(table7Container);
+        tablesContainer.appendChild(table8Container);
+        tablesContainer.appendChild(table9Container);
         
         // Set table1 (Batter Clearances) to inactive since Matchups is now default
         var table1Container = document.getElementById('table1-container');
@@ -112,6 +147,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const table4 = new PitcherClearancesAltTable("#pitcher-table-alt");
     const table5 = new ModBatterStatsTable("#mod-batter-stats-table");
     const table6 = new ModPitcherStatsTable("#mod-pitcher-stats-table");
+    const table7 = new BatterPropsTable("#batter-props-table");
+    const table8 = new PitcherPropsTable("#pitcher-props-table");
+    const table9 = new GamePropsTable("#game-props-table");
 
     table0.initialize();
     table1.initialize();
@@ -120,6 +158,9 @@ document.addEventListener('DOMContentLoaded', function() {
     table4.initialize();
     table5.initialize();
     table6.initialize();
+    table7.initialize();
+    table8.initialize();
+    table9.initialize();
 
     // Update tab manager with table instances - using getTable() method
     tabManager.tables = {
@@ -129,7 +170,10 @@ document.addEventListener('DOMContentLoaded', function() {
         table3: table3.getTable(),
         table4: table4.getTable(),
         table5: table5.getTable(),
-        table6: table6.getTable()
+        table6: table6.getTable(),
+        table7: table7.getTable(),
+        table8: table8.getTable(),
+        table9: table9.getTable()
     };
 
     console.log('All tables initialized successfully');
