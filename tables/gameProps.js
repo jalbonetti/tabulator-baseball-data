@@ -14,7 +14,7 @@ export class GamePropsTable extends BaseTable {
             initialSort: [
                 {column: "Label", dir: "asc"},
                 {column: "Prop Type", dir: "asc"},
-                {column: "Line", dir: "asc"}
+                {column: "Prop Line", dir: "asc"}  // Updated from "Line"
             ],
             dataLoaded: (data) => {
                 console.log(`Game Props table loaded ${data.length} records`);
@@ -53,11 +53,12 @@ export class GamePropsTable extends BaseTable {
                 sorter: "string"
             },
             {
-                title: "Line", 
+                title: "Prop Line",  // Renamed from "Line"
                 field: "Game Line",
                 width: 100,
                 sorter: "number",
-                hozAlign: "center"
+                hozAlign: "center",
+                headerFilter: createCustomMultiSelect  // Added dropdown filter
             },
             {
                 title: "DraftKings", 
@@ -164,18 +165,29 @@ export class GamePropsTable extends BaseTable {
                 }
             },
             {
-                title: "Best", 
+                title: "Best Above Median", 
                 field: "Game Best Odds",
-                width: 110,
-                sorter: "number",
-                hozAlign: "center",
+                width: 300,  // Increased width to accommodate full data
+                hozAlign: "left",  // Left align for better readability
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    const num = parseInt(value);
-                    return num > 0 ? `+${num}` : `${num}`;
+                    return value;  // Show full data
                 },
-                headerTooltip: "Best Available Odds"
+                sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
+                    // Extract the first number for sorting
+                    const extractFirstNumber = (str) => {
+                        if (!str) return 0;
+                        const match = str.match(/^([+-]?\d+)/);
+                        return match ? parseInt(match[1]) : 0;
+                    };
+                    
+                    const aNum = extractFirstNumber(a);
+                    const bNum = extractFirstNumber(b);
+                    
+                    return aNum - bNum;
+                },
+                headerTooltip: "Best odds above median, sorted by first value"
             }
         ];
     }
