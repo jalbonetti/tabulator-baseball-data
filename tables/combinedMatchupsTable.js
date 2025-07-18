@@ -699,36 +699,31 @@ export class MatchupsTable extends BaseTable {
                                     }
                                 });
                                 
-                                // Add child rows one at a time after the parent
-                                // Each subsequent child is added after the previous one
-                                let insertAfterRow = row;
+                                // Add child rows after the parent row
+                                // Use proper Tabulator position syntax
+                                let previousRow = row;
                                 
-                                childRows.forEach((childRow) => {
-                                    // Add the row after the current insertion point
-                                    const newRow = pitcherTable.addRow(childRow);
-                                    
-                                    // Move it to the correct position
-                                    pitcherTable.moveRow(newRow, insertAfterRow, false); // false = after
-                                    
-                                    // Update insertion point for next row
-                                    insertAfterRow = newRow;
+                                childRows.forEach((childRowData) => {
+                                    // Add each child row after the previous row
+                                    const newRow = pitcherTable.addRow(childRowData, "after", previousRow);
+                                    if (newRow) {
+                                        previousRow = newRow;
+                                    }
                                 });
                             } else {
                                 // Collapse: Remove all child rows for this parent
                                 const allRows = pitcherTable.getRows();
-                                const rowsToDelete = [];
                                 
+                                // Find and delete child rows
                                 allRows.forEach(r => {
                                     const data = r.getData();
                                     if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                        rowsToDelete.push(r);
+                                        r.delete();
                                     }
                                 });
-                                
-                                // Delete in reverse order to avoid index issues
-                                rowsToDelete.reverse().forEach(r => r.delete());
                             }
                             
+                            // Always redraw to ensure proper display
                             pitcherTable.redraw();
                         }
                     }
@@ -893,36 +888,31 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // Add child rows one at a time after the parent
-                            // Each subsequent child is added after the previous one
-                            let insertAfterRow = row;
+                            // Add child rows after the parent row
+                            // Use proper Tabulator position syntax
+                            let previousRow = row;
                             
-                            childRows.forEach((childRow) => {
-                                // Add the row after the current insertion point
-                                const newRow = batterTable.addRow(childRow);
-                                
-                                // Move it to the correct position
-                                batterTable.moveRow(newRow, insertAfterRow, false); // false = after
-                                
-                                // Update insertion point for next row
-                                insertAfterRow = newRow;
+                            childRows.forEach((childRowData) => {
+                                // Add each child row after the previous row
+                                const newRow = batterTable.addRow(childRowData, "after", previousRow);
+                                if (newRow) {
+                                    previousRow = newRow;
+                                }
                             });
                         } else {
                             // Collapse: Remove all child rows for this parent
                             const allRows = batterTable.getRows();
-                            const rowsToDelete = [];
                             
+                            // Find and delete child rows
                             allRows.forEach(r => {
                                 const data = r.getData();
                                 if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                    rowsToDelete.push(r);
+                                    r.delete();
                                 }
                             });
-                            
-                            // Delete in reverse order to avoid index issues
-                            rowsToDelete.reverse().forEach(r => r.delete());
                         }
                         
+                        // Always redraw to ensure proper display
                         batterTable.redraw();
                     }
                 }
@@ -1079,19 +1069,17 @@ export class MatchupsTable extends BaseTable {
                         } else {
                             // Collapse: Remove all child rows for this parent
                             const allRows = bullpenTable.getRows();
-                            const rowsToDelete = [];
                             
+                            // Find and delete child rows
                             allRows.forEach(r => {
                                 const data = r.getData();
                                 if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                    rowsToDelete.push(r);
+                                    r.delete();
                                 }
                             });
-                            
-                            // Delete in reverse order to avoid index issues
-                            rowsToDelete.reverse().forEach(r => r.delete());
                         }
                         
+                        // Always redraw to ensure proper display
                         bullpenTable.redraw();
                     }
                 }
