@@ -61,51 +61,62 @@ export class PitcherPropsTable extends BaseTable {
                 hozAlign: "center"
             },
             {
+                title: "Prop Line", 
+                field: "Pitcher Prop Line",
+                width: 100,
+                sorter: "number",
+                hozAlign: "center"
+            },
+            {
                 title: "DraftKings", 
-                field: "Pitcher DraftKings Line",
+                field: "Pitcher DraftKings Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    return value;
+                    const num = parseInt(value);
+                    return num > 0 ? `+${num}` : `${num}`;
                 }
             },
             {
                 title: "FanDuel", 
-                field: "Pitcher FanDuel Line",
+                field: "Pitcher FanDuel Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    return value;
+                    const num = parseInt(value);
+                    return num > 0 ? `+${num}` : `${num}`;
                 }
             },
             {
                 title: "BetRivers", 
-                field: "Pitcher BetRivers Line",
+                field: "Pitcher BetRivers Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    return value;
+                    const num = parseInt(value);
+                    return num > 0 ? `+${num}` : `${num}`;
                 }
             },
             {
                 title: "BetMGM", 
-                field: "Pitcher BetMGM Line",
+                field: "Pitcher BetMGM Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    return value;
+                    const num = parseInt(value);
+                    return num > 0 ? `+${num}` : `${num}`;
                 }
             },
             {
@@ -135,19 +146,7 @@ export class PitcherPropsTable extends BaseTable {
                 }
             },
             {
-                title: "ESPN Line", 
-                field: "Pitcher ESPN Line",
-                width: 110,
-                sorter: "number",
-                hozAlign: "center",
-                formatter: function(cell) {
-                    const value = cell.getValue();
-                    if (!value) return "-";
-                    return value;
-                }
-            },
-            {
-                title: "ESPN Odds", 
+                title: "ESPN", 
                 field: "Pitcher ESPN Odds",
                 width: 110,
                 sorter: "number",
