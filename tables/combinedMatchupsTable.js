@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED ROW EXPANSION DIRECTION
+// tables/combinedMatchupsTable.js - FIXED SCROLLING ISSUES
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -25,8 +25,12 @@ export class MatchupsTable extends BaseTable {
             placeholder: "Loading matchups data...",
             headerVisible: true,
             headerHozAlign: "center",
-            renderVertical: "virtual",
-            renderHorizontal: "virtual",
+            // REMOVED virtual rendering to fix scrolling issues
+            renderVertical: "basic",  // Changed from "virtual" to "basic"
+            renderHorizontal: "basic", // Changed from "virtual" to "basic"
+            // Add these settings to improve performance without virtual rendering
+            layoutColumnsOnNewData: false,
+            virtualDomBuffer: 100,
             initialSort: [
                 {column: "Matchup Game ID", dir: "asc"}
             ],
@@ -58,6 +62,9 @@ export class MatchupsTable extends BaseTable {
     // Override the redraw method to properly handle state
     redraw() {
         if (this.table) {
+            // Store current scroll position
+            const scrollPos = this.getTableScrollPosition();
+            
             // Store current expanded rows before redraw
             const rows = this.table.getRows();
             rows.forEach(row => {
@@ -127,7 +134,23 @@ export class MatchupsTable extends BaseTable {
                         }, 50);
                     }
                 });
+                
+                // Restore scroll position
+                this.setTableScrollPosition(scrollPos);
             }, 100);
+        }
+    }
+    
+    // Helper methods for scroll position
+    getTableScrollPosition() {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        return tableHolder ? tableHolder.scrollTop : 0;
+    }
+    
+    setTableScrollPosition(position) {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        if (tableHolder) {
+            tableHolder.scrollTop = position;
         }
     }
     
@@ -366,6 +389,9 @@ export class MatchupsTable extends BaseTable {
                 const data = row.getData();
                 const matchupId = data["Matchup Game ID"];
                 
+                // Store current scroll position before any changes
+                const scrollPos = this.getTableScrollPosition();
+                
                 if (!data._expanded && !data._dataFetched) {
                     const cellElement = cell.getElement();
                     const expanderIcon = cellElement.querySelector('.row-expander');
@@ -401,22 +427,31 @@ export class MatchupsTable extends BaseTable {
                 }
                 
                 row.update(data);
-                row.reformat();
                 
-                // Update expander icon WITHOUT any scroll manipulation
-                setTimeout(() => {
-                    try {
-                        const cellElement = cell.getElement();
-                        if (cellElement) {
-                            const expanderIcon = cellElement.querySelector('.row-expander');
-                            if (expanderIcon) {
-                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                // Use requestAnimationFrame to ensure DOM updates are complete before reformatting
+                requestAnimationFrame(() => {
+                    row.reformat();
+                    
+                    // Restore scroll position after reformat
+                    requestAnimationFrame(() => {
+                        this.setTableScrollPosition(scrollPos);
+                        
+                        // Update expander icon
+                        setTimeout(() => {
+                            try {
+                                const cellElement = cell.getElement();
+                                if (cellElement) {
+                                    const expanderIcon = cellElement.querySelector('.row-expander');
+                                    if (expanderIcon) {
+                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
                             }
-                        }
-                    } catch (error) {
-                        console.error("Error updating expander icon:", error);
-                    }
-                }, 50);
+                        }, 50);
+                    });
+                });
             }
         });
     }
@@ -700,7 +735,6 @@ export class MatchupsTable extends BaseTable {
                                 });
                                 
                                 // Add child rows after the parent row
-                                // Use proper Tabulator position syntax
                                 let previousRow = row;
                                 
                                 childRows.forEach((childRowData) => {
@@ -889,7 +923,6 @@ export class MatchupsTable extends BaseTable {
                             });
                             
                             // Add child rows after the parent row
-                            // Use proper Tabulator position syntax
                             let previousRow = row;
                             
                             childRows.forEach((childRowData) => {
