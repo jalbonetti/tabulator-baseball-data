@@ -699,20 +699,34 @@ export class MatchupsTable extends BaseTable {
                                     }
                                 });
                                 
-                                // Add child rows below the parent, tracking the last added row
-                                let previousRow = row;
+                                // Add child rows one at a time after the parent
+                                // Each subsequent child is added after the previous one
+                                let insertAfterRow = row;
+                                
                                 childRows.forEach((childRow) => {
-                                    const newRow = pitcherTable.addRow(childRow, "below", previousRow);
-                                    previousRow = newRow;
+                                    // Add the row after the current insertion point
+                                    const newRow = pitcherTable.addRow(childRow);
+                                    
+                                    // Move it to the correct position
+                                    pitcherTable.moveRow(newRow, insertAfterRow, false); // false = after
+                                    
+                                    // Update insertion point for next row
+                                    insertAfterRow = newRow;
                                 });
                             } else {
+                                // Collapse: Remove all child rows for this parent
                                 const allRows = pitcherTable.getRows();
+                                const rowsToDelete = [];
+                                
                                 allRows.forEach(r => {
                                     const data = r.getData();
                                     if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                        r.delete();
+                                        rowsToDelete.push(r);
                                     }
                                 });
+                                
+                                // Delete in reverse order to avoid index issues
+                                rowsToDelete.reverse().forEach(r => r.delete());
                             }
                             
                             pitcherTable.redraw();
@@ -879,20 +893,34 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // Add child rows below the parent, tracking the last added row
-                            let previousRow = row;
+                            // Add child rows one at a time after the parent
+                            // Each subsequent child is added after the previous one
+                            let insertAfterRow = row;
+                            
                             childRows.forEach((childRow) => {
-                                const newRow = batterTable.addRow(childRow, "below", previousRow);
-                                previousRow = newRow;
+                                // Add the row after the current insertion point
+                                const newRow = batterTable.addRow(childRow);
+                                
+                                // Move it to the correct position
+                                batterTable.moveRow(newRow, insertAfterRow, false); // false = after
+                                
+                                // Update insertion point for next row
+                                insertAfterRow = newRow;
                             });
                         } else {
+                            // Collapse: Remove all child rows for this parent
                             const allRows = batterTable.getRows();
+                            const rowsToDelete = [];
+                            
                             allRows.forEach(r => {
                                 const data = r.getData();
                                 if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                    r.delete();
+                                    rowsToDelete.push(r);
                                 }
                             });
+                            
+                            // Delete in reverse order to avoid index issues
+                            rowsToDelete.reverse().forEach(r => r.delete());
                         }
                         
                         batterTable.redraw();
@@ -1049,13 +1077,19 @@ export class MatchupsTable extends BaseTable {
                                 bullpenTable.addRow(childRow, "below", row);
                             });
                         } else {
+                            // Collapse: Remove all child rows for this parent
                             const allRows = bullpenTable.getRows();
+                            const rowsToDelete = [];
+                            
                             allRows.forEach(r => {
                                 const data = r.getData();
                                 if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                    r.delete();
+                                    rowsToDelete.push(r);
                                 }
                             });
+                            
+                            // Delete in reverse order to avoid index issues
+                            rowsToDelete.reverse().forEach(r => r.delete());
                         }
                         
                         bullpenTable.redraw();
