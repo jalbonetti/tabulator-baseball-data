@@ -379,12 +379,14 @@ export function injectStyles() {
             position: relative !important;
             z-index: 1 !important;
             overflow: visible !important;
+            will-change: transform !important; /* Optimize for animations */
         }
         
         .subrow-container .tabulator {
             overflow: visible !important;
             height: auto !important;
             max-height: none !important;
+            contain: layout !important; /* Prevent layout thrashing */
         }
         
         .subrow-container .tabulator .tabulator-header .tabulator-col {
@@ -428,6 +430,16 @@ export function injectStyles() {
             overflow: visible !important;
             max-height: none !important;
             height: auto !important;
+        }
+        
+        /* Prevent nested table rows from causing layout shifts */
+        .subrow-container .tabulator .tabulator-table {
+            table-layout: fixed !important;
+            width: 100% !important;
+        }
+        
+        .subrow-container .tabulator .tabulator-row {
+            contain: layout !important;
         }
         
         /* Frozen columns styling */
