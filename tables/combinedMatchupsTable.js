@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION WITH ALL ISSUES RESOLVED
+// tables/combinedMatchupsTable.js - FIXED ROW EXPANSION DIRECTION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -699,9 +699,23 @@ export class MatchupsTable extends BaseTable {
                                     }
                                 });
                                 
-                                // Add rows below the current row
-                                childRows.forEach((childRow) => {
-                                    pitcherTable.addRow(childRow, "below", row);
+                                // FIXED: Add rows in the correct order
+                                // Get the current row position
+                                const currentRowPosition = row.getPosition();
+                                
+                                // Add each child row below the previous one
+                                childRows.forEach((childRow, index) => {
+                                    if (index === 0) {
+                                        // Add first child below the parent
+                                        pitcherTable.addRow(childRow, "below", row);
+                                    } else {
+                                        // Add subsequent children below the previous child
+                                        const allRows = pitcherTable.getRows();
+                                        const previousChild = allRows[currentRowPosition + index];
+                                        if (previousChild) {
+                                            pitcherTable.addRow(childRow, "below", previousChild);
+                                        }
+                                    }
                                 });
                             } else {
                                 const allRows = pitcherTable.getRows();
@@ -877,9 +891,19 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // Add rows below the current row
-                            childRows.forEach((childRow) => {
-                                batterTable.addRow(childRow, "below", row);
+                            // FIXED: Add rows in the correct order
+                            const currentRowPosition = row.getPosition();
+                            
+                            childRows.forEach((childRow, index) => {
+                                if (index === 0) {
+                                    batterTable.addRow(childRow, "below", row);
+                                } else {
+                                    const allRows = batterTable.getRows();
+                                    const previousChild = allRows[currentRowPosition + index];
+                                    if (previousChild) {
+                                        batterTable.addRow(childRow, "below", previousChild);
+                                    }
+                                }
                             });
                         } else {
                             const allRows = batterTable.getRows();
@@ -1040,9 +1064,19 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // Add rows below the current row
-                            childRows.forEach((childRow) => {
-                                bullpenTable.addRow(childRow, "below", row);
+                            // FIXED: Add rows in the correct order
+                            const currentRowPosition = row.getPosition();
+                            
+                            childRows.forEach((childRow, index) => {
+                                if (index === 0) {
+                                    bullpenTable.addRow(childRow, "below", row);
+                                } else {
+                                    const allRows = bullpenTable.getRows();
+                                    const previousChild = allRows[currentRowPosition + index];
+                                    if (previousChild) {
+                                        bullpenTable.addRow(childRow, "below", previousChild);
+                                    }
+                                }
                             });
                         } else {
                             const allRows = bullpenTable.getRows();
