@@ -699,11 +699,10 @@ export class MatchupsTable extends BaseTable {
                                     }
                                 });
                                 
-                                // FIXED: Add rows in the correct order
-                                // Add all child rows below the parent row
-                                let lastAddedRow = row;
-                                childRows.forEach((childRow) => {
-                                    lastAddedRow = pitcherTable.addRow(childRow, "below", lastAddedRow);
+                                // When adding multiple rows "below" the same row, they appear in reverse order
+                                // So we reverse the array first to get the correct display order
+                                childRows.reverse().forEach((childRow) => {
+                                    pitcherTable.addRow(childRow, "below", row);
                                 });
                             } else {
                                 const allRows = pitcherTable.getRows();
@@ -879,10 +878,10 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // FIXED: Add rows in the correct order
-                            let lastAddedRow = row;
-                            childRows.forEach((childRow) => {
-                                lastAddedRow = batterTable.addRow(childRow, "below", lastAddedRow);
+                            // When adding multiple rows "below" the same row, they appear in reverse order
+                            // So we reverse the array first to get the correct display order
+                            childRows.reverse().forEach((childRow) => {
+                                batterTable.addRow(childRow, "below", row);
                             });
                         } else {
                             const allRows = batterTable.getRows();
@@ -1043,10 +1042,9 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // FIXED: Add rows in the correct order
-                            let lastAddedRow = row;
-                            childRows.forEach((childRow) => {
-                                lastAddedRow = bullpenTable.addRow(childRow, "below", lastAddedRow);
+                            // Add child rows in reverse order so they appear correctly
+                            childRows.reverse().forEach((childRow) => {
+                                bullpenTable.addRow(childRow, "below", row);
                             });
                         } else {
                             const allRows = bullpenTable.getRows();
