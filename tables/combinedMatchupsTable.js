@@ -71,29 +71,60 @@ export class MatchupsTable extends BaseTable {
             
             this.table.redraw(true); // Force full redraw
             
-            // Restore expanded state after redraw
+            // Restore expanded state and data after redraw
             setTimeout(() => {
                 const rows = this.table.getRows();
-                rows.forEach(row => {
+                rows.forEach(async (row) => {
                     const data = row.getData();
                     const matchupId = data["Matchup Game ID"];
                     const shouldBeExpanded = this.expandedRows.has(matchupId);
                     
-                    if (shouldBeExpanded !== data._expanded) {
-                        data._expanded = shouldBeExpanded;
+                    if (shouldBeExpanded && !data._expanded) {
+                        // Re-fetch data if needed
+                        if (!data._dataFetched) {
+                            const matchupData = await this.fetchMatchupData(matchupId);
+                            Object.assign(data, {
+                                _parkFactors: matchupData.parkFactors,
+                                _pitcherStats: matchupData.pitcherStats,
+                                _batterMatchups: matchupData.batterMatchups,
+                                _bullpenMatchups: matchupData.bullpenMatchups,
+                                _dataFetched: true
+                            });
+                        }
+                        
+                        data._expanded = true;
                         row.update(data);
                         row.reformat();
                         
                         // Update expander icon
-                        const cells = row.getCells();
-                        const teamCell = cells.find(cell => cell.getField() === "Matchup Team");
-                        if (teamCell) {
-                            const cellElement = teamCell.getElement();
-                            const expander = cellElement.querySelector('.row-expander');
-                            if (expander) {
-                                expander.innerHTML = data._expanded ? "−" : "+";
+                        setTimeout(() => {
+                            const cells = row.getCells();
+                            const teamCell = cells.find(cell => cell.getField() === "Matchup Team");
+                            if (teamCell) {
+                                const cellElement = teamCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "−";
+                                }
                             }
-                        }
+                        }, 50);
+                    } else if (!shouldBeExpanded && data._expanded) {
+                        data._expanded = false;
+                        row.update(data);
+                        row.reformat();
+                        
+                        // Update expander icon
+                        setTimeout(() => {
+                            const cells = row.getCells();
+                            const teamCell = cells.find(cell => cell.getField() === "Matchup Team");
+                            if (teamCell) {
+                                const cellElement = teamCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "+";
+                                }
+                            }
+                        }, 50);
                     }
                 });
             }, 100);
@@ -335,15 +366,6 @@ export class MatchupsTable extends BaseTable {
                 const data = row.getData();
                 const matchupId = data["Matchup Game ID"];
                 
-                // Only store scroll position if collapsing
-                let currentTableScroll = null;
-                let currentWindowScroll = null;
-                if (!data._expanded) {
-                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                    currentTableScroll = tableHolder ? tableHolder.scrollTop : 0;
-                    currentWindowScroll = window.scrollY;
-                }
-                
                 if (!data._expanded && !data._dataFetched) {
                     const cellElement = cell.getElement();
                     const expanderIcon = cellElement.querySelector('.row-expander');
@@ -381,7 +403,7 @@ export class MatchupsTable extends BaseTable {
                 row.update(data);
                 row.reformat();
                 
-                // Update expander icon
+                // Update expander icon WITHOUT any scroll manipulation
                 setTimeout(() => {
                     try {
                         const cellElement = cell.getElement();
@@ -393,15 +415,6 @@ export class MatchupsTable extends BaseTable {
                         }
                     } catch (error) {
                         console.error("Error updating expander icon:", error);
-                    }
-                    
-                    // Only restore scroll when collapsing
-                    if (!data._expanded && currentTableScroll !== null) {
-                        const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                        if (tableHolder) {
-                            tableHolder.scrollTop = currentTableScroll;
-                        }
-                        window.scrollTo(0, currentWindowScroll);
                     }
                 }, 50);
             }
@@ -686,9 +699,9 @@ export class MatchupsTable extends BaseTable {
                                     }
                                 });
                                 
-                                // Add rows after the current row
-                                childRows.reverse().forEach((childRow) => {
-                                    pitcherTable.addRow(childRow, true, row);
+                                // Add rows below the current row
+                                childRows.forEach((childRow) => {
+                                    pitcherTable.addRow(childRow, "below", row);
                                 });
                             } else {
                                 const allRows = pitcherTable.getRows();
@@ -864,9 +877,9 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // Add rows after the current row
-                            childRows.reverse().forEach((childRow) => {
-                                batterTable.addRow(childRow, true, row);
+                            // Add rows below the current row
+                            childRows.forEach((childRow) => {
+                                batterTable.addRow(childRow, "below", row);
                             });
                         } else {
                             const allRows = batterTable.getRows();
@@ -1027,9 +1040,9 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // Add rows after the current row
-                            childRows.reverse().forEach((childRow) => {
-                                bullpenTable.addRow(childRow, true, row);
+                            // Add rows below the current row
+                            childRows.forEach((childRow) => {
+                                bullpenTable.addRow(childRow, "below", row);
                             });
                         } else {
                             const allRows = bullpenTable.getRows();
