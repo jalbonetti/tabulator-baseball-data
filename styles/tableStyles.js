@@ -488,9 +488,19 @@ export function injectStyles() {
             to { transform: rotate(360deg); }
         }
         
-        /* Expansion animation */
-        .subrow-container {
-            animation: slideDown 0.2s ease-out;
+        /* Prevent layout shifts during row operations */
+        .tabulator-row {
+            transition: none !important;
+        }
+        
+        .tabulator-row-holder {
+            min-height: 0 !important;
+        }
+        
+        /* Ensure smooth row insertion */
+        .tabulator-row.tabulator-row-even,
+        .tabulator-row.tabulator-row-odd {
+            position: relative !important;
         }
         
         @keyframes slideDown {
