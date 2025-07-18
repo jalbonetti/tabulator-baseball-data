@@ -90,8 +90,8 @@ export class PitcherClearancesAltTable extends BaseTable {
                 {
                     title: "Prop", 
                     field: "Pitcher Prop Type", 
-                    width: 140, 
-                    minWidth: 100,
+                    width: 200, 
+                    minWidth: 150,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
@@ -99,8 +99,8 @@ export class PitcherClearancesAltTable extends BaseTable {
                 {
                     title: "Value", 
                     field: "Pitcher Prop Value", 
-                    width: 90, 
-                    minWidth: 70,
+                    width: 200, 
+                    minWidth: 150,
                     sorter: "number", 
                     headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false
