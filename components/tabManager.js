@@ -70,22 +70,31 @@ export class TabManager {
         
         // Save expanded rows state for matchups table
         if (this.currentActiveTab === 'table0' && this.tables[this.currentActiveTab]) {
-            const expandedRows = new Set();
             const tableWrapper = this.tables[this.currentActiveTab];
-            const tableInstance = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
             
-            if (tableInstance && tableInstance.getRows) {
-                const rows = tableInstance.getRows();
-                rows.forEach(row => {
-                    const data = row.getData();
-                    if (data._expanded) {
-                        expandedRows.add(data["Matchup Game ID"] || data["_id"]);
-                    }
-                });
-                
+            // Use the new getExpandedRows method if available
+            if (tableWrapper.getExpandedRows) {
                 this.tableStates[this.currentActiveTab] = {
-                    expandedRows: Array.from(expandedRows)
+                    expandedRows: tableWrapper.getExpandedRows()
                 };
+            } else {
+                // Fallback to the old method
+                const expandedRows = new Set();
+                const tableInstance = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+                
+                if (tableInstance && tableInstance.getRows) {
+                    const rows = tableInstance.getRows();
+                    rows.forEach(row => {
+                        const data = row.getData();
+                        if (data._expanded) {
+                            expandedRows.add(data["Matchup Game ID"] || data["_id"]);
+                        }
+                    });
+                    
+                    this.tableStates[this.currentActiveTab] = {
+                        expandedRows: Array.from(expandedRows)
+                    };
+                }
             }
         }
     }
@@ -99,25 +108,60 @@ export class TabManager {
                 tableWrapper.redraw(); // Call the wrapper's redraw method
             }
             
-            // Get the actual Tabulator instance
-            const tableInstance = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
-            
             // Restore expanded rows for matchups table
-            if (tabId === 'table0' && this.tableStates[tabId] && this.tableStates[tabId].expandedRows && tableInstance) {
-                setTimeout(() => {
-                    const expandedRows = this.tableStates[tabId].expandedRows;
-                    if (tableInstance.getRows && expandedRows.length > 0) {
-                        const rows = tableInstance.getRows();
-                        rows.forEach(row => {
-                            const data = row.getData();
-                            const rowId = data["Matchup Game ID"] || data["_id"];
-                            if (expandedRows.includes(rowId) && !data._expanded) {
-                                data._expanded = true;
-                                row.reformat();
+            if (tabId === 'table0' && this.tableStates[tabId] && this.tableStates[tabId].expandedRows) {
+                const expandedRows = this.tableStates[tabId].expandedRows;
+                
+                // Use the new setExpandedRows method if available
+                if (tableWrapper.setExpandedRows) {
+                    tableWrapper.setExpandedRows(expandedRows);
+                    // Force a redraw to apply the state
+                    setTimeout(() => {
+                        tableWrapper.redraw();
+                    }, 100);
+                } else {
+                    // Fallback to the old method
+                    const tableInstance = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+                    
+                    if (tableInstance) {
+                        setTimeout(() => {
+                            if (tableInstance.getRows && expandedRows.length > 0) {
+                                const rows = tableInstance.getRows();
+                                rows.forEach(row => {
+                                    const data = row.getData();
+                                    const rowId = data["Matchup Game ID"] || data["_id"];
+                                    
+                                    // Check if this row should be expanded
+                                    const shouldBeExpanded = expandedRows.includes(rowId);
+                                    
+                                    // If state doesn't match, update it
+                                    if (shouldBeExpanded && !data._expanded) {
+                                        data._expanded = true;
+                                        row.update(data);
+                                        row.reformat();
+                                    } else if (!shouldBeExpanded && data._expanded) {
+                                        data._expanded = false;
+                                        row.update(data);
+                                        row.reformat();
+                                    }
+                                    
+                                    // Update the expander icon
+                                    setTimeout(() => {
+                                        const cells = row.getCells();
+                                        const teamCell = cells.find(cell => cell.getField() === "Matchup Team");
+                                        if (teamCell) {
+                                            const cellElement = teamCell.getElement();
+                                            const expander = cellElement.querySelector('.row-expander');
+                                            if (expander) {
+                                                expander.innerHTML = data._expanded ? "−" : "+";
+                                            }
+                                        }
+                                    }, 50);
+                                });
                             }
-                        });
+                        }, 200);
                     }
-                }, 200);
+                }
             }
             
             // Restore scroll positions
