@@ -12,7 +12,7 @@ export class GamePropsTable extends BaseTable {
             ...this.tableConfig,
             columns: this.getColumns(),
             initialSort: [
-                {column: "Team", dir: "asc"},
+                {column: "Label", dir: "asc"},
                 {column: "Prop Type", dir: "asc"},
                 {column: "Line", dir: "asc"}
             ],
@@ -39,7 +39,7 @@ export class GamePropsTable extends BaseTable {
                 sorter: false
             },
             {
-                title: "Team", 
+                title: "Label", 
                 field: "Game Label",
                 width: 180,
                 headerFilter: createCustomMultiSelect,
@@ -61,71 +61,54 @@ export class GamePropsTable extends BaseTable {
             },
             {
                 title: "DraftKings", 
-                field: "Game DraftKings Line",
+                field: "Game DraftKings Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    const num = parseFloat(value);
-                    if (isNaN(num)) return value;
-                    // Format as odds if it's an integer-like value > 100 or < -100
-                    if (Math.abs(num) >= 100 && num % 1 === 0) {
-                        return num > 0 ? `+${num}` : `${num}`;
-                    }
-                    return value;
+                    const num = parseInt(value);
+                    return num > 0 ? `+${num}` : `${num}`;
                 }
             },
             {
                 title: "FanDuel", 
-                field: "Game FanDuel Line",
+                field: "Game FanDuel Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    const num = parseFloat(value);
-                    if (isNaN(num)) return value;
-                    if (Math.abs(num) >= 100 && num % 1 === 0) {
-                        return num > 0 ? `+${num}` : `${num}`;
-                    }
-                    return value;
+                    const num = parseInt(value);
+                    return num > 0 ? `+${num}` : `${num}`;
                 }
             },
             {
                 title: "BetRivers", 
-                field: "Game BetRivers Line",
+                field: "Game BetRivers Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    const num = parseFloat(value);
-                    if (isNaN(num)) return value;
-                    if (Math.abs(num) >= 100 && num % 1 === 0) {
-                        return num > 0 ? `+${num}` : `${num}`;
-                    }
-                    return value;
+                    const num = parseInt(value);
+                    return num > 0 ? `+${num}` : `${num}`;
                 }
             },
             {
                 title: "BetMGM", 
-                field: "Game BetMGM Line",
+                field: "Game BetMGM Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    const num = parseFloat(value);
-                    if (isNaN(num)) return value;
-                    if (Math.abs(num) >= 100 && num % 1 === 0) {
-                        return num > 0 ? `+${num}` : `${num}`;
-                    }
-                    return value;
+                    const num = parseInt(value);
+                    return num > 0 ? `+${num}` : `${num}`;
                 }
             },
             {
