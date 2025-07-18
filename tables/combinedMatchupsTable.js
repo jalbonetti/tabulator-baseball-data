@@ -699,10 +699,11 @@ export class MatchupsTable extends BaseTable {
                                     }
                                 });
                                 
-                                // When adding multiple rows "below" the same row, they appear in reverse order
-                                // So we reverse the array first to get the correct display order
-                                childRows.reverse().forEach((childRow) => {
-                                    pitcherTable.addRow(childRow, "below", row);
+                                // Add child rows below the parent, tracking the last added row
+                                let previousRow = row;
+                                childRows.forEach((childRow) => {
+                                    const newRow = pitcherTable.addRow(childRow, "below", previousRow);
+                                    previousRow = newRow;
                                 });
                             } else {
                                 const allRows = pitcherTable.getRows();
@@ -878,10 +879,11 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // When adding multiple rows "below" the same row, they appear in reverse order
-                            // So we reverse the array first to get the correct display order
-                            childRows.reverse().forEach((childRow) => {
-                                batterTable.addRow(childRow, "below", row);
+                            // Add child rows below the parent, tracking the last added row
+                            let previousRow = row;
+                            childRows.forEach((childRow) => {
+                                const newRow = batterTable.addRow(childRow, "below", previousRow);
+                                previousRow = newRow;
                             });
                         } else {
                             const allRows = batterTable.getRows();
