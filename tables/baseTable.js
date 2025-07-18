@@ -120,10 +120,9 @@ export class BaseTable {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Store current scroll positions before any DOM changes
-                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                const tableScrollY = tableHolder ? tableHolder.scrollTop : 0;
-                const windowScrollY = window.scrollY;
+                // Only store scroll positions when collapsing
+                let tableScrollY = null;
+                let windowScrollY = null;
                 
                 var row = cell.getRow();
                 var data = row.getData();
@@ -133,18 +132,19 @@ export class BaseTable {
                     data._expanded = false;
                 }
                 
+                // Store scroll only when collapsing
+                if (data._expanded) {
+                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                    tableScrollY = tableHolder ? tableHolder.scrollTop : 0;
+                    windowScrollY = window.scrollY;
+                }
+                
                 data._expanded = !data._expanded;
                 row.update(data);
                 row.reformat();
                 
-                // Use requestAnimationFrame to ensure DOM has updated
-                requestAnimationFrame(() => {
-                    // Restore scroll positions
-                    if (tableHolder) {
-                        tableHolder.scrollTop = tableScrollY;
-                    }
-                    window.scrollTo(0, windowScrollY);
-                    
+                // Update expander icon with minimal delay
+                setTimeout(() => {
                     try {
                         var cellElement = cell.getElement();
                         if (cellElement && cellElement.querySelector) {
@@ -156,7 +156,16 @@ export class BaseTable {
                     } catch (error) {
                         console.error("Error updating expander icon:", error);
                     }
-                });
+                    
+                    // Only restore scroll when collapsing
+                    if (!data._expanded && tableScrollY !== null) {
+                        const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                        if (tableHolder) {
+                            tableHolder.scrollTop = tableScrollY;
+                        }
+                        window.scrollTo(0, windowScrollY);
+                    }
+                }, 50);
             }
         });
     }
