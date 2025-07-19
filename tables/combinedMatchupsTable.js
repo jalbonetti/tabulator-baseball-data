@@ -180,7 +180,7 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Team", 
                 field: "Matchup Team",
-                width: 200,
+                width: 350,
                 headerFilter: true,
                 headerFilterPlaceholder: "Search teams...",
                 sorter: "string",
@@ -231,7 +231,7 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Game", 
                 field: "Matchup Game",
-                width: 300,
+                width: 350,
                 headerFilter: createCustomMultiSelect,
                 headerSort: false
             },
@@ -252,7 +252,7 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Lineup Status",
                 field: "Matchup Lineup Status",
-                width: 240,
+                width: 260,
                 hozAlign: "center",
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
@@ -662,7 +662,7 @@ export class MatchupsTable extends BaseTable {
                         {
                             title: "Name", 
                             field: "name", 
-                            width: 200,
+                            width: 280,
                             headerSort: false,
                             formatter: function(cell) {
                                 const rowData = cell.getRow().getData();
@@ -679,17 +679,17 @@ export class MatchupsTable extends BaseTable {
                             }
                         },
                         {title: "Split", field: "split", width: 150, headerSort: false},
-                        {title: "TBF", field: "TBF", width: 60, hozAlign: "center", headerSort: false},
+                        {title: "TBF", field: "TBF", width: 70, hozAlign: "center", headerSort: false},
                         {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
-                        {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "ERA", field: "ERA", width: 60, hozAlign: "center", headerSort: false},
-                        {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "SO", field: "SO", width: 50, hozAlign: "center", headerSort: false}
+                        {title: "H", field: "H", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "1B", field: "1B", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "2B", field: "2B", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "3B", field: "3B", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "HR", field: "HR", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "R", field: "R", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "ERA", field: "ERA", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "BB", field: "BB", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
                     ],
                     height: false,
                     headerHeight: 30,
@@ -850,7 +850,7 @@ export class MatchupsTable extends BaseTable {
                     {
                         title: "Name", 
                         field: "name", 
-                        width: 200,
+                        width: 280,
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
@@ -867,17 +867,17 @@ export class MatchupsTable extends BaseTable {
                         }
                     },
                     {title: "Split", field: "split", width: 150, headerSort: false},
-                    {title: "PA", field: "PA", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "H/PA", field: "H/PA", width: 60, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", width: 45, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: 45, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: 45, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: 45, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: 45, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: 45, hozAlign: "center", headerSort: false},
-                    {title: "RBI", field: "RBI", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: 45, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: 45, hozAlign: "center", headerSort: false}
+                    {title: "PA", field: "PA", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "H/PA", field: "H/PA", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "H", field: "H", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "1B", field: "1B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "2B", field: "2B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "3B", field: "3B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "HR", field: "HR", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "R", field: "R", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "RBI", field: "RBI", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "BB", field: "BB", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
                 ],
                 height: false,
                 headerHeight: 30,
@@ -1023,7 +1023,7 @@ export class MatchupsTable extends BaseTable {
                     {
                         title: "Type", 
                         field: "name", 
-                        width: 150,
+                        width: 280,
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
@@ -1040,17 +1040,17 @@ export class MatchupsTable extends BaseTable {
                         }
                     },
                     {title: "Split", field: "split", width: 150, headerSort: false},
-                    {title: "TBF", field: "TBF", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "TBF", field: "TBF", width: 70, hozAlign: "center", headerSort: false},
                     {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "ERA", field: "ERA", width: 60, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: 50, hozAlign: "center", headerSort: false}
+                    {title: "H", field: "H", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "1B", field: "1B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "2B", field: "2B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "3B", field: "3B", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "HR", field: "HR", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "R", field: "R", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "ERA", field: "ERA", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "BB", field: "BB", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
                 ],
                 height: false,
                 headerHeight: 30,
