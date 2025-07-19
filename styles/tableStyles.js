@@ -1,4 +1,4 @@
-// styles/tableStyles.js - UPDATED VERSION WITH PROPS TABLE STYLING
+// styles/tableStyles.js - UPDATED VERSION WITH NESTED SUBTABLE FIXES
 export function injectStyles() {
     var style = document.createElement('style');
     style.textContent = `
@@ -387,6 +387,7 @@ export function injectStyles() {
             height: auto !important;
             max-height: none !important;
             contain: layout !important; /* Prevent layout thrashing */
+            margin-top: 10px !important;
         }
         
         .subrow-container .tabulator .tabulator-header .tabulator-col {
@@ -440,6 +441,51 @@ export function injectStyles() {
         
         .subrow-container .tabulator .tabulator-row {
             contain: layout !important;
+            transition: background-color 0.2s ease !important;
+        }
+        
+        /* NESTED SUBTABLE SPECIFIC STYLING */
+        /* Style for nested expandable rows */
+        .subrow-container .tabulator .tabulator-row[data-row-type="child"] {
+            background-color: #f0f4f8 !important;
+        }
+
+        .subrow-container .tabulator .tabulator-row[data-row-type="child"]:hover {
+            background-color: #e6ecf2 !important;
+        }
+
+        /* Ensure expander icons are visible and clickable */
+        .subtable-expander {
+            display: inline-block !important;
+            width: 14px !important;
+            text-align: center !important;
+            cursor: pointer !important;
+            user-select: none !important;
+        }
+
+        /* Prevent text selection on expandable cells */
+        .subrow-container .tabulator .tabulator-cell[tabulator-field="name"] {
+            user-select: none !important;
+        }
+
+        /* Ensure proper z-index for nested tables */
+        .subrow-container {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        .subrow-container .tabulator {
+            position: relative !important;
+            z-index: 2 !important;
+        }
+
+        /* Fix any potential overflow issues */
+        #matchups-table .tabulator-row-holder {
+            overflow: visible !important;
+        }
+
+        #matchups-table .tabulator-table {
+            overflow: visible !important;
         }
         
         /* Frozen columns styling */
