@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED SCROLLING ISSUES
+// tables/combinedMatchupsTable.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -639,6 +639,7 @@ export class MatchupsTable extends BaseTable {
                     _id: `${data["Matchup Game ID"]}-main`,
                     _isExpanded: false,
                     _rowType: 'main',
+                    _sortOrder: 0,  // Add sort order
                     name: pitcherName,
                     split: "Full Season",
                     TBF: mainRowData["Starter TBF"],
@@ -670,7 +671,7 @@ export class MatchupsTable extends BaseTable {
                                 if (rowData._rowType === 'main') {
                                     const expanded = rowData._isExpanded || false;
                                     return `<div style="cursor: pointer; display: flex; align-items: center;">
-                                        <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;">${expanded ? '−' : '+'}</span>
+                                        <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
                                         <span>${value}</span>
                                     </div>`;
                                 }
@@ -707,9 +708,19 @@ export class MatchupsTable extends BaseTable {
                             rowData._isExpanded = !rowData._isExpanded;
                             row.update(rowData);
                             
+                            // Update the expander icon
+                            const cellElement = cell.getElement();
+                            const expander = cellElement.querySelector('.subtable-expander');
+                            if (expander) {
+                                expander.innerHTML = rowData._isExpanded ? '−' : '+';
+                            }
+                            
                             if (rowData._isExpanded) {
-                                const childRows = [];
+                                // Get all current data
+                                const allData = pitcherTable.getData();
                                 
+                                // Prepare child rows with proper sort order
+                                const childRows = [];
                                 ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
                                     const statData = sortedPitcherStats.find(s => s["Starter Split ID"] === splitId);
                                     if (statData) {
@@ -717,6 +728,7 @@ export class MatchupsTable extends BaseTable {
                                             _id: `${data["Matchup Game ID"]}-child-${index}`,
                                             _rowType: 'child',
                                             _parentId: rowData._id,
+                                            _sortOrder: index + 1,  // Child rows get sort order 1-5
                                             name: pitcherName,
                                             split: splitMap[splitId],
                                             TBF: statData["Starter TBF"],
@@ -734,31 +746,20 @@ export class MatchupsTable extends BaseTable {
                                     }
                                 });
                                 
-                                // Add child rows after the parent row
-                                let previousRow = row;
+                                // Insert all child rows after the parent
+                                const parentIndex = allData.findIndex(d => d._id === rowData._id);
+                                allData.splice(parentIndex + 1, 0, ...childRows);
                                 
-                                childRows.forEach((childRowData) => {
-                                    // Add each child row after the previous row
-                                    const newRow = pitcherTable.addRow(childRowData, "after", previousRow);
-                                    if (newRow) {
-                                        previousRow = newRow;
-                                    }
-                                });
+                                // Replace all data
+                                pitcherTable.replaceData(allData);
+                                
                             } else {
-                                // Collapse: Remove all child rows for this parent
-                                const allRows = pitcherTable.getRows();
-                                
-                                // Find and delete child rows
-                                allRows.forEach(r => {
-                                    const data = r.getData();
-                                    if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                        r.delete();
-                                    }
-                                });
+                                // Remove child rows
+                                const filteredData = pitcherTable.getData().filter(d => 
+                                    !(d._rowType === 'child' && d._parentId === rowData._id)
+                                );
+                                pitcherTable.replaceData(filteredData);
                             }
-                            
-                            // Always redraw to ensure proper display
-                            pitcherTable.redraw();
                         }
                     }
                 });
@@ -813,7 +814,7 @@ export class MatchupsTable extends BaseTable {
             const tableData = [];
             Object.keys(battersByOrder)
                 .sort((a, b) => parseInt(a) - parseInt(b))
-                .forEach(order => {
+                .forEach((order, orderIndex) => {
                     const batterData = battersByOrder[order];
                     const fullSeasonData = batterData.splits.find(s => s["Batter Split ID"] === "Full Season");
                     
@@ -823,6 +824,7 @@ export class MatchupsTable extends BaseTable {
                             _isExpanded: false,
                             _rowType: 'main',
                             _batterOrder: order,
+                            _sortOrder: orderIndex * 10,  // Space out main rows
                             name: `${batterData.name} ${order}`,
                             split: "Full Season",
                             PA: fullSeasonData["Batter PA"],
@@ -857,7 +859,7 @@ export class MatchupsTable extends BaseTable {
                             if (rowData._rowType === 'main') {
                                 const expanded = rowData._isExpanded || false;
                                 return `<div style="cursor: pointer; display: flex; align-items: center;">
-                                    <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;">${expanded ? '−' : '+'}</span>
+                                    <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
                                     <span>${value}</span>
                                 </div>`;
                             }
@@ -894,10 +896,19 @@ export class MatchupsTable extends BaseTable {
                         rowData._isExpanded = !rowData._isExpanded;
                         row.update(rowData);
                         
+                        // Update the expander icon
+                        const cellElement = cell.getElement();
+                        const expander = cellElement.querySelector('.subtable-expander');
+                        if (expander) {
+                            expander.innerHTML = rowData._isExpanded ? '−' : '+';
+                        }
+                        
                         if (rowData._isExpanded) {
-                            const childRows = [];
+                            // Get all current data
+                            const allData = batterTable.getData();
                             
-                            // Add the other splits in order
+                            // Prepare child rows
+                            const childRows = [];
                             ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
                                 const statData = rowData._childData.find(s => s["Batter Split ID"] === splitId);
                                 if (statData) {
@@ -905,6 +916,7 @@ export class MatchupsTable extends BaseTable {
                                         _id: `${data["Matchup Game ID"]}-batter-child-${rowData._batterOrder}-${index}`,
                                         _rowType: 'child',
                                         _parentId: rowData._id,
+                                        _sortOrder: rowData._sortOrder + index + 1,  // Place children right after parent
                                         name: `${rowData.name.replace(/ \d+$/, '')} ${rowData._batterOrder}`,
                                         split: splitMap[splitId],
                                         PA: statData["Batter PA"],
@@ -922,31 +934,20 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // Add child rows after the parent row
-                            let previousRow = row;
+                            // Insert all child rows after the parent
+                            const parentIndex = allData.findIndex(d => d._id === rowData._id);
+                            allData.splice(parentIndex + 1, 0, ...childRows);
                             
-                            childRows.forEach((childRowData) => {
-                                // Add each child row after the previous row
-                                const newRow = batterTable.addRow(childRowData, "after", previousRow);
-                                if (newRow) {
-                                    previousRow = newRow;
-                                }
-                            });
+                            // Replace all data
+                            batterTable.replaceData(allData);
+                            
                         } else {
-                            // Collapse: Remove all child rows for this parent
-                            const allRows = batterTable.getRows();
-                            
-                            // Find and delete child rows
-                            allRows.forEach(r => {
-                                const data = r.getData();
-                                if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                    r.delete();
-                                }
-                            });
+                            // Remove child rows
+                            const filteredData = batterTable.getData().filter(d => 
+                                !(d._rowType === 'child' && d._parentId === rowData._id)
+                            );
+                            batterTable.replaceData(filteredData);
                         }
-                        
-                        // Always redraw to ensure proper display
-                        batterTable.redraw();
                     }
                 }
             });
@@ -984,7 +985,7 @@ export class MatchupsTable extends BaseTable {
             const tableData = [];
             const handOrder = ["Righties", "Lefties"];
             
-            handOrder.forEach((handType) => {
+            handOrder.forEach((handType, handIndex) => {
                 const handData = groupedData[handType];
                 if (handData && handData.length > 0) {
                     const fullSeasonData = handData.find(d => d["Bullpen Split ID"] === "Full Season");
@@ -995,6 +996,7 @@ export class MatchupsTable extends BaseTable {
                             _isExpanded: false,
                             _rowType: 'main',
                             _handType: handType,
+                            _sortOrder: handIndex * 10,  // Space out main rows
                             name: fullSeasonData["Bullpen Hand & Number"],
                             split: "Full Season",
                             TBF: fullSeasonData["Bullpen TBF"],
@@ -1030,7 +1032,7 @@ export class MatchupsTable extends BaseTable {
                             if (rowData._rowType === 'main') {
                                 const expanded = rowData._isExpanded || false;
                                 return `<div style="cursor: pointer; display: flex; align-items: center;">
-                                    <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;">${expanded ? '−' : '+'}</span>
+                                    <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
                                     <span>${value}</span>
                                 </div>`;
                             }
@@ -1067,10 +1069,19 @@ export class MatchupsTable extends BaseTable {
                         rowData._isExpanded = !rowData._isExpanded;
                         row.update(rowData);
                         
+                        // Update the expander icon
+                        const cellElement = cell.getElement();
+                        const expander = cellElement.querySelector('.subtable-expander');
+                        if (expander) {
+                            expander.innerHTML = rowData._isExpanded ? '−' : '+';
+                        }
+                        
                         if (rowData._isExpanded) {
-                            const childRows = [];
+                            // Get all current data
+                            const allData = bullpenTable.getData();
                             
-                            // Add the other splits in order (excluding Full Season)
+                            // Prepare child rows
+                            const childRows = [];
                             ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
                                 const statData = rowData._childData.find(s => s["Bullpen Split ID"] === splitId);
                                 if (statData) {
@@ -1078,6 +1089,7 @@ export class MatchupsTable extends BaseTable {
                                         _id: `${data["Matchup Game ID"]}-bullpen-child-${rowData._handType}-${index}`,
                                         _rowType: 'child',
                                         _parentId: rowData._id,
+                                        _sortOrder: rowData._sortOrder + index + 1,  // Place children right after parent
                                         name: statData["Bullpen Hand & Number"],
                                         split: splitMap[splitId],
                                         TBF: statData["Bullpen TBF"],
@@ -1095,25 +1107,20 @@ export class MatchupsTable extends BaseTable {
                                 }
                             });
                             
-                            // Add child rows in reverse order so they appear correctly
-                            childRows.reverse().forEach((childRow) => {
-                                bullpenTable.addRow(childRow, "below", row);
-                            });
-                        } else {
-                            // Collapse: Remove all child rows for this parent
-                            const allRows = bullpenTable.getRows();
+                            // Insert all child rows after the parent
+                            const parentIndex = allData.findIndex(d => d._id === rowData._id);
+                            allData.splice(parentIndex + 1, 0, ...childRows);
                             
-                            // Find and delete child rows
-                            allRows.forEach(r => {
-                                const data = r.getData();
-                                if (data._rowType === 'child' && data._parentId === rowData._id) {
-                                    r.delete();
-                                }
-                            });
+                            // Replace all data
+                            bullpenTable.replaceData(allData);
+                            
+                        } else {
+                            // Remove child rows
+                            const filteredData = bullpenTable.getData().filter(d => 
+                                !(d._rowType === 'child' && d._parentId === rowData._id)
+                            );
+                            bullpenTable.replaceData(filteredData);
                         }
-                        
-                        // Always redraw to ensure proper display
-                        bullpenTable.redraw();
                     }
                 }
             });
