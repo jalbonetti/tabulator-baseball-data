@@ -108,8 +108,8 @@ export class PitcherClearancesAltTable extends BaseTable {
                 {
                     title: "Time/Location Split", 
                     field: "Pitcher Prop Split ID", 
-                    width: 220, 
-                    minWidth: 180,
+                    width: 300, 
+                    minWidth: 220,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Use multiselect
                     resizable: false,
@@ -237,8 +237,8 @@ export class PitcherClearancesAltTable extends BaseTable {
                 handedness: data["Handedness"]
             }],
             columns: [
-                {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 200},
-                {title: "Matchup", field: "matchup", headerSort: false, width: 400},
+                {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 300},
+                {title: "Matchup", field: "matchup", headerSort: false, width: 300},
                 {title: "Handedness", field: "handedness", headerSort: false, width: 150}
             ]
         });
