@@ -248,8 +248,8 @@ export class PitcherClearancesTable extends BaseTable {
                 handedness: data["Handedness"]
             }],
             columns: [
-                {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 200},
-                {title: "Matchup", field: "matchup", headerSort: false, width: 400},
+                {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 300},
+                {title: "Matchup", field: "matchup", headerSort: false, width: 300},
                 {title: "Handedness", field: "handedness", headerSort: false, width: 150}
             ]
         });
@@ -293,10 +293,10 @@ export class PitcherClearancesTable extends BaseTable {
             ],
             columns: [
                 {title: "Players", field: "player", headerSort: false, width: 350},
-                {title: "Full Season", field: "fullSeason", headerSort: false, width: 130},
-                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 180},
-                {title: "Last 30 Days", field: "last30", headerSort: false, width: 130},
-                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 180}
+                {title: "Full Season", field: "fullSeason", headerSort: false, width: 220},
+                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 220},
+                {title: "Last 30 Days", field: "last30", headerSort: false, width: 220},
+                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 220}
             ]
         });
     }
