@@ -1,4 +1,4 @@
-// styles/tableStyles.js - UPDATED VERSION WITH NESTED SUBTABLE FIXES
+// styles/tableStyles.js - UPDATED VERSION WITH NESTED SUBTABLE FIXES AND MATCHUPS TABLE CONSTRAINTS
 export function injectStyles() {
     var style = document.createElement('style');
     style.textContent = `
@@ -558,6 +558,100 @@ export function injectStyles() {
                 opacity: 1;
                 transform: translateY(0);
             }
+        }
+
+        /* MATCHUPS TABLE SPECIFIC STYLES - Width constraints */
+        #matchups-table .tabulator {
+            max-width: 1200px !important;
+            margin: 0 auto !important;
+            overflow: hidden !important;
+        }
+
+        #matchups-table .tabulator-tableHolder {
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            max-width: 100% !important;
+        }
+
+        #matchups-table .tabulator-table {
+            max-width: 100% !important;
+            table-layout: fixed !important;
+        }
+
+        /* Matchups subtables constraints */
+        #matchups-table .subrow-container {
+            max-width: 1180px !important;
+            margin: 0 auto !important;
+        }
+
+        #matchups-table .subrow-container .tabulator {
+            max-width: 100% !important;
+        }
+
+        /* Gradient background for matchups table container */
+        #table0-container {
+            background: linear-gradient(to right, #f8f9fa 0%, #e9ecef 50%, #f8f9fa 100%);
+            padding: 20px 0 !important;
+            position: relative !important;
+        }
+
+        /* Ensure matchups table has solid background */
+        #table0-container #matchups-table {
+            background: white !important;
+            max-width: 1200px !important;
+            margin: 0 auto !important;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        /* Pattern overlay for additional visual interest */
+        #table0-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 10px,
+                    rgba(0,0,0,.03) 10px,
+                    rgba(0,0,0,.03) 20px
+                );
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Center all content in matchups subtables */
+        #matchups-table .subrow-container .tabulator .tabulator-cell {
+            text-align: center !important;
+        }
+
+        /* Override left alignment for specific columns in matchups subtables */
+        #matchups-table .subrow-container .tabulator .tabulator-cell[tabulator-field="player"],
+        #matchups-table .subrow-container .tabulator .tabulator-cell[tabulator-field="name"],
+        #matchups-table .subrow-container .tabulator .tabulator-cell[tabulator-field="split"] {
+            text-align: left !important;
+        }
+
+        /* Ensure matchups table width is properly constrained */
+        #matchups-table {
+            max-width: 1200px !important;
+            width: 100% !important;
+            display: block !important;
+            margin: 0 auto !important;
+        }
+
+        /* Fix for any overflow issues in matchups table */
+        #matchups-table .tabulator-row-holder {
+            overflow: visible !important;
+        }
+
+        #matchups-table .tabulator-table {
+            overflow: visible !important;
         }
     `;
     document.head.appendChild(style);
