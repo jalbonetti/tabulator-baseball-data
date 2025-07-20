@@ -199,8 +199,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 }
             ],
             columns: [
-                {title: "Players", field: "player", headerSort: false, resizable: false, width: 400},
-                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 200}
+                {title: "Players", field: "player", headerSort: false, resizable: false, width: 350},
+                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 220}
             ]
         });
     }
