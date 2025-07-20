@@ -166,10 +166,10 @@ export class BaseTable {
                 opposingPitcher: data["SP"]
             }],
             columns: [
-                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 150},
-                {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 180},
-                {title: "Matchup", field: "matchup", headerSort: false, width: 280},
-                {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 180}
+                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 300},
+                {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 200},
+                {title: "Matchup", field: "matchup", headerSort: false, width: 300},
+                {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 400}
             ]
         });
     }
