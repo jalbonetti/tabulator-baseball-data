@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH WIDTH CONSTRAINTS
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -492,32 +492,32 @@ export class MatchupsTable extends BaseTable {
 
         const ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
 
-        // Create the two-column layout
+        // Create the two-column layout with fixed widths
         let tableHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                <!-- Park Factors Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+            <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; max-width: 1200px; margin-left: auto; margin-right: auto;">
+                <!-- Park Factors Section - Fixed 600px -->
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
                     <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
 
-                <!-- Weather Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                <!-- Weather Section - Fixed 600px -->
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Weather</h5>
-                    <div style="font-size: 12px; color: #333;">
-                        <div style="padding: 5px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
-                        <div style="padding: 5px 0; border-bottom: 1px solid #eee;">${weatherData[1]}</div>
-                        <div style="padding: 5px 0; border-bottom: 1px solid #eee;">${weatherData[2]}</div>
-                        <div style="padding: 5px 0;">${weatherData[3]}</div>
+                    <div style="font-size: 12px; color: #333; text-align: center;">
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[1]}</div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[2]}</div>
+                        <div style="padding: 8px 0;">${weatherData[3]}</div>
                     </div>
                 </div>
             </div>
         `;
 
-        // Add sections for the other data
+        // Add sections for the other data with max-width constraint
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px;">
+                <div style="margin-top: 20px; max-width: 1200px; margin-left: auto; margin-right: auto;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Starting Pitcher</h4>
                     <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
@@ -526,7 +526,7 @@ export class MatchupsTable extends BaseTable {
 
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px;">
+                <div style="margin-top: 20px; max-width: 1200px; margin-left: auto; margin-right: auto;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
                     <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: visible;"></div>
                 </div>
@@ -535,7 +535,7 @@ export class MatchupsTable extends BaseTable {
 
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px;">
+                <div style="margin-top: 20px; max-width: 1200px; margin-left: auto; margin-right: auto;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Bullpen</h4>
                     <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
@@ -581,7 +581,7 @@ export class MatchupsTable extends BaseTable {
             });
 
             new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitColumns",
+                layout: "fitData",  // Changed from fitColumns to fitData for better centering
                 data: sortedParkFactors.map(pf => ({
                     split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
                     H: pf["Park Factor H"],
@@ -594,19 +594,19 @@ export class MatchupsTable extends BaseTable {
                     SO: pf["Park Factor SO"]
                 })),
                 columns: [
-                    {title: "Split", field: "split", width: 80, headerSort: false},
-                    {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: 50, hozAlign: "center", headerSort: false}
+                    {title: "Split", field: "split", width: 100, headerSort: false, hozAlign: "center"},
+                    {title: "H", field: "H", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "1B", field: "1B", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "2B", field: "2B", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "3B", field: "3B", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "HR", field: "HR", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "R", field: "R", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "BB", field: "BB", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "SO", field: "SO", width: 60, hozAlign: "center", headerSort: false}
                 ],
                 height: false,
-                headerHeight: 25,
-                rowHeight: 24
+                headerHeight: 30,
+                rowHeight: 26
             });
         }
     }
