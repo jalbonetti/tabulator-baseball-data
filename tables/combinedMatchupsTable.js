@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION WITH WIDTH CONSTRAINTS
+// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH LEFT JUSTIFICATION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -479,98 +479,54 @@ export class MatchupsTable extends BaseTable {
         };
     }
 
-// Updated createMatchupsSubtable method with left justification
-createMatchupsSubtable(container, data) {
-    const weatherData = [
-        data["Matchup Weather 1"] || "No weather data",
-        data["Matchup Weather 2"] || "No weather data",
-        data["Matchup Weather 3"] || "No weather data",
-        data["Matchup Weather 4"] || "No weather data"
-    ];
+    createMatchupsSubtable(container, data) {
+        const weatherData = [
+            data["Matchup Weather 1"] || "No weather data",
+            data["Matchup Weather 2"] || "No weather data",
+            data["Matchup Weather 3"] || "No weather data",
+            data["Matchup Weather 4"] || "No weather data"
+        ];
 
-    const isTeamAway = this.isTeamAway(data["Matchup Game"]);
-    const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
+        const isTeamAway = this.isTeamAway(data["Matchup Game"]);
+        const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
 
-    const ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
+        const ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
 
-    // Create the two-column layout with fixed widths - LEFT JUSTIFIED
-    let tableHTML = `
-        <div style="display: flex; justify-content: flex-start; gap: 15px; margin-bottom: 20px; max-width: 1200px;">
-            <!-- Park Factors Section - Fixed 600px -->
-            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
-                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
-                <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
-            </div>
+        // Create the two-column layout with fixed widths - LEFT JUSTIFIED
+        let tableHTML = `
+            <div style="display: flex; justify-content: flex-start; gap: 15px; margin-bottom: 20px; max-width: 1200px;">
+                <!-- Park Factors Section - Fixed 600px -->
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
+                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
+                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
+                </div>
 
-            <!-- Weather Section - Fixed 600px -->
-            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
-                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Weather</h5>
-                <div style="font-size: 12px; color: #333; text-align: center;">
-                    <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
-                    <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[1]}</div>
-                    <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[2]}</div>
-                    <div style="padding: 8px 0;">${weatherData[3]}</div>
+                <!-- Weather Section - Fixed 600px -->
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
+                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Weather</h5>
+                    <div style="font-size: 12px; color: #333; text-align: center;">
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[1]}</div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[2]}</div>
+                        <div style="padding: 8px 0;">${weatherData[3]}</div>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-
-    // Add sections for the other data - LEFT JUSTIFIED
-    if (data._pitcherStats && data._pitcherStats.length > 0) {
-        tableHTML += `
-            <div style="margin-top: 20px; max-width: 1200px;">
-                <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Starting Pitcher</h4>
-                <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
-            </div>
         `;
-    }
 
-    if (data._batterMatchups && data._batterMatchups.length > 0) {
-        tableHTML += `
-            <div style="margin-top: 20px; max-width: 1200px;">
-                <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
-                <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: visible;"></div>
-            </div>
-        `;
-    }
-
-    if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
-        tableHTML += `
-            <div style="margin-top: 20px; max-width: 1200px;">
-                <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Bullpen</h4>
-                <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
-            </div>
-        `;
-    }
-
-    container.innerHTML = tableHTML;
-
-    // Use setTimeout to ensure DOM is ready before creating subtables
-    setTimeout(() => {
-        // Create all subtables
-        this.createParkFactorsTable(data);
-        this.createPitcherStatsTable(data, opposingPitcherLocation);
-        this.createBatterMatchupsTable(data);
-        this.createBullpenMatchupsTable(data, opposingPitcherLocation);
-    }, 50);
-    
-    // Add loading animation CSS if not already added
-    if (!document.getElementById('matchups-loading-css')) {
-        const style = document.createElement('style');
-        style.id = 'matchups-loading-css';
-        style.textContent = `
-            @keyframes spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-}
+        // Add sections for the other data - LEFT JUSTIFIED
+        if (data._pitcherStats && data._pitcherStats.length > 0) {
+            tableHTML += `
+                <div style="margin-top: 20px; max-width: 1200px;">
+                    <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Starting Pitcher</h4>
+                    <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
+                </div>
+            `;
+        }
 
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; max-width: 1200px; margin-left: auto; margin-right: auto;">
+                <div style="margin-top: 20px; max-width: 1200px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
                     <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: visible;"></div>
                 </div>
@@ -579,7 +535,7 @@ createMatchupsSubtable(container, data) {
 
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; max-width: 1200px; margin-left: auto; margin-right: auto;">
+                <div style="margin-top: 20px; max-width: 1200px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Bullpen</h4>
                     <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
