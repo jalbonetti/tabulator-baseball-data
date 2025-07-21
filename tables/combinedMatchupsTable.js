@@ -494,7 +494,7 @@ export class MatchupsTable extends BaseTable {
 
         // Create the two-column layout with fixed widths - LEFT JUSTIFIED
         let tableHTML = `
-            <div style="display: flex; justify-content: flex-start; gap: 15px; margin-bottom: 20px; max-width: 1200px;">
+            <div style="display: flex; justify-content: flex-start; gap: 15px; margin-bottom: 20px; max-width: 1300px;">
                 <!-- Park Factors Section - Fixed 600px -->
                 <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
@@ -517,7 +517,7 @@ export class MatchupsTable extends BaseTable {
         // Add sections for the other data - LEFT JUSTIFIED
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; max-width: 1200px;">
+                <div style="margin-top: 20px; max-width: 1300px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Starting Pitcher</h4>
                     <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
@@ -526,7 +526,7 @@ export class MatchupsTable extends BaseTable {
 
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; max-width: 1200px;">
+                <div style="margin-top: 20px; max-width: 1300px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
                     <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: visible;"></div>
                 </div>
@@ -535,7 +535,7 @@ export class MatchupsTable extends BaseTable {
 
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; max-width: 1200px;">
+                <div style="margin-top: 20px; max-width: 1300px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Bullpen</h4>
                     <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
