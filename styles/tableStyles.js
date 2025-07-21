@@ -2,16 +2,16 @@
 export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
-        matchups: '1200px',      // Table 0 - Matchups
-        batterClearances: '1400px',     // Table 1 - Batter Prop Clearances
-        batterClearancesAlt: '1100px',  // Table 2 - Batter Prop Clearances (Alt)
-        pitcherClearances: '1400px',    // Table 3 - Pitcher Prop Clearances
-        pitcherClearancesAlt: '1100px', // Table 4 - Pitcher Prop Clearances (Alt)
-        batterStats: '1600px',          // Table 5 - Batter Stats
-        pitcherStats: '1600px',         // Table 6 - Pitcher Stats
-        batterProps: '1800px',          // Table 7 - Batter Props
-        pitcherProps: '1800px',         // Table 8 - Pitcher Props
-        gameProps: '1800px'             // Table 9 - Game Props
+        matchups: '1900px',      // Table 0 - Matchups
+        batterClearances: '1900px',     // Table 1 - Batter Prop Clearances
+        batterClearancesAlt: '1900px',  // Table 2 - Batter Prop Clearances (Alt)
+        pitcherClearances: '1900px',    // Table 3 - Pitcher Prop Clearances
+        pitcherClearancesAlt: '1900px', // Table 4 - Pitcher Prop Clearances (Alt)
+        batterStats: '1900px',          // Table 5 - Batter Stats
+        pitcherStats: '1900px',         // Table 6 - Pitcher Stats
+        batterProps: '1900px',          // Table 7 - Batter Props
+        pitcherProps: '1900px',         // Table 8 - Pitcher Props
+        gameProps: '1900px'             // Table 9 - Game Props
     };
 
     var style = document.createElement('style');
