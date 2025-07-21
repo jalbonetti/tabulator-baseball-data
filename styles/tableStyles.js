@@ -2,16 +2,16 @@
 export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
-        matchups: '1920px',      // Table 0 - Matchups
-        batterClearances: '1920px',     // Table 1 - Batter Prop Clearances
-        batterClearancesAlt: '1920px',  // Table 2 - Batter Prop Clearances (Alt)
-        pitcherClearances: '1920px',    // Table 3 - Pitcher Prop Clearances
-        pitcherClearancesAlt: '1920px', // Table 4 - Pitcher Prop Clearances (Alt)
-        batterStats: '1920px',          // Table 5 - Batter Stats
-        pitcherStats: '1920px',         // Table 6 - Pitcher Stats
-        batterProps: '1920px',          // Table 7 - Batter Props
-        pitcherProps: '1920px',         // Table 8 - Pitcher Props
-        gameProps: '1920px'             // Table 9 - Game Props
+        matchups: '1200px',      // Table 0 - Matchups
+        batterClearances: '1400px',     // Table 1 - Batter Prop Clearances
+        batterClearancesAlt: '1100px',  // Table 2 - Batter Prop Clearances (Alt)
+        pitcherClearances: '1400px',    // Table 3 - Pitcher Prop Clearances
+        pitcherClearancesAlt: '1100px', // Table 4 - Pitcher Prop Clearances (Alt)
+        batterStats: '1600px',          // Table 5 - Batter Stats
+        pitcherStats: '1600px',         // Table 6 - Pitcher Stats
+        batterProps: '1800px',          // Table 7 - Batter Props
+        pitcherProps: '1800px',         // Table 8 - Pitcher Props
+        gameProps: '1800px'             // Table 9 - Game Props
     };
 
     var style = document.createElement('style');
@@ -73,15 +73,19 @@ export function injectStyles() {
             gap: 0 !important;
         }
         
-        /* All table containers - gradient background for dead space */
+        /* All table containers - image background for dead space */
         .table-container {
             width: 100% !important;
-            background: linear-gradient(to right, #f8f9fa 0%, #e9ecef 50%, #f8f9fa 100%);
+            background-image: url('https://cdn.prod.website-files.com/6853385d00d0191723429bab/68535f3f476035eec0c40452_unnamed%20(1).jpg');
+            background-repeat: repeat;
+            background-position: center center;
+            background-size: auto;
+            background-attachment: fixed;
             padding: 20px 0 !important;
             position: relative !important;
         }
         
-        /* Pattern overlay for all containers */
+        /* Optional: Add a subtle overlay to ensure table readability */
         .table-container::before {
             content: '';
             position: absolute;
@@ -89,14 +93,7 @@ export function injectStyles() {
             left: 0;
             right: 0;
             bottom: 0;
-            background-image: 
-                repeating-linear-gradient(
-                    45deg,
-                    transparent,
-                    transparent 10px,
-                    rgba(0,0,0,.03) 10px,
-                    rgba(0,0,0,.03) 20px
-                );
+            background-color: rgba(255, 255, 255, 0.1); /* Very subtle white overlay */
             pointer-events: none;
             z-index: 0;
         }
@@ -127,7 +124,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;  /* Left justified */
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -137,7 +134,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -147,7 +144,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -157,7 +154,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -167,7 +164,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -177,7 +174,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -187,7 +184,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -197,7 +194,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -207,7 +204,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
@@ -217,7 +214,7 @@ export function injectStyles() {
             width: 100% !important;
             margin: 0 !important;
             background: white !important;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
         }
