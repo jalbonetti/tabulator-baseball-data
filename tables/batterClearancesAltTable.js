@@ -11,7 +11,7 @@ export class BatterClearancesAltTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
-            // Override the ajax config to handle pagination
+            // Override the ajax config to handle pagination for large dataset
             ajaxURL: this.tableConfig.ajaxURL + "?select=*",
             ajaxConfig: {
                 ...this.tableConfig.ajaxConfig,
@@ -20,30 +20,50 @@ export class BatterClearancesAltTable extends BaseTable {
                     "Prefer": "count=exact"
                 }
             },
-            ajaxRequestFunc: function(url, config, params) {
-                // Add pagination parameters
-                var pageSize = 1000; // Request 1000 records at a time
-                var offset = 0;
+            ajaxRequestFunc: async function(url, config, params) {
+                const allRecords = [];
+                const pageSize = 5000; // Larger chunks for faster loading
+                let offset = 0;
+                let hasMore = true;
                 
-                // Build the URL with pagination
-                var requestUrl = url + "&limit=" + pageSize + "&offset=" + offset;
+                // Show loading progress
+                console.log("Loading Batter Clearances Alt data (up to 40,000 records)...");
                 
-                return fetch(requestUrl, config)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error("Network response was not ok");
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log("Alt table data received:", data.length, "records");
-                        return data;
-                    })
-                    .catch(error => {
-                        console.error("Error loading alt table:", error);
-                        return [];
-                    });
+                while (hasMore) {
+                    const requestUrl = `${url}&limit=${pageSize}&offset=${offset}`;
+                    
+                    try {
+                        const response = await fetch(requestUrl, {
+                            ...config,
+                            headers: {
+                                ...config.headers,
+                                'Range': `${offset}-${offset + pageSize - 1}`
+                            }
+                        });
+                        
+                        if (!response.ok) throw new Error("Network response was not ok");
+                        
+                        const data = await response.json();
+                        allRecords.push(...data);
+                        
+                        console.log(`Loaded ${allRecords.length} records...`);
+                        
+                        hasMore = data.length === pageSize;
+                        offset += pageSize;
+                    } catch (error) {
+                        console.error("Error loading batch:", error);
+                        hasMore = false;
+                    }
+                }
+                
+                console.log(`Alt table data loaded: ${allRecords.length} total records`);
+                return allRecords;
             },
+            // Add loading placeholder
+            placeholder: "Loading up to 40,000 records... This may take a moment.",
+            // Add virtual DOM settings for performance
+            virtualDom: true,
+            virtualDomBuffer: 300,
             columns: this.getColumns(),
             initialSort: [
                 {column: "Batter Name", dir: "asc"},
