@@ -1,4 +1,4 @@
-// tables/baseTable.js - UPDATED VERSION WITH DEFAULT LIMITS
+// tables/baseTable.js - UPDATED VERSION WITH UNLIMITED DATA FETCHING
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -17,14 +17,15 @@ export class BaseTable {
             responsiveLayout: "hide",
             persistence: false,
             paginationSize: false,
-            height: "600px", // Fixed height for sticky headers
+            height: "600px",
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            placeholder: "Loading data...", // Add default placeholder
+            placeholder: "Loading data...",
+            virtualDom: true,
+            virtualDomBuffer: 300,
             dataLoaded: (data) => {
                 console.log(`Table loaded ${data.length} total records`);
-                // Initialize _expanded property if not present
                 data.forEach(row => {
                     if (row._expanded === undefined) {
                         row._expanded = false;
@@ -35,15 +36,83 @@ export class BaseTable {
 
         // Only add AJAX config if endpoint is provided
         if (this.endpoint) {
-            config.ajaxURL = API_CONFIG.baseURL + this.endpoint + '?select=*&limit=5000';
+            // Use custom request function for ALL tables to handle pagination
+            config.ajaxURL = API_CONFIG.baseURL + this.endpoint;
             config.ajaxConfig = {
                 method: "GET",
                 headers: {
                     ...API_CONFIG.headers,
-                    "Range": "0-50000" // Default 5k limit for smaller tables
+                    "Prefer": "count=exact"
                 }
             };
             config.ajaxContentType = "json";
+            
+            // Universal pagination function for all tables
+            config.ajaxRequestFunc = async function(url, config, params) {
+                const allRecords = [];
+                const pageSize = 1000; // SupaBase default max per request
+                let offset = 0;
+                let hasMore = true;
+                let totalExpected = null;
+                
+                console.log(`Loading data from ${url}...`);
+                
+                while (hasMore) {
+                    const requestUrl = `${url}?select=*&limit=${pageSize}&offset=${offset}`;
+                    
+                    try {
+                        const response = await fetch(requestUrl, {
+                            ...config,
+                            headers: {
+                                ...config.headers,
+                                'Range': `${offset}-${offset + pageSize - 1}`,
+                                'Range-Unit': 'items'
+                            }
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`Network response was not ok: ${response.status}`);
+                        }
+                        
+                        // Get total count from content-range header
+                        const contentRange = response.headers.get('content-range');
+                        if (contentRange && totalExpected === null) {
+                            const match = contentRange.match(/\d+-\d+\/(\d+)/);
+                            if (match) {
+                                totalExpected = parseInt(match[1]);
+                                console.log(`Total records to fetch: ${totalExpected}`);
+                            }
+                        }
+                        
+                        const data = await response.json();
+                        allRecords.push(...data);
+                        
+                        // Progress logging
+                        if (totalExpected) {
+                            const progress = ((allRecords.length / totalExpected) * 100).toFixed(1);
+                            console.log(`Loading progress: ${allRecords.length}/${totalExpected} (${progress}%)`);
+                        } else {
+                            console.log(`Loaded ${allRecords.length} records so far...`);
+                        }
+                        
+                        // Check if we have more data to fetch
+                        hasMore = data.length === pageSize;
+                        offset += pageSize;
+                        
+                        // Safety check to prevent infinite loops
+                        if (offset > 1000000) {
+                            console.warn('Safety limit reached, stopping data fetch');
+                            hasMore = false;
+                        }
+                    } catch (error) {
+                        console.error("Error loading batch:", error);
+                        hasMore = false;
+                    }
+                }
+                
+                console.log(`✅ Data loading complete: ${allRecords.length} total records`);
+                return allRecords;
+            };
         }
 
         return config;
