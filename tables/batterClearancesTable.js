@@ -234,3 +234,6 @@ export class BatterClearancesTable extends BaseTable {
         });
     }
 }
+
+// Export the class
+export { BatterClearancesTable };
