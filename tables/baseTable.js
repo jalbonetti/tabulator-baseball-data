@@ -249,6 +249,3 @@ export class BaseTable {
         return this.table;
     }
 }
-
-// Export the BaseTable class
-export { BaseTable };
