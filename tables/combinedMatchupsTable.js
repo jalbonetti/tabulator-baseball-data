@@ -496,13 +496,13 @@ export class MatchupsTable extends BaseTable {
         let tableHTML = `
             <div style="display: flex; justify-content: flex-start; gap: 15px; margin-bottom: 20px; max-width: 1300px;">
                 <!-- Park Factors Section - Fixed 600px -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 600px; flex-shrink: 0;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
                     <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
 
                 <!-- Weather Section - Fixed 600px -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 585px; flex-shrink: 0;">
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: 600px; flex-shrink: 0;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Weather</h5>
                     <div style="font-size: 12px; color: #333; text-align: center;">
                         <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
