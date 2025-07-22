@@ -168,17 +168,17 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Stat", 
                     field: "Pitcher Stat Type", 
-                    width: 200, 
-                    minWidth: 150,
+                    width: 160, 
+                    minWidth: 100,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
                     resizable: false
                 },
                 {
-                    title: "Time/Location Split", 
+                    title: "plit", 
                     field: "Pitcher Prop Split ID", 
-                    width: 300, 
-                    minWidth: 220,
+                    width: 220, 
+                    minWidth: 180,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
                     resizable: false,
