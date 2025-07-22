@@ -225,6 +225,3 @@ export class BatterClearancesAltTable extends BaseTable {
         });
     }
 }
-
-// Export the class
-export { BatterClearancesAltTable };
