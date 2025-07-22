@@ -510,7 +510,7 @@ export function injectStyles() {
             text-align: left !important;
         }
         
-        /* Subtable styling - LEFT JUSTIFIED with constraints */
+        /* Subtable styling - LEFT JUSTIFIED with flexible constraints */
         .subrow-container {
             position: relative !important;
             z-index: 1 !important;
@@ -519,9 +519,10 @@ export function injectStyles() {
             margin: 0 !important;  /* Left justified */
         }
         
-        /* Matchups subtables specific constraints */
+        /* Matchups subtables - now flexible, no fixed max-width */
         #matchups-table .subrow-container {
-            max-width: calc(${TABLE_WIDTHS.matchups} - 20px) !important;
+            max-width: 100% !important;  /* Changed from calc() to allow flexible widths */
+            overflow-x: auto !important;  /* Allow horizontal scroll if needed */
         }
         
         .subrow-container .tabulator {
