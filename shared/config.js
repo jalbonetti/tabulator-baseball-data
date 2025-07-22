@@ -1,10 +1,20 @@
-// shared/config.js
+// shared/config.js - UPDATED WITH PROPER SUPABASE SETTINGS
 export const API_CONFIG = {
     baseURL: "https://hcwolbvmffkmjcxsumwn.supabase.co/rest/v1/",
     headers: {
         "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAzNDQzMTIsImV4cCI6MjA1NTkyMDMxMn0.tM4RwXZpZM6ZHuFFMhWcKYLT3E4NA6Ig90CHw7QtJf0",
         "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAzNDQzMTIsImV4cCI6MjA1NTkyMDMxMn0.tM4RwXZpZM6ZHuFFMhWcKYLT3E4NA6Ig90CHw7QtJf0",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        // Additional SupaBase headers for better data fetching
+        "Prefer": "return=representation,count=exact",
+        "Accept": "application/json",
+        "Accept-Profile": "public"
+    },
+    // Configuration for data fetching
+    fetchConfig: {
+        pageSize: 1000, // SupaBase maximum per request
+        maxRetries: 3,
+        retryDelay: 1000 // milliseconds
     }
 };
 
