@@ -175,7 +175,7 @@ export class ModPitcherStatsTable extends BaseTable {
                     resizable: false
                 },
                 {
-                    title: "plit", 
+                    title: "Split", 
                     field: "Pitcher Prop Split ID", 
                     width: 220, 
                     minWidth: 180,
