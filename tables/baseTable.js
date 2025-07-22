@@ -40,7 +40,7 @@ export class BaseTable {
                 method: "GET",
                 headers: {
                     ...API_CONFIG.headers,
-                    "Range": "0-4999" // Default 5k limit for smaller tables
+                    "Range": "0-50000" // Default 5k limit for smaller tables
                 }
             };
             config.ajaxContentType = "json";
