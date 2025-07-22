@@ -170,7 +170,7 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Stat", 
                     field: "Batter Stat Type", 
-                    width: 140, 
+                    width: 160, 
                     minWidth: 100,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
