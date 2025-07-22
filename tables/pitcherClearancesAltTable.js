@@ -1,4 +1,4 @@
-// tables/pitcherClearancesAltTable.js
+// tables/pitcherClearancesAltTable.js - UPDATED WITH NO LIMITS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -11,59 +11,8 @@ export class PitcherClearancesAltTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
-            // Override the ajax config to handle pagination for potentially large dataset
-            ajaxURL: this.tableConfig.ajaxURL + "?select=*",
-            ajaxConfig: {
-                ...this.tableConfig.ajaxConfig,
-                headers: {
-                    ...this.tableConfig.ajaxConfig.headers,
-                    "Prefer": "count=exact"
-                }
-            },
-            ajaxRequestFunc: async function(url, config, params) {
-                const allRecords = [];
-                const pageSize = 5000; // Larger chunks for faster loading
-                let offset = 0;
-                let hasMore = true;
-                
-                // Show loading progress
-                console.log("Loading Pitcher Clearances Alt data...");
-                
-                while (hasMore) {
-                    const requestUrl = `${url}&limit=${pageSize}&offset=${offset}`;
-                    
-                    try {
-                        const response = await fetch(requestUrl, {
-                            ...config,
-                            headers: {
-                                ...config.headers,
-                                'Range': `${offset}-${offset + pageSize - 1}`
-                            }
-                        });
-                        
-                        if (!response.ok) throw new Error("Network response was not ok");
-                        
-                        const data = await response.json();
-                        allRecords.push(...data);
-                        
-                        console.log(`Loaded ${allRecords.length} records...`);
-                        
-                        hasMore = data.length === pageSize;
-                        offset += pageSize;
-                    } catch (error) {
-                        console.error("Error loading batch:", error);
-                        hasMore = false;
-                    }
-                }
-                
-                console.log(`Pitcher alt table data loaded: ${allRecords.length} total records`);
-                return allRecords;
-            },
-            // Add loading placeholder
-            placeholder: "Loading pitcher data... This may take a moment.",
-            // Add virtual DOM settings for performance
-            virtualDom: true,
-            virtualDomBuffer: 300,
+            // Remove custom pagination - use base class universal pagination
+            placeholder: "Loading all pitcher clearance alt records...",
             columns: this.getColumns(),
             initialSort: [
                 {column: "Pitcher Name", dir: "asc"},
