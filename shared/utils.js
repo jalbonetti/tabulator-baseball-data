@@ -64,7 +64,7 @@ export function getSwitchHitterVersus(batterHandedness, pitcherHandedness) {
     } else if (pitcherHandedness === 'L') {
         return "Righties";
     } else {
-        return "Switch";
+        return "Unknown"; // Changed from "Switch" to "Unknown"
     }
 }
 
