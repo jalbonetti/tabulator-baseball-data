@@ -216,3 +216,6 @@ export class BatterPropsTable extends BaseTable {
         ];
     }
 }
+
+// Export the class
+export { BatterPropsTable };
