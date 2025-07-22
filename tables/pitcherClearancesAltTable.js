@@ -298,3 +298,6 @@ export class PitcherClearancesAltTable extends BaseTable {
         });
     }
 }
+
+// Export the class
+export { PitcherClearancesAltTable };
