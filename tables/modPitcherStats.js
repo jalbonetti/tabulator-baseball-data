@@ -85,11 +85,18 @@ export class ModPitcherStatsTable extends BaseTable {
             return parseFloat(value).toFixed(0);
         };
 
-        // Ratio formatter function (3 decimal places)
+        // Ratio formatter function (3 decimal places) - removes leading 0 except for 0.000
         const ratioFormatter = function(cell) {
             var value = cell.getValue();
             if (value === null || value === undefined) return "-";
-            return parseFloat(value).toFixed(3);
+            var formatted = parseFloat(value).toFixed(3);
+            
+            // If the value starts with "0." and is not exactly "0.000", remove the leading "0"
+            if (formatted.startsWith("0.") && formatted !== "0.000") {
+                return formatted.substring(1);
+            }
+            
+            return formatted;
         };
 
         return [
