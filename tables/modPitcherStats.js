@@ -97,7 +97,7 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Name", 
                     field: "Pitcher Name", 
-                    width: 180, 
+                    width: 200, 
                     minWidth: 150,
                     sorter: "string", 
                     headerFilter: true,  // Text filter for name
@@ -146,7 +146,7 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Pitcher Team", 
-                    width: 180, 
+                    width: 200, 
                     minWidth: 150,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
@@ -161,8 +161,8 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Stat", 
                     field: "Pitcher Stat Type", 
-                    width: 120, 
-                    minWidth: 100,
+                    width: 200, 
+                    minWidth: 150,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
                     resizable: false
@@ -170,8 +170,8 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Time/Location Split", 
                     field: "Pitcher Prop Split ID", 
-                    width: 180, 
-                    minWidth: 150,
+                    width: 300, 
+                    minWidth: 220,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
                     resizable: false,
