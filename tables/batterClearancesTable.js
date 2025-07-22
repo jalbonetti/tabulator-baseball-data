@@ -164,12 +164,34 @@ export class BatterClearancesTable extends BaseTable {
 
     createSubtable2(container, data) {
         var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
-        var handsText = getSwitchHitterVersus(data["Handedness"], data["SP Handedness"]);
         
-        // For switch hitters, determine pitcher-specific matchups
-        var spVersusText = handsText;
-        var rrVersusText = data["Handedness"] === "S" ? "Lefties" : handsText;
-        var lrVersusText = data["Handedness"] === "S" ? "Righties" : handsText;
+        // Determine what handedness the SP faces based on batter type
+        var spVersusText;
+        if (data["Handedness"] === "S") {
+            // Switch hitter - they bat opposite of pitcher's hand
+            if (data["SP Handedness"] === "R") {
+                spVersusText = "Lefties"; // Switch hitter bats left vs righty
+            } else if (data["SP Handedness"] === "L") {
+                spVersusText = "Righties"; // Switch hitter bats right vs lefty
+            } else {
+                // SP Handedness not available, try to extract from SP name
+                var spInfo = data["SP"] || "";
+                if (spInfo.includes("(R)")) {
+                    spVersusText = "Lefties";
+                } else if (spInfo.includes("(L)")) {
+                    spVersusText = "Righties";
+                } else {
+                    spVersusText = "Unknown"; // Better than "Switch"
+                }
+            }
+        } else {
+            // Regular hitter - pitcher faces their natural handedness
+            spVersusText = data["Handedness"] === "L" ? "Lefties" : "Righties";
+        }
+        
+        // For relievers with switch hitters
+        var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+        var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
         
         new Tabulator(container, {
             layout: "fitColumns",
