@@ -553,6 +553,3 @@ export class ModBatterStatsTable extends BaseTable {
         });
     }
 }
-
-// Export the class
-export { ModBatterStatsTable };
