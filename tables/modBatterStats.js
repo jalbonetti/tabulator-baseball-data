@@ -99,7 +99,7 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Name", 
                     field: "Batter Name", 
-                    width: 180, 
+                    width: 200, 
                     minWidth: 150,
                     sorter: "string", 
                     headerFilter: true,  // Text filter for name
@@ -148,7 +148,7 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 180, 
+                    width: 200, 
                     minWidth: 150,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
@@ -163,8 +163,8 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Stat", 
                     field: "Batter Stat Type", 
-                    width: 120, 
-                    minWidth: 100,
+                    width: 200, 
+                    minWidth: 140,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
                     resizable: false
@@ -172,8 +172,8 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Time/Location Split", 
                     field: "Batter Prop Split ID", 
-                    width: 180, 
-                    minWidth: 150,
+                    width: 300, 
+                    minWidth: 220,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,  // Dropdown filter
                     resizable: false,
