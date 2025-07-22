@@ -689,7 +689,8 @@ export class MatchupsTable extends BaseTable {
             ];
 
             new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitColumns",  // Changed to fitColumns for better control
+                layout: "fitData",  // Changed to fitData to respect exact column widths
+                width: "100%",      // Ensure table uses full container width
                 data: sortedParkFactors.map(pf => ({
                     split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
                     H: pf["Park Factor H"],
@@ -704,7 +705,8 @@ export class MatchupsTable extends BaseTable {
                 columns: columns,
                 height: false,
                 headerHeight: 30,
-                rowHeight: 26
+                rowHeight: 26,
+                resizableColumns: false  // Prevent column resizing
             });
         }
     }
