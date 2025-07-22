@@ -1,7 +1,6 @@
-// tables/batterProps.js
+// tables/batterProps.js - UPDATED WITH NO LIMITS
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
-import { API_CONFIG } from '../shared/config.js';
 
 export class BatterPropsTable extends BaseTable {
     constructor(elementId) {
@@ -11,20 +10,8 @@ export class BatterPropsTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
-            // Override the ajax URL to include a higher limit
-            ajaxURL: `${API_CONFIG.baseURL}${this.endpoint}?select=*&limit=15000`,
-            ajaxConfig: {
-                ...this.tableConfig.ajaxConfig,
-                headers: {
-                    ...this.tableConfig.ajaxConfig.headers,
-                    "Range": "0-14999" // Request up to 15k records to cover your 10-11k
-                }
-            },
-            // Add loading message
-            placeholder: "Loading data (approximately 10,000 records)...",
-            // Add virtual DOM settings for performance
-            virtualDom: true,
-            virtualDomBuffer: 300,
+            // Remove all limit overrides - use base class universal pagination
+            placeholder: "Loading all batter props records...",
             columns: this.getColumns(),
             initialSort: [
                 {column: "Name", dir: "asc"},
