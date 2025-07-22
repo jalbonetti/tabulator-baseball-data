@@ -124,20 +124,30 @@ export class BatterClearancesAltTable extends BaseTable {
         // Fixed switch hitter logic for starting pitcher
         var spVersusText;
         if (data["Handedness"] === "S") {
+            // Switch hitter - they bat opposite of pitcher's hand
             if (data["SP Handedness"] === "R") {
-                spVersusText = "Righties";
+                spVersusText = "Lefties"; // Switch hitter bats left vs righty
             } else if (data["SP Handedness"] === "L") {
-                spVersusText = "Lefties";
+                spVersusText = "Righties"; // Switch hitter bats right vs lefty
             } else {
-                spVersusText = "Switch";
+                // SP Handedness not available, try to extract from SP name
+                var spInfo = data["SP"] || "";
+                if (spInfo.includes("(R)")) {
+                    spVersusText = "Lefties";
+                } else if (spInfo.includes("(L)")) {
+                    spVersusText = "Righties";
+                } else {
+                    spVersusText = "Unknown"; // Better than "Switch"
+                }
             }
         } else {
+            // Regular hitter - pitcher faces their natural handedness
             spVersusText = data["Handedness"] === "L" ? "Lefties" : "Righties";
         }
         
-        // For relievers with switch hitters
-        var rrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
-        var lrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+        // For relievers with switch hitters - they also bat opposite hand
+        var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+        var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
         
         new Tabulator(container, {
             layout: "fitColumns",
