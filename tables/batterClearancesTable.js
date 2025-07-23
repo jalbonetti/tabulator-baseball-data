@@ -47,12 +47,12 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 80, // Reduced width for abbreviations
+                    width: 120, // Reduced width for abbreviations
                     minWidth: 60,
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
-                            dropdownWidth: 120 // Custom width for team dropdown
+                            dropdownWidth: 80 // Custom width for team dropdown
                         });
                     },
                     resizable: false,
