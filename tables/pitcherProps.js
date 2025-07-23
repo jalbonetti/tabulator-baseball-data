@@ -34,7 +34,7 @@ export class PitcherPropsTable extends BaseTable {
             {
                 title: "Matchup", 
                 field: "Pitcher Matchup",
-                width: 200,
+                width: 120,
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
                 sorter: false
