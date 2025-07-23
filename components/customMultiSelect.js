@@ -1,5 +1,8 @@
-// components/customMultiSelect.js
-export function createCustomMultiSelect(cell, onRendered, success, cancel) {
+// components/customMultiSelect.js - UPDATED WITH CONFIGURABLE WIDTH AND SIMPLIFIED TEXT
+export function createCustomMultiSelect(cell, onRendered, success, cancel, options = {}) {
+    // Extract options with defaults
+    const dropdownWidth = options.dropdownWidth || 200; // Default width
+    
     var button = document.createElement("button");
     button.className = "custom-multiselect-button";
     button.textContent = "Loading...";
@@ -39,8 +42,8 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
             position: fixed;
             background: white;
             border: 1px solid #333;
-            min-width: 200px;
-            max-width: 300px;
+            min-width: ${dropdownWidth}px;
+            max-width: ${Math.max(dropdownWidth, 300)}px;
             max-height: 300px;
             overflow-y: auto;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
@@ -236,11 +239,11 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel) {
     
     function updateButtonText() {
         if (selectedValues.length === 0) {
-            button.textContent = "None selected";
+            button.textContent = "None";
         } else if (selectedValues.length === allValues.length) {
-            button.textContent = "All selected (" + allValues.length + ")";
+            button.textContent = "All";
         } else {
-            button.textContent = selectedValues.length + " of " + allValues.length + " selected";
+            button.textContent = selectedValues.length + " of " + allValues.length;
         }
     }
     
