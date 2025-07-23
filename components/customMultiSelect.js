@@ -122,7 +122,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         selectAllCheckbox.style.marginRight = "8px";
         
         var selectAllText = document.createElement("span");
-        selectAllText.textContent = selectedValues.length === allValues.length ? 'Unselect All' : 'Select All';
+        selectAllText.textContent = selectedValues.length === allValues.length ? 'None' : 'All';
         
         selectAllLabel.appendChild(selectAllCheckbox);
         selectAllLabel.appendChild(selectAllText);
@@ -191,7 +191,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
                 
                 // Update select all checkbox
                 selectAllCheckbox.checked = selectedValues.length === allValues.length;
-                selectAllText.textContent = selectedValues.length === allValues.length ? 'Unselect All' : 'Select All';
+                selectAllText.textContent = selectedValues.length === allValues.length ? 'None' : 'All';
             });
             
             optionDiv.addEventListener('mouseenter', function() {
