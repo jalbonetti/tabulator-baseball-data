@@ -1,4 +1,4 @@
-// tables/pitcherClearancesAltTable.js - UPDATED WITH NO LIMITS
+// tables/pitcherClearancesAltTable.js - UPDATED WITH SPECIFIC HOME/AWAY LOCATION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -31,7 +31,44 @@ export class PitcherClearancesAltTable extends BaseTable {
         });
     }
 
+    // Helper method to determine if team is home or away
+    getPlayerLocation(matchup, playerTeam) {
+        if (!matchup || !playerTeam) return "Home/Away";
+        
+        if (matchup.includes(" @ ")) {
+            // Format: Away @ Home
+            const teams = matchup.split(" @ ");
+            if (teams.length === 2) {
+                const awayTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
+                const homeTeam = teams[1].trim().match(/\b[A-Z]{2,4}\b/);
+                
+                if (awayTeam && awayTeam[0] === playerTeam) {
+                    return "Away";
+                } else if (homeTeam && homeTeam[0] === playerTeam) {
+                    return "Home";
+                }
+            }
+        } else if (matchup.includes(" vs ")) {
+            // Format: Home vs Away
+            const teams = matchup.split(" vs ");
+            if (teams.length === 2) {
+                const homeTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
+                const awayTeam = teams[1].trim().match(/\b[A-Z]{2,4}\b/);
+                
+                if (homeTeam && homeTeam[0] === playerTeam) {
+                    return "Home";
+                } else if (awayTeam && awayTeam[0] === playerTeam) {
+                    return "Away";
+                }
+            }
+        }
+        
+        return "Home/Away"; // Fallback if we can't determine
+    }
+
     getColumns() {
+        const self = this; // Reference to use in formatter
+        
         return [
             {title: "Player Info", columns: [
                 {
@@ -47,12 +84,16 @@ export class PitcherClearancesAltTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Pitcher Team", 
-                    width: 200, 
-                    minWidth: 150,
+                    width: 80, // Reduced width for abbreviations
+                    minWidth: 60,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 120 // Custom width for team dropdown
+                        });
+                    },
                     resizable: false,
-                    formatter: this.createTeamFormatter()
+                    // No formatter - show abbreviation as-is
                 }
             ]},
             {title: "Prop Info", columns: [
@@ -62,7 +103,11 @@ export class PitcherClearancesAltTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 180 // Custom width for prop type dropdown
+                        });
+                    },
                     resizable: false
                 },
                 {
@@ -71,7 +116,11 @@ export class PitcherClearancesAltTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "number", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 100 // Custom width for prop value dropdown
+                        });
+                    },
                     resizable: false
                 },
                 {
@@ -80,15 +129,22 @@ export class PitcherClearancesAltTable extends BaseTable {
                     width: 300, 
                     minWidth: 220,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 220 // Custom width for split dropdown
+                        });
+                    },
                     resizable: false,
                     formatter: function(cell) {
                         var value = cell.getValue();
+                        var rowData = cell.getRow().getData();
+                        var location = self.getPlayerLocation(rowData["Matchup"], rowData["Pitcher Team"]);
+                        
                         var mapping = {
                             "Season": "Full Season",
-                            "Season @": "Full Season (Home/Away)",
+                            "Season @": "Full Season (" + location + ")",
                             "Last 30 Days": "Last 30 Days",
-                            "Last 30 Days @": "Last 30 Days (Home/Away)"
+                            "Last 30 Days @": "Last 30 Days (" + location + ")"
                         };
                         return mapping[value] || value;
                     }
