@@ -1,4 +1,4 @@
-// tables/baseTable.js - UPDATED VERSION WITH UNLIMITED DATA FETCHING
+// tables/baseTable.js - UPDATED VERSION WITH TEAM ABBREVIATIONS
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -167,11 +167,11 @@ export class BaseTable {
         };
     }
 
-    // Common formatter for Team column
+    // Common formatter for Team column - now returns abbreviation as-is
     createTeamFormatter() {
         return function(cell) {
             var value = cell.getValue();
-            return TEAM_NAME_MAP[value] || value;
+            return value; // Return abbreviation directly
         };
     }
 
