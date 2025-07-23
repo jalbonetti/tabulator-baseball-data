@@ -1,4 +1,4 @@
-// tables/batterClearancesTable.js - UPDATED WITH NO LIMITS
+// tables/batterClearancesTable.js - UPDATED WITH CONTRACTED TEAM NAMES AND LOCATION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -47,12 +47,16 @@ export class BatterClearancesTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 200, 
-                    minWidth: 150,
+                    width: 80, // Reduced width for abbreviations
+                    minWidth: 60,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 120 // Custom width for team dropdown
+                        });
+                    },
                     resizable: false,
-                    formatter: this.createTeamFormatter()
+                    // No formatter - show abbreviation as-is
                 }
             ]},
             {title: "Prop Info", columns: [
@@ -62,7 +66,11 @@ export class BatterClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 140,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 180 // Custom width for prop type dropdown
+                        });
+                    },
                     resizable: false
                 },
                 {
@@ -71,7 +79,11 @@ export class BatterClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 140,
                     sorter: "number", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 100 // Custom width for prop value dropdown
+                        });
+                    },
                     resizable: false
                 }
             ]},
@@ -160,6 +172,65 @@ export class BatterClearancesTable extends BaseTable {
                 }
             ]}
         ];
+    }
+
+    // Override createSubtable1 to add Location column
+    createSubtable1(container, data) {
+        // Determine if batter is home or away based on matchup
+        const matchup = data["Matchup"] || "";
+        const batterTeam = data["Batter Team"];
+        
+        let location = "Unknown";
+        if (matchup.includes(" @ ")) {
+            // Format: Away @ Home
+            const teams = matchup.split(" @ ");
+            if (teams.length === 2) {
+                const awayTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
+                const homeTeam = teams[1].trim().match(/\b[A-Z]{2,4}\b/);
+                
+                if (awayTeam && awayTeam[0] === batterTeam) {
+                    location = "Away";
+                } else if (homeTeam && homeTeam[0] === batterTeam) {
+                    location = "Home";
+                }
+            }
+        } else if (matchup.includes(" vs ")) {
+            // Format: Home vs Away
+            const teams = matchup.split(" vs ");
+            if (teams.length === 2) {
+                const homeTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
+                const awayTeam = teams[1].trim().match(/\b[A-Z]{2,4}\b/);
+                
+                if (homeTeam && homeTeam[0] === batterTeam) {
+                    location = "Home";
+                } else if (awayTeam && awayTeam[0] === batterTeam) {
+                    location = "Away";
+                }
+            }
+        }
+        
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            height: false, // Auto height
+            data: [{
+                propFactor: data["Batter Prop Park Factor"],
+                lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
+                location: location,
+                matchup: data["Matchup"],
+                opposingPitcher: data["SP"]
+            }],
+            columns: [
+                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 300},
+                {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 200},
+                {title: "Location", field: "location", headerSort: false, width: 100},
+                {title: "Matchup", field: "matchup", headerSort: false, width: 300},
+                {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 400}
+            ]
+        });
     }
 
     createSubtable2(container, data) {
