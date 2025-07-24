@@ -1,4 +1,4 @@
-// styles/tableStyles.js - MOBILE-OPTIMIZED VERSION WITH HORIZONTAL SCROLLING
+// styles/tableStyles.js - OPTIMIZED VERSION WITH HORIZONTAL SCROLLING AND VERTICAL EXPANSION
 export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
@@ -170,27 +170,17 @@ export function injectStyles() {
         }
         
         /* Individual table elements - maintain minimum width for scrolling */
-        #matchups-table,
-        #batter-table,
-        #batter-table-alt,
-        #pitcher-table,
-        #pitcher-table-alt,
-        #mod-batter-stats-table,
-        #mod-pitcher-stats-table,
-        #batter-props-table,
-        #pitcher-props-table,
-        #game-props-table {
-            min-width: ${TABLE_WIDTHS.matchups} !important; /* Use min-width instead of max-width */
-            width: max-content !important; /* Allow table to size to content */
+        #matchups-table {
+            min-width: ${TABLE_WIDTHS.matchups} !important;
+            width: max-content !important;
             margin: 0 !important;
             background: white !important;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
-            display: block !important; /* Keep as block for vertical expansion */
+            display: block !important;
         }
         
-        /* Specific table min-widths */
         #batter-table { min-width: ${TABLE_WIDTHS.batterClearances} !important; }
         #batter-table-alt { min-width: ${TABLE_WIDTHS.batterClearancesAlt} !important; }
         #pitcher-table { min-width: ${TABLE_WIDTHS.pitcherClearances} !important; }
@@ -200,6 +190,26 @@ export function injectStyles() {
         #batter-props-table { min-width: ${TABLE_WIDTHS.batterProps} !important; }
         #pitcher-props-table { min-width: ${TABLE_WIDTHS.pitcherProps} !important; }
         #game-props-table { min-width: ${TABLE_WIDTHS.gameProps} !important; }
+        
+        #batter-table, #batter-table-alt, #pitcher-table, #pitcher-table-alt,
+        #mod-batter-stats-table, #mod-pitcher-stats-table,
+        #batter-props-table, #pitcher-props-table, #game-props-table {
+            width: max-content !important;
+            margin: 0 !important;
+            background: white !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+            position: relative !important;
+            z-index: 1 !important;
+            display: block !important;
+        }
+        
+        /* Override Tabulator's width constraints */
+        .tabulator {
+            min-width: inherit !important;
+            width: 100% !important;
+        }
+        
+        /* Specific table min-widths - removed duplicate, see above section */
         
         /* Specific fixes for all table positioning */
         #table0-container, #table1-container, #table2-container, #table3-container, 
@@ -214,6 +224,25 @@ export function injectStyles() {
             -webkit-overflow-scrolling: touch !important;
         }
 
+        #table0-container.inactive-table, #table1-container.inactive-table, 
+        #table2-container.inactive-table, #table3-container.inactive-table,
+        #table4-container.inactive-table, #table5-container.inactive-table,
+        #table6-container.inactive-table, #table7-container.inactive-table,
+        #table8-container.inactive-table, #table9-container.inactive-table {
+            display: none !important;
+            max-height: 0 !important;
+        }
+
+        #table0-container.active-table, #table1-container.active-table,
+        #table2-container.active-table, #table3-container.active-table,
+        #table4-container.active-table, #table5-container.active-table,
+        #table6-container.active-table, #table7-container.active-table,
+        #table8-container.active-table, #table9-container.active-table {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
         /* Fixed height for all tables with mobile optimization */
         #matchups-table,
         #batter-table,
@@ -280,9 +309,20 @@ export function injectStyles() {
         #pitcher-props-table .tabulator-tableHolder,
         #game-props-table .tabulator-tableHolder {
             overflow-y: auto !important;
-            overflow-x: auto !important; /* Changed from hidden to auto */
+            overflow-x: visible !important; /* Allow horizontal expansion for fitColumns */
             max-height: calc(600px - 50px) !important;
             -webkit-overflow-scrolling: touch !important;
+        }
+        
+        /* Force table containers to handle horizontal scroll */
+        .table-container {
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+        }
+        
+        /* Ensure tables can expand horizontally */
+        .tabulator {
+            min-width: max-content !important;
         }
         
         /* Mobile table holder adjustment */
@@ -534,6 +574,35 @@ export function injectStyles() {
         /* Ensure expanded content is visible */
         .tabulator-row.tabulator-selectable {
             overflow: visible !important;
+        }
+        
+        /* CRITICAL FIX: Allow row expansion to work with horizontal scroll */
+        .tabulator-row {
+            overflow: visible !important;
+        }
+        
+        /* When a row has a subrow container, ensure it can expand */
+        .tabulator-row:has(.subrow-container) {
+            height: auto !important;
+            min-height: auto !important;
+        }
+        
+        /* Alternative for browsers without :has() support */
+        .tabulator-row.row-expanded {
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+        }
+        
+        /* Ensure the table element itself allows overflow */
+        .tabulator-table {
+            overflow: visible !important;
+        }
+        
+        /* Row holder must allow vertical overflow */
+        .tabulator-row-holder {
+            overflow: visible !important;
+            min-height: 0 !important;
         }
         
         /* Matchups subtables - now flexible, no fixed max-width */
