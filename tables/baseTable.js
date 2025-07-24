@@ -11,28 +11,31 @@ export class BaseTable {
         this.tableConfig = this.getBaseConfig();
     }
 
-    getBaseConfig() {
-        const config = {
-            layout: "fitColumns",
-            responsiveLayout: "hide",
-            persistence: false,
-            paginationSize: false,
-            height: "600px",
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            placeholder: "Loading data...",
-            virtualDom: true,
-            virtualDomBuffer: 300,
-            dataLoaded: (data) => {
-                console.log(`Table loaded ${data.length} total records`);
-                data.forEach(row => {
-                    if (row._expanded === undefined) {
-                        row._expanded = false;
-                    }
-                });
-            }
-        };
+getBaseConfig() {
+    const config = {
+        layout: "fitData", // Changed from fitColumns to fitData for horizontal scrolling
+        responsiveLayout: false, // Disable responsive layout to allow scrolling
+        persistence: false,
+        paginationSize: false,
+        height: "600px",
+        resizableColumns: false,
+        resizableRows: false,
+        movableColumns: false,
+        placeholder: "Loading data...",
+        virtualDom: true,
+        virtualDomBuffer: 300,
+        // Add horizontal virtual DOM for better performance
+        renderHorizontal: "virtual",
+        renderHorizontalBuffer: 100,
+        dataLoaded: (data) => {
+            console.log(`Table loaded ${data.length} total records`);
+            data.forEach(row => {
+                if (row._expanded === undefined) {
+                    row._expanded = false;
+                }
+            });
+        }
+    };
 
         // Only add AJAX config if endpoint is provided
         if (this.endpoint) {
