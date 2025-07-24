@@ -13,7 +13,7 @@ export class BaseTable {
 
     getBaseConfig() {
         const config = {
-            layout: "fitDataStretch", // Allows both horizontal scroll and row expansion
+            layout: "fitColumns", // Changed back to fitColumns with manual width control
             responsiveLayout: false, // Disable responsive layout to allow scrolling
             persistence: false,
             paginationSize: false,
@@ -25,6 +25,8 @@ export class BaseTable {
             placeholder: "Loading data...",
             virtualDom: true,
             virtualDomBuffer: 300,
+            // Disable virtual rendering horizontally to prevent conflicts
+            renderHorizontal: "basic",
             dataLoaded: (data) => {
                 console.log(`Table loaded ${data.length} total records`);
                 data.forEach(row => {
@@ -202,7 +204,23 @@ export class BaseTable {
                     data._expanded = false;
                 }
                 
+                // Get container and manage overflow class
+                const container = this.table.element.closest('.table-container');
+                
                 data._expanded = !data._expanded;
+                
+                // Update container class based on if ANY rows are expanded
+                if (container) {
+                    setTimeout(() => {
+                        const hasAnyExpanded = this.table.getRows().some(r => r.getData()._expanded);
+                        if (hasAnyExpanded) {
+                            container.classList.add('has-expanded-rows');
+                        } else {
+                            container.classList.remove('has-expanded-rows');
+                        }
+                    }, 10);
+                }
+                
                 row.update(data);
                 row.reformat();
                 
@@ -297,14 +315,22 @@ export class BaseTable {
                     holderEl.appendChild(subtable2);
                     row.getElement().appendChild(holderEl);
                     
-                    this.createSubtable1(subtable1, data);
-                    this.createSubtable2(subtable2, data);
+                    // Create subtables with slight delay to prevent stuttering
+                    requestAnimationFrame(() => {
+                        this.createSubtable1(subtable1, data);
+                        this.createSubtable2(subtable2, data);
+                        
+                        // Mark as rendered after creation
+                        setTimeout(() => {
+                            holderEl.classList.add('rendered');
+                        }, 100);
+                    });
                 }
                 
                 // Force a redraw to ensure proper height calculation
                 setTimeout(() => {
                     row.reformat();
-                }, 100);
+                }, 150);
             } else if (!data._expanded) {
                 var existingSubrow = row.getElement().querySelector('.subrow-container');
                 if (existingSubrow) {
