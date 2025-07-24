@@ -1,4 +1,4 @@
-// styles/tableStyles.js - CONFIGURABLE VERSION WITH LEFT JUSTIFICATION
+// styles/tableStyles.js - MOBILE-OPTIMIZED VERSION WITH HORIZONTAL SCROLLING
 export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
@@ -16,16 +16,29 @@ export function injectStyles() {
 
     var style = document.createElement('style');
     style.textContent = `
-        /* Table wrapper - LEFT JUSTIFIED */
+        /* Mobile viewport optimization */
+        @viewport {
+            width: device-width;
+            zoom: 1.0;
+        }
+        
+        /* Prevent iOS zoom on input focus */
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+        
+        /* Table wrapper - LEFT JUSTIFIED with mobile optimization */
         .table-wrapper {
             display: flex !important;
             flex-direction: column !important;
-            align-items: flex-start !important;  /* Changed from center to flex-start */
+            align-items: flex-start !important;
             width: 100% !important;
-            margin: 0 !important;  /* Removed auto margin */
+            margin: 0 !important;
+            overflow-x: auto !important; /* Enable horizontal scroll on wrapper */
+            -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
         }
         
-        /* Tab styling */
+        /* Tab styling - make tabs scrollable on mobile */
         .tabs-container {
             margin-bottom: 20px;
             z-index: 10;
@@ -35,13 +48,16 @@ export function injectStyles() {
             padding: 10px 0 !important;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
             width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
         }
         
         .tab-buttons {
             display: flex;
             gap: 2px;
             margin-bottom: 10px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap; /* Prevent wrapping on mobile */
+            min-width: fit-content;
         }
         
         .tab-button {
@@ -52,6 +68,8 @@ export function injectStyles() {
             border-radius: 5px 5px 0 0;
             font-weight: bold;
             transition: background-color 0.3s;
+            white-space: nowrap; /* Prevent text wrapping */
+            flex-shrink: 0; /* Prevent shrinking */
         }
         
         .tab-button:hover {
@@ -64,16 +82,17 @@ export function injectStyles() {
             border-color: #007bff;
         }
         
-        /* Table container styling */
+        /* Table container styling with horizontal scroll */
         .tables-container {
             width: 100% !important;
             position: relative !important;
             display: flex !important;
             flex-direction: column !important;
             gap: 0 !important;
+            overflow-x: visible !important; /* Allow child overflow */
         }
         
-        /* All table containers - image background for dead space */
+        /* All table containers - enable horizontal scroll */
         .table-container {
             width: 100% !important;
             background-image: url('https://cdn.prod.website-files.com/6853385d00d0191723429bab/68535f3f476035eec0c40452_unnamed%20(1).jpg');
@@ -83,6 +102,37 @@ export function injectStyles() {
             background-attachment: fixed;
             padding: 20px 0 !important;
             position: relative !important;
+            overflow-x: auto !important; /* Enable horizontal scroll */
+            overflow-y: visible !important;
+            -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
+        }
+        
+        /* Add scroll indicators for mobile */
+        @media (max-width: 768px) {
+            .table-container {
+                padding: 10px 0 !important;
+            }
+            
+            /* Visual scroll indicator */
+            .table-container::after {
+                content: '→ Scroll horizontally →';
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: rgba(0, 123, 255, 0.9);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 12px;
+                z-index: 1000;
+                pointer-events: none;
+                animation: fadeInOut 3s ease-in-out;
+            }
+            
+            @keyframes fadeInOut {
+                0%, 100% { opacity: 0; }
+                20%, 80% { opacity: 1; }
+            }
         }
         
         /* Optional: Add a subtle overlay to ensure table readability */
@@ -93,7 +143,7 @@ export function injectStyles() {
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(255, 255, 255, 0.1); /* Very subtle white overlay */
+            background-color: rgba(255, 255, 255, 0.1);
             pointer-events: none;
             z-index: 0;
         }
@@ -104,7 +154,7 @@ export function injectStyles() {
             visibility: visible !important;
             opacity: 1 !important;
             height: auto !important;
-            overflow: visible !important;
+            overflow-x: auto !important; /* Ensure scroll on active tables */
         }
         
         .table-container.inactive-table {
@@ -118,106 +168,37 @@ export function injectStyles() {
             opacity: 0 !important;
         }
         
-        /* Individual table elements - LEFT JUSTIFIED with configurable widths */
-        #matchups-table {
-            max-width: ${TABLE_WIDTHS.matchups} !important;
-            width: 100% !important;
-            margin: 0 !important;  /* Left justified */
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        #batter-table {
-            max-width: ${TABLE_WIDTHS.batterClearances} !important;
-            width: 100% !important;
-            margin: 0 !important;
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        #batter-table-alt {
-            max-width: ${TABLE_WIDTHS.batterClearancesAlt} !important;
-            width: 100% !important;
-            margin: 0 !important;
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        #pitcher-table {
-            max-width: ${TABLE_WIDTHS.pitcherClearances} !important;
-            width: 100% !important;
-            margin: 0 !important;
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        #pitcher-table-alt {
-            max-width: ${TABLE_WIDTHS.pitcherClearancesAlt} !important;
-            width: 100% !important;
-            margin: 0 !important;
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        #mod-batter-stats-table {
-            max-width: ${TABLE_WIDTHS.batterStats} !important;
-            width: 100% !important;
-            margin: 0 !important;
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        #mod-pitcher-stats-table {
-            max-width: ${TABLE_WIDTHS.pitcherStats} !important;
-            width: 100% !important;
-            margin: 0 !important;
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        #batter-props-table {
-            max-width: ${TABLE_WIDTHS.batterProps} !important;
-            width: 100% !important;
-            margin: 0 !important;
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        #pitcher-props-table {
-            max-width: ${TABLE_WIDTHS.pitcherProps} !important;
-            width: 100% !important;
-            margin: 0 !important;
-            background: white !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
+        /* Individual table elements - maintain minimum width for scrolling */
+        #matchups-table,
+        #batter-table,
+        #batter-table-alt,
+        #pitcher-table,
+        #pitcher-table-alt,
+        #mod-batter-stats-table,
+        #mod-pitcher-stats-table,
+        #batter-props-table,
+        #pitcher-props-table,
         #game-props-table {
-            max-width: ${TABLE_WIDTHS.gameProps} !important;
-            width: 100% !important;
+            min-width: ${TABLE_WIDTHS.matchups} !important; /* Use min-width instead of max-width */
+            width: auto !important; /* Allow table to expand as needed */
             margin: 0 !important;
             background: white !important;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
+            display: inline-block !important; /* Prevent 100% width constraint */
         }
+        
+        /* Specific table min-widths */
+        #batter-table { min-width: ${TABLE_WIDTHS.batterClearances} !important; }
+        #batter-table-alt { min-width: ${TABLE_WIDTHS.batterClearancesAlt} !important; }
+        #pitcher-table { min-width: ${TABLE_WIDTHS.pitcherClearances} !important; }
+        #pitcher-table-alt { min-width: ${TABLE_WIDTHS.pitcherClearancesAlt} !important; }
+        #mod-batter-stats-table { min-width: ${TABLE_WIDTHS.batterStats} !important; }
+        #mod-pitcher-stats-table { min-width: ${TABLE_WIDTHS.pitcherStats} !important; }
+        #batter-props-table { min-width: ${TABLE_WIDTHS.batterProps} !important; }
+        #pitcher-props-table { min-width: ${TABLE_WIDTHS.pitcherProps} !important; }
+        #game-props-table { min-width: ${TABLE_WIDTHS.gameProps} !important; }
         
         /* Specific fixes for all table positioning */
         #table0-container, #table1-container, #table2-container, #table3-container, 
@@ -227,29 +208,12 @@ export function injectStyles() {
             visibility: visible !important;
             opacity: 1 !important;
             position: relative !important;
-            overflow: visible !important;
+            overflow-x: auto !important; /* Enable horizontal scroll */
+            overflow-y: visible !important;
+            -webkit-overflow-scrolling: touch !important;
         }
 
-        #table0-container.inactive-table, #table1-container.inactive-table, 
-        #table2-container.inactive-table, #table3-container.inactive-table,
-        #table4-container.inactive-table, #table5-container.inactive-table,
-        #table6-container.inactive-table, #table7-container.inactive-table,
-        #table8-container.inactive-table, #table9-container.inactive-table {
-            display: none !important;
-            max-height: 0 !important;
-        }
-
-        #table0-container.active-table, #table1-container.active-table,
-        #table2-container.active-table, #table3-container.active-table,
-        #table4-container.active-table, #table5-container.active-table,
-        #table6-container.active-table, #table7-container.active-table,
-        #table8-container.active-table, #table9-container.active-table {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-        
-        /* Fixed height for all tables */
+        /* Fixed height for all tables with mobile optimization */
         #matchups-table,
         #batter-table,
         #batter-table-alt,
@@ -262,10 +226,26 @@ export function injectStyles() {
         #game-props-table {
             height: 600px !important;
             min-height: 200px !important;
-            display: block !important;
+            display: inline-block !important; /* Changed from block to inline-block */
             visibility: visible !important;
-            overflow: hidden !important;
+            overflow: visible !important; /* Changed from hidden */
             position: relative !important;
+        }
+        
+        /* Mobile height adjustment */
+        @media (max-width: 768px) {
+            #matchups-table,
+            #batter-table,
+            #batter-table-alt,
+            #pitcher-table,
+            #pitcher-table-alt,
+            #mod-batter-stats-table,
+            #mod-pitcher-stats-table,
+            #batter-props-table,
+            #pitcher-props-table,
+            #game-props-table {
+                height: 400px !important; /* Smaller height on mobile */
+            }
         }
 
         /* Sticky header for ALL main tables */
@@ -287,7 +267,7 @@ export function injectStyles() {
             box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         }
 
-        /* Table holder with scroll - REMOVED horizontal scroll */
+        /* Table holder with scroll - ENABLE horizontal scroll */
         #matchups-table .tabulator-tableHolder,
         #batter-table .tabulator-tableHolder,
         #batter-table-alt .tabulator-tableHolder,
@@ -299,21 +279,40 @@ export function injectStyles() {
         #pitcher-props-table .tabulator-tableHolder,
         #game-props-table .tabulator-tableHolder {
             overflow-y: auto !important;
-            overflow-x: hidden !important;
+            overflow-x: auto !important; /* Changed from hidden to auto */
             max-height: calc(600px - 50px) !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+        
+        /* Mobile table holder adjustment */
+        @media (max-width: 768px) {
+            #matchups-table .tabulator-tableHolder,
+            #batter-table .tabulator-tableHolder,
+            #batter-table-alt .tabulator-tableHolder,
+            #pitcher-table .tabulator-tableHolder,
+            #pitcher-table-alt .tabulator-tableHolder,
+            #mod-batter-stats-table .tabulator-tableHolder,
+            #mod-pitcher-stats-table .tabulator-tableHolder,
+            #batter-props-table .tabulator-tableHolder,
+            #pitcher-props-table .tabulator-tableHolder,
+            #game-props-table .tabulator-tableHolder {
+                max-height: calc(400px - 50px) !important;
+            }
         }
 
-        /* Constrain all .tabulator instances */
+        /* Ensure .tabulator doesn't constrain width */
         .tabulator {
-            max-width: 100% !important;
-            overflow: hidden !important;
+            min-width: 100% !important; /* Changed from max-width */
+            overflow: visible !important; /* Changed from hidden */
+            display: inline-block !important;
         }
 
         /* Ensure proper table display */
         .tabulator-table {
             display: table !important;
-            width: 100% !important;
-            table-layout: fixed !important;
+            width: auto !important; /* Changed from 100% to auto */
+            min-width: 100% !important;
+            table-layout: auto !important; /* Changed from fixed to auto */
         }
 
         /* Force table rows to be visible */
@@ -327,9 +326,11 @@ export function injectStyles() {
             display: none !important;
         }
         
-        /* Disable column resizing */
-        .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle {
-            display: none !important;
+        /* Disable column resizing on mobile for better UX */
+        @media (max-width: 768px) {
+            .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle {
+                display: none !important;
+            }
         }
         
         .tabulator .tabulator-header .tabulator-col {
@@ -516,13 +517,14 @@ export function injectStyles() {
             z-index: 1 !important;
             overflow: visible !important;
             will-change: transform !important;
-            margin: 0 !important;  /* Left justified */
+            margin: 0 !important;
         }
         
         /* Matchups subtables - now flexible, no fixed max-width */
         #matchups-table .subrow-container {
-            max-width: 100% !important;  /* Changed from calc() to allow flexible widths */
-            overflow-x: auto !important;  /* Allow horizontal scroll if needed */
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
         }
         
         .subrow-container .tabulator {
@@ -534,6 +536,7 @@ export function injectStyles() {
             max-width: 100% !important;
         }
         
+        /* Rest of subtable styles remain the same... */
         .subrow-container .tabulator .tabulator-header .tabulator-col {
             cursor: default !important;
         }
@@ -589,7 +592,6 @@ export function injectStyles() {
         }
         
         /* NESTED SUBTABLE SPECIFIC STYLING */
-        /* Style for nested expandable rows */
         .subrow-container .tabulator .tabulator-row[data-row-type="child"] {
             background-color: #f0f4f8 !important;
         }
@@ -711,6 +713,40 @@ export function injectStyles() {
         .subrow-container .tabulator .tabulator-cell[tabulator-field="name"],
         .subrow-container .tabulator .tabulator-cell[tabulator-field="split"] {
             text-align: left !important;
+        }
+        
+        /* Mobile-specific scroll improvements */
+        @media (max-width: 768px) {
+            /* Add padding to prevent content from touching edges */
+            .table-container {
+                padding-left: 10px !important;
+                padding-right: 10px !important;
+            }
+            
+            /* Make touch targets larger on mobile */
+            .tab-button {
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+            
+            /* Improve dropdown visibility on mobile */
+            .custom-multiselect-dropdown {
+                max-height: 50vh !important; /* Use viewport height */
+                width: 90vw !important; /* Use viewport width */
+                left: 5vw !important;
+            }
+        }
+        
+        /* Add horizontal scroll shadow indicators */
+        .table-container {
+            background:
+                linear-gradient(to right, white 30%, rgba(255,255,255,0)),
+                linear-gradient(to right, rgba(255,255,255,0), white 70%) 100% 0,
+                linear-gradient(to right, rgba(0,0,0,0.1), rgba(0,0,0,0)),
+                linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.1)) 100% 0;
+            background-repeat: no-repeat;
+            background-size: 40px 100%, 40px 100%, 10px 100%, 10px 100%;
+            background-attachment: local, local, scroll, scroll;
         }
     `;
     document.head.appendChild(style);
