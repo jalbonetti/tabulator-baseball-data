@@ -103,7 +103,7 @@ export function injectStyles() {
             padding: 20px 0 !important;
             position: relative !important;
             overflow-x: auto !important; /* Enable horizontal scroll */
-            overflow-y: visible !important;
+            overflow-y: visible !important; /* Allow vertical expansion */
             -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
         }
         
@@ -154,7 +154,8 @@ export function injectStyles() {
             visibility: visible !important;
             opacity: 1 !important;
             height: auto !important;
-            overflow-x: auto !important; /* Ensure scroll on active tables */
+            overflow-x: auto !important; /* Horizontal scroll */
+            overflow-y: visible !important; /* Allow vertical expansion */
         }
         
         .table-container.inactive-table {
@@ -180,13 +181,13 @@ export function injectStyles() {
         #pitcher-props-table,
         #game-props-table {
             min-width: ${TABLE_WIDTHS.matchups} !important; /* Use min-width instead of max-width */
-            width: auto !important; /* Allow table to expand as needed */
+            width: max-content !important; /* Allow table to size to content */
             margin: 0 !important;
             background: white !important;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             position: relative !important;
             z-index: 1 !important;
-            display: inline-block !important; /* Prevent 100% width constraint */
+            display: block !important; /* Keep as block for vertical expansion */
         }
         
         /* Specific table min-widths */
@@ -209,7 +210,7 @@ export function injectStyles() {
             opacity: 1 !important;
             position: relative !important;
             overflow-x: auto !important; /* Enable horizontal scroll */
-            overflow-y: visible !important;
+            overflow-y: visible !important; /* Allow vertical expansion */
             -webkit-overflow-scrolling: touch !important;
         }
 
@@ -226,9 +227,9 @@ export function injectStyles() {
         #game-props-table {
             height: 600px !important;
             min-height: 200px !important;
-            display: inline-block !important; /* Changed from block to inline-block */
+            display: block !important; /* Keep as block */
             visibility: visible !important;
-            overflow: visible !important; /* Changed from hidden */
+            overflow: hidden !important; /* Back to hidden for proper row expansion */
             position: relative !important;
         }
         
@@ -303,16 +304,16 @@ export function injectStyles() {
         /* Ensure .tabulator doesn't constrain width */
         .tabulator {
             min-width: 100% !important; /* Changed from max-width */
-            overflow: visible !important; /* Changed from hidden */
-            display: inline-block !important;
+            overflow: hidden !important; /* Back to hidden for proper expansion */
+            display: block !important; /* Keep as block */
         }
 
         /* Ensure proper table display */
         .tabulator-table {
             display: table !important;
-            width: auto !important; /* Changed from 100% to auto */
+            width: max-content !important; /* Let table size to content */
             min-width: 100% !important;
-            table-layout: auto !important; /* Changed from fixed to auto */
+            table-layout: auto !important; /* Auto for flexible column widths */
         }
 
         /* Force table rows to be visible */
@@ -518,6 +519,21 @@ export function injectStyles() {
             overflow: visible !important;
             will-change: transform !important;
             margin: 0 !important;
+            /* Ensure subtables can expand beyond container */
+            min-height: 0 !important;
+            max-height: none !important;
+        }
+        
+        /* Fix for expanded rows to work with scrollable containers */
+        .tabulator-row.tabulator-row-even,
+        .tabulator-row.tabulator-row-odd {
+            position: relative !important;
+            overflow: visible !important;
+        }
+        
+        /* Ensure expanded content is visible */
+        .tabulator-row.tabulator-selectable {
+            overflow: visible !important;
         }
         
         /* Matchups subtables - now flexible, no fixed max-width */
