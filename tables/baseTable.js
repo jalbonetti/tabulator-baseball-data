@@ -1,4 +1,4 @@
-// tables/baseTable.js - UPDATED VERSION WITH TEAM ABBREVIATIONS
+// tables/baseTable.js - OPTIMIZED VERSION WITH HORIZONTAL SCROLL AND VERTICAL EXPANSION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -11,31 +11,29 @@ export class BaseTable {
         this.tableConfig = this.getBaseConfig();
     }
 
-getBaseConfig() {
-    const config = {
-        layout: "fitData", // Changed from fitColumns to fitData for horizontal scrolling
-        responsiveLayout: false, // Disable responsive layout to allow scrolling
-        persistence: false,
-        paginationSize: false,
-        height: "600px",
-        resizableColumns: false,
-        resizableRows: false,
-        movableColumns: false,
-        placeholder: "Loading data...",
-        virtualDom: true,
-        virtualDomBuffer: 300,
-        // Add horizontal virtual DOM for better performance
-        renderHorizontal: "virtual",
-        renderHorizontalBuffer: 100,
-        dataLoaded: (data) => {
-            console.log(`Table loaded ${data.length} total records`);
-            data.forEach(row => {
-                if (row._expanded === undefined) {
-                    row._expanded = false;
-                }
-            });
-        }
-    };
+    getBaseConfig() {
+        const config = {
+            layout: "fitDataStretch", // Allows both horizontal scroll and row expansion
+            responsiveLayout: false, // Disable responsive layout to allow scrolling
+            persistence: false,
+            paginationSize: false,
+            height: "600px",
+            minWidth: 1900, // Force minimum table width for horizontal scrolling
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            placeholder: "Loading data...",
+            virtualDom: true,
+            virtualDomBuffer: 300,
+            dataLoaded: (data) => {
+                console.log(`Table loaded ${data.length} total records`);
+                data.forEach(row => {
+                    if (row._expanded === undefined) {
+                        row._expanded = false;
+                    }
+                });
+            }
+        };
 
         // Only add AJAX config if endpoint is provided
         if (this.endpoint) {
@@ -266,6 +264,13 @@ getBaseConfig() {
                 data._expanded = false;
             }
             
+            // Add/remove expanded class for CSS targeting
+            if (data._expanded) {
+                row.getElement().classList.add('row-expanded');
+            } else {
+                row.getElement().classList.remove('row-expanded');
+            }
+            
             if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
                 var holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
@@ -295,10 +300,16 @@ getBaseConfig() {
                     this.createSubtable1(subtable1, data);
                     this.createSubtable2(subtable2, data);
                 }
+                
+                // Force a redraw to ensure proper height calculation
+                setTimeout(() => {
+                    row.reformat();
+                }, 100);
             } else if (!data._expanded) {
                 var existingSubrow = row.getElement().querySelector('.subrow-container');
                 if (existingSubrow) {
                     existingSubrow.remove();
+                    row.getElement().classList.remove('row-expanded');
                 }
             }
         };
