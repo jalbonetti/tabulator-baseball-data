@@ -1,4 +1,4 @@
-// tables/pitcherClearancesTable.js
+// tables/pitcherClearancesTable.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -208,25 +208,34 @@ export class PitcherClearancesTable extends BaseTable {
     setupRowExpansion() {
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "Pitcher Name") {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 var row = cell.getRow();
                 var data = row.getData();
                 data._expanded = !data._expanded;
-                row.update(data);
-                row.reformat();
                 
-                setTimeout(() => {
-                    try {
-                        var cellElement = cell.getElement();
-                        if (cellElement && cellElement.querySelector) {
-                            var expanderIcon = cellElement.querySelector('.row-expander');
-                            if (expanderIcon) {
-                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                requestAnimationFrame(() => {
+                    row.update(data);
+                    
+                    requestAnimationFrame(() => {
+                        row.reformat();
+                        
+                        setTimeout(() => {
+                            try {
+                                var cellElement = cell.getElement();
+                                if (cellElement && cellElement.querySelector) {
+                                    var expanderIcon = cellElement.querySelector('.row-expander');
+                                    if (expanderIcon) {
+                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
                             }
-                        }
-                    } catch (error) {
-                        console.error("Error updating expander icon:", error);
-                    }
-                }, 100);
+                        }, 10);
+                    });
+                });
             }
         });
     }
@@ -234,7 +243,7 @@ export class PitcherClearancesTable extends BaseTable {
     // Override createSubtable1 for pitcher data
     createSubtable1(container, data) {
         // Combine park factors for display (R/L order)
-        var parkFactorDisplay = "R: " + data["Pitcher Prop Park Factor R"] + " / L: " + data["Pitcher Prop Park Factor L"];
+        var parkFactorDisplay = "R: " + (data["Pitcher Prop Park Factor R"] || "-") + " / L: " + (data["Pitcher Prop Park Factor L"] || "-");
         
         new Tabulator(container, {
             layout: "fitColumns",
@@ -244,8 +253,8 @@ export class PitcherClearancesTable extends BaseTable {
             movableColumns: false,
             data: [{
                 propFactor: parkFactorDisplay,
-                matchup: data["Matchup"],
-                handedness: data["Handedness"]
+                matchup: data["Matchup"] || "-",
+                handedness: data["Handedness"] || "-"
             }],
             columns: [
                 {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 300},
@@ -256,48 +265,53 @@ export class PitcherClearancesTable extends BaseTable {
     }
 
     createSubtable2(container, data) {
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
-        
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            data: [
-                {
-                    player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
-                    fullSeason: data["Pitcher Prop Total R Vs Season"],
-                    fullSeasonHA: data["Pitcher Prop Total R Vs Season At"],
-                    last30: data["Pitcher Prop Total R Vs 30"],
-                    last30HA: data["Pitcher Prop Total R Vs 30 At"]
-                },
-                {
-                    player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-                    fullSeason: data["Pitcher Prop Total L Vs Season"],
-                    fullSeasonHA: data["Pitcher Prop Total L Vs Season At"],
-                    last30: data["Pitcher Prop Total L Vs 30"],
-                    last30HA: data["Pitcher Prop Total L Vs 30 At"]
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + data["R Batters"] + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
-                    fullSeason: data["RB Prop Total Vs Season"],
-                    fullSeasonHA: data["RB Prop Total Vs Season At"],
-                    last30: data["RB Prop Total Vs 30"],
-                    last30HA: data["RB Prop Total Vs 30 At"]
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + data["L Batters"] + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
-                    fullSeason: data["LB Prop Total Vs Season"],
-                    fullSeasonHA: data["LB Prop Total Vs Season At"],
-                    last30: data["LB Prop Total Vs 30"],
-                    last30HA: data["LB Prop Total Vs 30 At"]
-                }
-            ],
-            columns: [
-                {title: "Players", field: "player", headerSort: false, width: 350},
-                {title: "Full Season", field: "fullSeason", headerSort: false, width: 220},
-                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 220},
-                {title: "Last 30 Days", field: "last30", headerSort: false, width: 220},
-                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 220}
-            ]
-        });
+        try {
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
+            
+            new Tabulator(container, {
+                layout: "fitColumns",
+                columnHeaderSortMulti: false,
+                data: [
+                    {
+                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                        fullSeason: data["Pitcher Prop Total R Vs Season"] || "-",
+                        fullSeasonHA: data["Pitcher Prop Total R Vs Season At"] || "-",
+                        last30: data["Pitcher Prop Total R Vs 30"] || "-",
+                        last30HA: data["Pitcher Prop Total R Vs 30 At"] || "-"
+                    },
+                    {
+                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                        fullSeason: data["Pitcher Prop Total L Vs Season"] || "-",
+                        fullSeasonHA: data["Pitcher Prop Total L Vs Season At"] || "-",
+                        last30: data["Pitcher Prop Total L Vs 30"] || "-",
+                        last30HA: data["Pitcher Prop Total L Vs 30 At"] || "-"
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
+                        fullSeason: data["RB Prop Total Vs Season"] || "-",
+                        fullSeasonHA: data["RB Prop Total Vs Season At"] || "-",
+                        last30: data["RB Prop Total Vs 30"] || "-",
+                        last30HA: data["RB Prop Total Vs 30 At"] || "-"
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
+                        fullSeason: data["LB Prop Total Vs Season"] || "-",
+                        fullSeasonHA: data["LB Prop Total Vs Season At"] || "-",
+                        last30: data["LB Prop Total Vs 30"] || "-",
+                        last30HA: data["LB Prop Total Vs 30 At"] || "-"
+                    }
+                ],
+                columns: [
+                    {title: "Players", field: "player", headerSort: false, width: 350},
+                    {title: "Full Season", field: "fullSeason", headerSort: false, width: 220},
+                    {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 220},
+                    {title: "Last 30 Days", field: "last30", headerSort: false, width: 220},
+                    {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 220}
+                ]
+            });
+        } catch (error) {
+            console.error("Error creating pitcher clearances subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
+        }
     }
 }
