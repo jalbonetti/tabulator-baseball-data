@@ -1,4 +1,4 @@
-// tables/baseTable.js - OPTIMIZED VERSION WITH STUTTERING FIXES
+// tables/baseTable.js - FIXED VERSION WITH PERFORMANCE IMPROVEMENTS
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -13,19 +13,20 @@ export class BaseTable {
 
     getBaseConfig() {
         const config = {
-            layout: "fitColumns", // Changed back to fitColumns with manual width control
-            responsiveLayout: false, // Disable responsive layout to allow scrolling
+            layout: "fitColumns",
+            responsiveLayout: false,
             persistence: false,
             paginationSize: false,
             height: "600px",
-            minWidth: 1900, // Force minimum table width for horizontal scrolling
+            minWidth: 1900,
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
             placeholder: "Loading data...",
+            // RE-ENABLE virtual rendering for better performance
             virtualDom: true,
             virtualDomBuffer: 300,
-            // Disable virtual rendering horizontally to prevent conflicts
+            renderVertical: "virtual", // Changed back to virtual
             renderHorizontal: "basic",
             dataLoaded: (data) => {
                 console.log(`Table loaded ${data.length} total records`);
@@ -39,7 +40,6 @@ export class BaseTable {
 
         // Only add AJAX config if endpoint is provided
         if (this.endpoint) {
-            // Use custom request function for ALL tables to handle pagination
             config.ajaxURL = API_CONFIG.baseURL + this.endpoint;
             config.ajaxConfig = {
                 method: "GET",
@@ -53,7 +53,7 @@ export class BaseTable {
             // Universal pagination function for all tables
             config.ajaxRequestFunc = async function(url, config, params) {
                 const allRecords = [];
-                const pageSize = 1000; // SupaBase default max per request
+                const pageSize = 1000;
                 let offset = 0;
                 let hasMore = true;
                 let totalExpected = null;
@@ -77,7 +77,6 @@ export class BaseTable {
                             throw new Error(`Network response was not ok: ${response.status}`);
                         }
                         
-                        // Get total count from content-range header
                         const contentRange = response.headers.get('content-range');
                         if (contentRange && totalExpected === null) {
                             const match = contentRange.match(/\d+-\d+\/(\d+)/);
@@ -90,20 +89,15 @@ export class BaseTable {
                         const data = await response.json();
                         allRecords.push(...data);
                         
-                        // Progress logging
                         if (totalExpected) {
                             const progress = ((allRecords.length / totalExpected) * 100).toFixed(1);
                             console.log(`Loading progress: ${allRecords.length}/${totalExpected} (${progress}%)`);
-                        } else {
-                            console.log(`Loaded ${allRecords.length} records so far...`);
                         }
                         
-                        // Check if we have more data to fetch
                         hasMore = data.length === pageSize;
                         offset += pageSize;
                         
-                        // Safety check to prevent infinite loops
-                        if (offset > 1000000) {
+                        if (offset > 10000) {
                             console.warn('Safety limit reached, stopping data fetch');
                             hasMore = false;
                         }
@@ -121,12 +115,10 @@ export class BaseTable {
         return config;
     }
 
-    // Get the Tabulator instance
     getTable() {
         return this.table;
     }
 
-    // Common formatter for Name column with expander
     createNameFormatter() {
         return function(cell, formatterParams, onRendered) {
             var value = cell.getValue();
@@ -170,26 +162,24 @@ export class BaseTable {
         };
     }
 
-    // Common formatter for Team column - now returns abbreviation as-is
     createTeamFormatter() {
         return function(cell) {
             var value = cell.getValue();
-            return value; // Return abbreviation directly
+            return value;
         };
     }
 
-    // Setup click handler for row expansion WITHOUT ANY SCROLL HANDLING
+    // FIXED: Setup row expansion without scroll manipulation
     setupRowExpansion() {
         if (!this.table) return;
         
         this.table.on("cellClick", (e, cell) => {
             const field = cell.getField();
             
-            // Support multiple expandable columns
             const expandableFields = [
                 "Batter Name", 
                 "Pitcher Name", 
-                "Matchup Team"  // Added for matchups table
+                "Matchup Team"
             ];
             
             if (expandableFields.includes(field)) {
@@ -199,35 +189,40 @@ export class BaseTable {
                 var row = cell.getRow();
                 var data = row.getData();
                 
-                // Initialize _expanded if it doesn't exist
                 if (data._expanded === undefined) {
                     data._expanded = false;
                 }
                 
                 data._expanded = !data._expanded;
                 
-                row.update(data);
-                row.reformat();
-                
-                // Update expander icon with minimal delay
-                setTimeout(() => {
-                    try {
-                        var cellElement = cell.getElement();
-                        if (cellElement && cellElement.querySelector) {
-                            var expanderIcon = cellElement.querySelector('.row-expander');
-                            if (expanderIcon) {
-                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                // Use requestAnimationFrame to defer the update
+                requestAnimationFrame(() => {
+                    row.update(data);
+                    
+                    // Defer reformatting to prevent stuttering
+                    requestAnimationFrame(() => {
+                        row.reformat();
+                        
+                        // Update expander icon after reformat
+                        setTimeout(() => {
+                            try {
+                                var cellElement = cell.getElement();
+                                if (cellElement && cellElement.querySelector) {
+                                    var expanderIcon = cellElement.querySelector('.row-expander');
+                                    if (expanderIcon) {
+                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
                             }
-                        }
-                    } catch (error) {
-                        console.error("Error updating expander icon:", error);
-                    }
-                }, 50);
+                        }, 10);
+                    });
+                });
             }
         });
     }
 
-    // Create subtable 1 (common info) - used by batter/pitcher tables
     createSubtable1(container, data) {
         new Tabulator(container, {
             layout: "fitColumns",
@@ -235,7 +230,7 @@ export class BaseTable {
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            height: false, // Auto height
+            height: false,
             data: [{
                 propFactor: data["Batter Prop Park Factor"] || data["Pitcher Prop Park Factor"],
                 lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
@@ -251,23 +246,19 @@ export class BaseTable {
         });
     }
 
-    // To be overridden by child classes
     createSubtable2(container, data) {
-        // Default implementation - override in child classes
         console.log("createSubtable2 should be overridden by child class");
     }
 
-    // Common row formatter
+    // FIXED: Improved row formatter with better error handling
     createRowFormatter() {
         return (row) => {
             var data = row.getData();
             
-            // Initialize _expanded if it doesn't exist
             if (data._expanded === undefined) {
                 data._expanded = false;
             }
             
-            // Add/remove expanded class for CSS targeting
             if (data._expanded) {
                 row.getElement().classList.add('row-expanded');
             } else {
@@ -280,14 +271,12 @@ export class BaseTable {
                 holderEl.style.padding = "10px";
                 holderEl.style.background = "#f8f9fa";
                 
-                // Check if this is the matchups table (has Matchup Team field)
+                // Check if this is the matchups table
                 if (data["Matchup Team"] !== undefined) {
-                    // For matchups table, only create one subtable
                     var subtableEl = document.createElement("div");
                     holderEl.appendChild(subtableEl);
                     row.getElement().appendChild(holderEl);
                     
-                    // Call matchups-specific subtable method if it exists
                     if (this.createMatchupsSubtable) {
                         this.createMatchupsSubtable(subtableEl, data);
                     }
@@ -300,29 +289,32 @@ export class BaseTable {
                     holderEl.appendChild(subtable2);
                     row.getElement().appendChild(holderEl);
                     
-                    // Create subtables immediately without requestAnimationFrame
-                    try {
-                        this.createSubtable1(subtable1, data);
-                    } catch (error) {
-                        console.error("Error creating subtable1:", error);
-                        subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1</div>';
-                    }
+                    // Use Promise.resolve to ensure proper error handling
+                    Promise.resolve().then(() => {
+                        try {
+                            this.createSubtable1(subtable1, data);
+                        } catch (error) {
+                            console.error("Error creating subtable1:", error);
+                            subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1</div>';
+                        }
+                    });
                     
-                    try {
-                        this.createSubtable2(subtable2, data);
-                    } catch (error) {
-                        console.error("Error creating subtable2:", error);
-                        subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2</div>';
-                    }
+                    Promise.resolve().then(() => {
+                        try {
+                            this.createSubtable2(subtable2, data);
+                        } catch (error) {
+                            console.error("Error creating subtable2:", error);
+                            subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2</div>';
+                        }
+                    });
                     
-                    // Mark as rendered
                     holderEl.classList.add('rendered');
                 }
                 
-                // Force a redraw to ensure proper height calculation
-                setTimeout(() => {
+                // Defer height recalculation
+                requestAnimationFrame(() => {
                     row.reformat();
-                }, 50);
+                });
             } else if (!data._expanded) {
                 var existingSubrow = row.getElement().querySelector('.subrow-container');
                 if (existingSubrow) {
@@ -333,19 +325,16 @@ export class BaseTable {
         };
     }
 
-    // Initialize the table
     initialize() {
         throw new Error("initialize must be implemented by child class");
     }
 
-    // Redraw the table with better state management
     redraw() {
         if (this.table) {
-            this.table.redraw(true); // Force full redraw
+            this.table.redraw(true);
         }
     }
     
-    // Get the internal Tabulator instance
     getTabulator() {
         return this.table;
     }
