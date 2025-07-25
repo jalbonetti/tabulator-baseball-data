@@ -1,4 +1,4 @@
-// styles/tableStyles.js - OPTIMIZED VERSION WITH HORIZONTAL SCROLLING AND VERTICAL EXPANSION
+// styles/tableStyles.js - OPTIMIZED VERSION WITH STUTTERING FIXES
 export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
@@ -105,9 +105,9 @@ export function injectStyles() {
             overflow-x: auto !important;
             overflow-y: visible !important; /* Always allow vertical expansion */
             -webkit-overflow-scrolling: touch !important;
-            /* Create a new stacking context */
-            transform: translateZ(0);
-            will-change: scroll-position;
+            /* Remove transform and will-change to reduce stuttering */
+            /* transform: translateZ(0); */
+            /* will-change: scroll-position; */
         }
         
         /* Ensure subtables inherit the scroll context */
@@ -251,11 +251,11 @@ export function injectStyles() {
             /* Single scroll context */
             overflow-x: auto !important;
             overflow-y: visible !important;
-            /* Prevent layout recalculation */
-            contain: layout style;
-            /* Hardware acceleration */
-            will-change: scroll-position;
-            transform: translateZ(0);
+            /* Remove contain property to reduce stuttering */
+            /* contain: layout style; */
+            /* Remove hardware acceleration that might cause issues */
+            /* will-change: scroll-position; */
+            /* transform: translateZ(0); */
             /* Ensure container expands to contain all content */
             min-height: 600px;
             height: auto !important;
@@ -321,7 +321,8 @@ export function injectStyles() {
             position: relative !important;
             /* Prevent layout thrashing */
             contain: layout;
-            transform: translateZ(0); /* Force GPU acceleration */
+            /* Remove GPU acceleration to reduce stuttering */
+            /* transform: translateZ(0); */
         }
         
         /* Mobile height adjustment */
