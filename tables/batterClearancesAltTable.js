@@ -1,4 +1,4 @@
-// tables/batterClearancesAltTable.js - UPDATED WITH SPECIFIC HOME/AWAY LOCATION
+// tables/batterClearancesAltTable.js - COMPLETE FILE WITH FIXES
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -179,22 +179,25 @@ export class BatterClearancesAltTable extends BaseTable {
         
         // Fixed switch hitter logic for starting pitcher
         var spVersusText;
+        var spInfo = data["SP"] || "";
+        var spHandedness = null;
+        
+        // Extract handedness from SP info
+        if (spInfo.includes("(") && spInfo.includes(")")) {
+            var match = spInfo.match(/\(([RL])\)/);
+            if (match) {
+                spHandedness = match[1];
+            }
+        }
+        
         if (data["Handedness"] === "S") {
             // Switch hitter - they bat opposite of pitcher's hand
-            if (data["SP Handedness"] === "R") {
+            if (spHandedness === "R") {
                 spVersusText = "Lefties"; // Switch hitter bats left vs righty
-            } else if (data["SP Handedness"] === "L") {
+            } else if (spHandedness === "L") {
                 spVersusText = "Righties"; // Switch hitter bats right vs lefty
             } else {
-                // SP Handedness not available, try to extract from SP name
-                var spInfo = data["SP"] || "";
-                if (spInfo.includes("(R)")) {
-                    spVersusText = "Lefties";
-                } else if (spInfo.includes("(L)")) {
-                    spVersusText = "Righties";
-                } else {
-                    spVersusText = "Unknown"; // Better than "Switch"
-                }
+                spVersusText = "Unknown";
             }
         } else {
             // Regular hitter - pitcher faces their natural handedness
@@ -205,38 +208,45 @@ export class BatterClearancesAltTable extends BaseTable {
         var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
         var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
         
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            data: [
-                {
-                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
-                    propData: data["Batter Prop Total R"]
-                },
-                {
-                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-                    propData: data["Batter Prop Total L"]
-                },
-                {
-                    player: data["SP"] + " Versus " + spVersusText,
-                    propData: data["SP Prop Total"]
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + data["R Relievers"] + ") Versus " + rrVersusText,
-                    propData: data["RR Prop Total"]
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + data["L Relievers"] + ") Versus " + lrVersusText,
-                    propData: data["LR Prop Total"]
-                }
-            ],
-            columns: [
-                {title: "Players", field: "player", headerSort: false, resizable: false, width: 350},
-                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 220}
-            ]
-        });
+        var tableData = [
+            {
+                player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                propData: data["Batter Prop Total R"] || "-"
+            },
+            {
+                player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                propData: data["Batter Prop Total L"] || "-"
+            },
+            {
+                player: data["SP"] + " Versus " + spVersusText,
+                propData: data["SP Prop Total"] || "-"
+            },
+            {
+                player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
+                propData: data["RR Prop Total"] || "-"
+            },
+            {
+                player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
+                propData: data["LR Prop Total"] || "-"
+            }
+        ];
+        
+        try {
+            new Tabulator(container, {
+                layout: "fitColumns",
+                columnHeaderSortMulti: false,
+                resizableColumns: false,
+                resizableRows: false,
+                movableColumns: false,
+                data: tableData,
+                columns: [
+                    {title: "Players", field: "player", headerSort: false, resizable: false, width: 350},
+                    {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 220}
+                ]
+            });
+        } catch (error) {
+            console.error("Error creating subtable2:", error);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data</div>';
+        }
     }
 }
