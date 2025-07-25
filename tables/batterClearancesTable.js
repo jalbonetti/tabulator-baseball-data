@@ -1,4 +1,5 @@
-// tables/batterClearancesTable.js - COMPLETE FILE WITH FIXES
+
+// tables/batterClearancesTable.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -11,7 +12,6 @@ export class BatterClearancesTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
-            // Remove all limit overrides - use base class pagination
             placeholder: "Loading all batter clearance records...",
             columns: this.getColumns(),
             initialSort: [
@@ -40,23 +40,22 @@ export class BatterClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,  // Keep text filter for name
+                    headerFilter: true,
                     resizable: false,
                     formatter: this.createNameFormatter()
                 },
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 120, // Reduced width for abbreviations
+                    width: 120,
                     minWidth: 60,
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
-                            dropdownWidth: 80 // Custom width for team dropdown
+                            dropdownWidth: 80
                         });
                     },
                     resizable: false,
-                    // No formatter - show abbreviation as-is
                 }
             ]},
             {title: "Prop Info", columns: [
@@ -68,7 +67,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
-                            dropdownWidth: 180 // Custom width for prop type dropdown
+                            dropdownWidth: 180
                         });
                     },
                     resizable: false
@@ -81,7 +80,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
-                            dropdownWidth: 100 // Custom width for prop value dropdown
+                            dropdownWidth: 100
                         });
                     },
                     resizable: false
@@ -174,15 +173,12 @@ export class BatterClearancesTable extends BaseTable {
         ];
     }
 
-    // Override createSubtable1 to add Location column
     createSubtable1(container, data) {
-        // Determine if batter is home or away based on matchup
         const matchup = data["Matchup"] || "";
         const batterTeam = data["Batter Team"];
         
         let location = "Unknown";
         if (matchup.includes(" @ ")) {
-            // Format: Away @ Home
             const teams = matchup.split(" @ ");
             if (teams.length === 2) {
                 const awayTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
@@ -195,7 +191,6 @@ export class BatterClearancesTable extends BaseTable {
                 }
             }
         } else if (matchup.includes(" vs ")) {
-            // Format: Home vs Away
             const teams = matchup.split(" vs ");
             if (teams.length === 2) {
                 const homeTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
@@ -215,7 +210,7 @@ export class BatterClearancesTable extends BaseTable {
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            height: false, // Auto height
+            height: false,
             data: [{
                 propFactor: data["Batter Prop Park Factor"],
                 lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
@@ -234,80 +229,76 @@ export class BatterClearancesTable extends BaseTable {
     }
 
     createSubtable2(container, data) {
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
-        
-        // Better SP handedness extraction
-        var spInfo = data["SP"] || "";
-        var spHandedness = null;
-        
-        // Try to extract handedness from SP field (format: "Name (R)" or "Name (L)")
-        if (spInfo.includes("(") && spInfo.includes(")")) {
-            var match = spInfo.match(/\(([RL])\)/);
-            if (match) {
-                spHandedness = match[1];
-            }
-        }
-        
-        // Determine what handedness the SP faces based on batter type
-        var spVersusText;
-        if (data["Handedness"] === "S") {
-            // Switch hitter - they bat opposite of pitcher's hand
-            if (spHandedness === "R") {
-                spVersusText = "Lefties"; // Switch hitter bats left vs righty
-            } else if (spHandedness === "L") {
-                spVersusText = "Righties"; // Switch hitter bats right vs lefty
-            } else {
-                spVersusText = "Unknown";
-            }
-        } else {
-            // Regular hitter - pitcher faces their natural handedness
-            spVersusText = data["Handedness"] === "L" ? "Lefties" : "Righties";
-        }
-        
-        // For relievers with switch hitters
-        var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
-        var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
-        
-        // Ensure all data fields exist with fallbacks
-        var tableData = [
-            {
-                player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
-                fullSeason: data["Batter Prop Total R Season"] || "-",
-                fullSeasonHA: data["Batter Prop Total R Season At"] || "-",
-                last30: data["Batter Prop Total R 30"] || "-",
-                last30HA: data["Batter Prop Total R 30 At"] || "-"
-            },
-            {
-                player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-                fullSeason: data["Batter Prop Total L Season"] || "-",
-                fullSeasonHA: data["Batter Prop Total L Season At"] || "-",
-                last30: data["Batter Prop Total L 30"] || "-",
-                last30HA: data["Batter Prop Total L 30 At"] || "-"
-            },
-            {
-                player: data["SP"] + " Versus " + spVersusText,
-                fullSeason: data["SP Prop Total Vs Season"] || "-",
-                fullSeasonHA: data["SP Prop Total Vs Season At"] || "-",
-                last30: data["SP Prop Total Vs 30"] || "-",
-                last30HA: data["SP Prop Total Vs 30 At"] || "-"
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
-                fullSeason: data["RR Prop Total Vs Season"] || "-",
-                fullSeasonHA: data["RR Prop Total Vs Season At"] || "-",
-                last30: data["RR Prop Total Vs 30"] || "-",
-                last30HA: data["RR Prop Total Vs 30 At"] || "-"
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
-                fullSeason: data["LR Prop Total Vs Season"] || "-",
-                fullSeasonHA: data["LR Prop Total Vs Season At"] || "-",
-                last30: data["LR Prop Total Vs 30"] || "-",
-                last30HA: data["LR Prop Total Vs 30 At"] || "-"
-            }
-        ];
-        
         try {
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
+            
+            // Extract SP handedness
+            var spInfo = data["SP"] || "";
+            var spHandedness = null;
+            
+            if (spInfo.includes("(") && spInfo.includes(")")) {
+                var match = spInfo.match(/\(([RL])\)/);
+                if (match) {
+                    spHandedness = match[1];
+                }
+            }
+            
+            // Determine matchups
+            var spVersusText;
+            if (data["Handedness"] === "S") {
+                if (spHandedness === "R") {
+                    spVersusText = "Lefties";
+                } else if (spHandedness === "L") {
+                    spVersusText = "Righties";
+                } else {
+                    spVersusText = "Unknown";
+                }
+            } else {
+                spVersusText = data["Handedness"] === "L" ? "Lefties" : "Righties";
+            }
+            
+            var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+            var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+            
+            // Prepare table data with safe defaults
+            var tableData = [
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                    fullSeason: data["Batter Prop Total R Season"] || "-",
+                    fullSeasonHA: data["Batter Prop Total R Season At"] || "-",
+                    last30: data["Batter Prop Total R 30"] || "-",
+                    last30HA: data["Batter Prop Total R 30 At"] || "-"
+                },
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                    fullSeason: data["Batter Prop Total L Season"] || "-",
+                    fullSeasonHA: data["Batter Prop Total L Season At"] || "-",
+                    last30: data["Batter Prop Total L 30"] || "-",
+                    last30HA: data["Batter Prop Total L 30 At"] || "-"
+                },
+                {
+                    player: data["SP"] + " Versus " + spVersusText,
+                    fullSeason: data["SP Prop Total Vs Season"] || "-",
+                    fullSeasonHA: data["SP Prop Total Vs Season At"] || "-",
+                    last30: data["SP Prop Total Vs 30"] || "-",
+                    last30HA: data["SP Prop Total Vs 30 At"] || "-"
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
+                    fullSeason: data["RR Prop Total Vs Season"] || "-",
+                    fullSeasonHA: data["RR Prop Total Vs Season At"] || "-",
+                    last30: data["RR Prop Total Vs 30"] || "-",
+                    last30HA: data["RR Prop Total Vs 30 At"] || "-"
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
+                    fullSeason: data["LR Prop Total Vs Season"] || "-",
+                    fullSeasonHA: data["LR Prop Total Vs Season At"] || "-",
+                    last30: data["LR Prop Total Vs 30"] || "-",
+                    last30HA: data["LR Prop Total Vs 30 At"] || "-"
+                }
+            ];
+            
             new Tabulator(container, {
                 layout: "fitColumns",
                 columnHeaderSortMulti: false,
@@ -321,8 +312,8 @@ export class BatterClearancesTable extends BaseTable {
                 ]
             });
         } catch (error) {
-            console.error("Error creating subtable2:", error);
-            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data</div>';
+            console.error("Error creating batter clearances subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
         }
     }
 }
