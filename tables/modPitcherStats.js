@@ -19,50 +19,50 @@ export class ModPitcherStatsTable extends BaseTable {
                 {column: "Pitcher Stat Type", dir: "asc"},
                 {column: "Pitcher Prop Split ID", dir: "asc"}
             ],
-            rowFormatter: (row) => {
-                var data = row.getData();
-                
-                // Initialize _expanded if undefined
-                if (data._expanded === undefined) {
-                    data._expanded = false;
-                }
-                
-                if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
-                    var holderEl = document.createElement("div");
-                    holderEl.classList.add('subrow-container');
-                    holderEl.style.padding = "10px";
-                    holderEl.style.background = "#f8f9fa";
+            rowFormatter: ((self) => {
+                return (row) => {
+                    var data = row.getData();
                     
-                    var subtable1 = document.createElement("div");
-                    var subtable2 = document.createElement("div");
+                    // Initialize _expanded if undefined
+                    if (data._expanded === undefined) {
+                        data._expanded = false;
+                    }
                     
-                    holderEl.appendChild(subtable1);
-                    holderEl.appendChild(subtable2);
-                    row.getElement().appendChild(holderEl);
-                    
-                    // Use setTimeout to ensure DOM is ready
-                    setTimeout(() => {
+                    if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
+                        var holderEl = document.createElement("div");
+                        holderEl.classList.add('subrow-container');
+                        holderEl.style.padding = "10px";
+                        holderEl.style.background = "#f8f9fa";
+                        
+                        var subtable1 = document.createElement("div");
+                        var subtable2 = document.createElement("div");
+                        
+                        holderEl.appendChild(subtable1);
+                        holderEl.appendChild(subtable2);
+                        row.getElement().appendChild(holderEl);
+                        
+                        // Create subtables immediately with proper context
                         try {
-                            this.createSubtable1(subtable1, data);
+                            self.createSubtable1(subtable1, data);
                         } catch (error) {
                             console.error("Error creating pitcher stats subtable1:", error);
-                            subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1</div>';
+                            subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
                         }
                         
                         try {
-                            this.createSubtable2(subtable2, data);
+                            self.createSubtable2(subtable2, data);
                         } catch (error) {
                             console.error("Error creating pitcher stats subtable2:", error);
-                            subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2</div>';
+                            subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
                         }
-                    }, 50);
-                } else if (!data._expanded) {
-                    var existingSubrow = row.getElement().querySelector('.subrow-container');
-                    if (existingSubrow) {
-                        existingSubrow.remove();
+                    } else if (!data._expanded) {
+                        var existingSubrow = row.getElement().querySelector('.subrow-container');
+                        if (existingSubrow) {
+                            existingSubrow.remove();
+                        }
                     }
-                }
-            }
+                };
+            })(this)
         };
 
         this.table = new Tabulator(this.elementId, config);
