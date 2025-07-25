@@ -1,4 +1,4 @@
-// tables/modBatterStats.js - UPDATED WITH NO LIMITS
+// tables/modBatterStats.js - COMPLETE FILE WITH FIXES
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -401,8 +401,8 @@ export class ModBatterStatsTable extends BaseTable {
 
     // Create second subtable for PA/TBF data
     createSubtable2(container, data) {
-        var statType = data["Batter Stat Type"];
-        var batterHand = data["Handedness"];
+        var statType = data["Batter Stat Type"] || "Stats";
+        var batterHand = data["Handedness"] || "?";
         var spInfo = data["SP"] || "";
         var spHand = data["SP Handedness"];
         
@@ -459,8 +459,10 @@ export class ModBatterStatsTable extends BaseTable {
         
         // Format ratio values
         const formatRatio = (value) => {
-            if (value === null || value === undefined) return "-";
-            return parseFloat(value).toFixed(3);
+            if (value === null || value === undefined || value === "") return "-";
+            var num = parseFloat(value);
+            if (isNaN(num)) return "-";
+            return num.toFixed(3);
         };
         
         // Calculate ratios for vs R and vs L
@@ -471,80 +473,93 @@ export class ModBatterStatsTable extends BaseTable {
             return formatRatio(totalNum / paNum);
         };
         
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            data: [
-                {
-                    player: data["Batter Name"] + " (" + batterHand + ") Versus Righties",
-                    stat: data["Batter Total vs R"] + " " + statType,
-                    pa: data["Batter PA vs R"] + " PA",
-                    ratio: calculateRatio(data["Batter Total vs R"], data["Batter PA vs R"])
-                },
-                {
-                    player: data["Batter Name"] + " (" + batterHand + ") Versus Lefties",
-                    stat: data["Batter Total vs L"] + " " + statType,
-                    pa: data["Batter PA vs L"] + " PA",
-                    ratio: calculateRatio(data["Batter Total vs L"], data["Batter PA vs L"])
-                },
-                {
-                    player: data["Batter Name"] + " (" + batterHand + ") Total",
-                    stat: data["Batter Total"] + " " + statType,
-                    pa: data["Batter PA"] + " PA",
-                    ratio: formatRatio(data["Batter Ratio"])
-                },
-                {
-                    player: spName + " (" + (spHand || "?") + ") Versus " + spVersusText,
-                    stat: data["SP Stat Total"] + " " + statType,
-                    pa: data["SP TBF"] + " TBF",
-                    ratio: formatRatio(data["SP Ratio"])
-                },
-                {
-                    player: "Batter + SP Total",
-                    stat: data["Batter + SP Stat Total"] + " " + statType,
-                    pa: data["Batter PA"] + " PA / " + data["SP TBF"] + " TBF",
-                    ratio: formatRatio(data["Batter + SP Ratio"])
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + data["R Relievers"] + ") Versus " + rrVersusText,
-                    stat: data["RR Stat Total"] + " " + statType,
-                    pa: data["RR TBF"] + " TBF",
-                    ratio: calculateRatio(data["RR Stat Total"], data["RR TBF"])
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + data["L Relievers"] + ") Versus " + lrVersusText,
-                    stat: data["LR Stat Total"] + " " + statType,
-                    pa: data["LR TBF"] + " TBF",
-                    ratio: calculateRatio(data["LR Stat Total"], data["LR TBF"])
-                },
-                {
-                    player: "Bullpen Total",
-                    stat: data["Bullpen Stat Total"] + " " + statType,
-                    pa: (parseFloat(data["RR TBF"]) + parseFloat(data["LR TBF"])) + " TBF",
-                    ratio: formatRatio(data["Bullpen Ratio"])
-                },
-                {
-                    player: "Opposing Pitching Total",
-                    stat: data["Opposing Pitching Stat Total"] + " " + statType,
-                    pa: data["Opposing Pitching TBF"] + " TBF",
-                    ratio: formatRatio(data["Opposing Pitching Ratio"])
-                },
-                {
-                    player: "Matchup Total",
-                    stat: data["Matchup Stat Total"] + " " + statType,
-                    pa: data["Batter PA"] + " PA / " + data["Opposing Pitching TBF"] + " TBF",
-                    ratio: formatRatio(data["Matchup Rate"])
-                }
-            ],
-            columns: [
-                {title: "Players", field: "player", headerSort: false, width: 320},
-                {title: statType + " Total", field: "stat", headerSort: false, width: 140},
-                {title: "PA / TBF", field: "pa", headerSort: false, width: 150},
-                {title: "Ratio/Rate", field: "ratio", headerSort: false, width: 90}
-            ]
-        });
+        // Helper to safely get numeric value
+        const safeNum = (value, fallback = "0") => {
+            if (value === null || value === undefined || value === "") return fallback;
+            return value.toString();
+        };
+        
+        var tableData = [
+            {
+                player: data["Batter Name"] + " (" + batterHand + ") Versus Righties",
+                stat: safeNum(data["Batter Total vs R"]) + " " + statType,
+                pa: safeNum(data["Batter PA vs R"]) + " PA",
+                ratio: calculateRatio(data["Batter Total vs R"], data["Batter PA vs R"])
+            },
+            {
+                player: data["Batter Name"] + " (" + batterHand + ") Versus Lefties",
+                stat: safeNum(data["Batter Total vs L"]) + " " + statType,
+                pa: safeNum(data["Batter PA vs L"]) + " PA",
+                ratio: calculateRatio(data["Batter Total vs L"], data["Batter PA vs L"])
+            },
+            {
+                player: data["Batter Name"] + " (" + batterHand + ") Total",
+                stat: safeNum(data["Batter Total"]) + " " + statType,
+                pa: safeNum(data["Batter PA"]) + " PA",
+                ratio: formatRatio(data["Batter Ratio"])
+            },
+            {
+                player: spName + " (" + (spHand || "?") + ") Versus " + spVersusText,
+                stat: safeNum(data["SP Stat Total"]) + " " + statType,
+                pa: safeNum(data["SP TBF"]) + " TBF",
+                ratio: formatRatio(data["SP Ratio"])
+            },
+            {
+                player: "Batter + SP Total",
+                stat: safeNum(data["Batter + SP Stat Total"]) + " " + statType,
+                pa: safeNum(data["Batter PA"]) + " PA / " + safeNum(data["SP TBF"]) + " TBF",
+                ratio: formatRatio(data["Batter + SP Ratio"])
+            },
+            {
+                player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + safeNum(data["R Relievers"]) + ") Versus " + rrVersusText,
+                stat: safeNum(data["RR Stat Total"]) + " " + statType,
+                pa: safeNum(data["RR TBF"]) + " TBF",
+                ratio: calculateRatio(data["RR Stat Total"], data["RR TBF"])
+            },
+            {
+                player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + safeNum(data["L Relievers"]) + ") Versus " + lrVersusText,
+                stat: safeNum(data["LR Stat Total"]) + " " + statType,
+                pa: safeNum(data["LR TBF"]) + " TBF",
+                ratio: calculateRatio(data["LR Stat Total"], data["LR TBF"])
+            },
+            {
+                player: "Bullpen Total",
+                stat: safeNum(data["Bullpen Stat Total"]) + " " + statType,
+                pa: (parseFloat(safeNum(data["RR TBF"], "0")) + parseFloat(safeNum(data["LR TBF"], "0"))) + " TBF",
+                ratio: formatRatio(data["Bullpen Ratio"])
+            },
+            {
+                player: "Opposing Pitching Total",
+                stat: safeNum(data["Opposing Pitching Stat Total"]) + " " + statType,
+                pa: safeNum(data["Opposing Pitching TBF"]) + " TBF",
+                ratio: formatRatio(data["Opposing Pitching Ratio"])
+            },
+            {
+                player: "Matchup Total",
+                stat: safeNum(data["Matchup Stat Total"]) + " " + statType,
+                pa: safeNum(data["Batter PA"]) + " PA / " + safeNum(data["Opposing Pitching TBF"]) + " TBF",
+                ratio: formatRatio(data["Matchup Rate"])
+            }
+        ];
+        
+        try {
+            new Tabulator(container, {
+                layout: "fitColumns",
+                columnHeaderSortMulti: false,
+                resizableColumns: false,
+                resizableRows: false,
+                movableColumns: false,
+                data: tableData,
+                columns: [
+                    {title: "Players", field: "player", headerSort: false, width: 320},
+                    {title: statType + " Total", field: "stat", headerSort: false, width: 140},
+                    {title: "PA / TBF", field: "pa", headerSort: false, width: 150},
+                    {title: "Ratio/Rate", field: "ratio", headerSort: false, width: 90}
+                ]
+            });
+        } catch (error) {
+            console.error("Error creating subtable2:", error);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data</div>';
+        }
     }
 }
