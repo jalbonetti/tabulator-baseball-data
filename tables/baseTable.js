@@ -1,4 +1,4 @@
-// tables/baseTable.js - OPTIMIZED VERSION WITH HORIZONTAL SCROLL AND VERTICAL EXPANSION
+// tables/baseTable.js - OPTIMIZED VERSION WITH STUTTERING FIXES
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -204,22 +204,7 @@ export class BaseTable {
                     data._expanded = false;
                 }
                 
-                // Get container and manage overflow class
-                const container = this.table.element.closest('.table-container');
-                
                 data._expanded = !data._expanded;
-                
-                // Update container class based on if ANY rows are expanded
-                if (container) {
-                    setTimeout(() => {
-                        const hasAnyExpanded = this.table.getRows().some(r => r.getData()._expanded);
-                        if (hasAnyExpanded) {
-                            container.classList.add('has-expanded-rows');
-                        } else {
-                            container.classList.remove('has-expanded-rows');
-                        }
-                    }, 10);
-                }
                 
                 row.update(data);
                 row.reformat();
@@ -307,7 +292,7 @@ export class BaseTable {
                         this.createMatchupsSubtable(subtableEl, data);
                     }
                 } else {
-// For other tables, create two subtables
+                    // For other tables, create two subtables
                     var subtable1 = document.createElement("div");
                     var subtable2 = document.createElement("div");
                     
@@ -322,13 +307,11 @@ export class BaseTable {
                     // Mark as rendered
                     holderEl.classList.add('rendered');
                 }
-                    });
-                }
                 
                 // Force a redraw to ensure proper height calculation
                 setTimeout(() => {
                     row.reformat();
-                }, 150);
+                }, 50);
             } else if (!data._expanded) {
                 var existingSubrow = row.getElement().querySelector('.subrow-container');
                 if (existingSubrow) {
