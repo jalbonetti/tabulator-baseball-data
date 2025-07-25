@@ -307,7 +307,7 @@ export class BaseTable {
                         this.createMatchupsSubtable(subtableEl, data);
                     }
                 } else {
-                    // For other tables, create two subtables
+// For other tables, create two subtables
                     var subtable1 = document.createElement("div");
                     var subtable2 = document.createElement("div");
                     
@@ -315,15 +315,13 @@ export class BaseTable {
                     holderEl.appendChild(subtable2);
                     row.getElement().appendChild(holderEl);
                     
-                    // Create subtables with slight delay to prevent stuttering
-                    requestAnimationFrame(() => {
-                        this.createSubtable1(subtable1, data);
-                        this.createSubtable2(subtable2, data);
-                        
-                        // Mark as rendered after creation
-                        setTimeout(() => {
-                            holderEl.classList.add('rendered');
-                        }, 100);
+                    // Create subtables immediately without requestAnimationFrame
+                    this.createSubtable1(subtable1, data);
+                    this.createSubtable2(subtable2, data);
+                    
+                    // Mark as rendered
+                    holderEl.classList.add('rendered');
+                }
                     });
                 }
                 
