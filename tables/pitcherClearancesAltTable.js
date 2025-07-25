@@ -1,4 +1,4 @@
-// tables/pitcherClearancesAltTable.js - UPDATED WITH SPECIFIC HOME/AWAY LOCATION
+// tables/pitcherClearancesAltTable.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -11,7 +11,6 @@ export class PitcherClearancesAltTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
-            // Remove custom pagination - use base class universal pagination
             placeholder: "Loading all pitcher clearance alt records...",
             columns: this.getColumns(),
             initialSort: [
@@ -222,25 +221,34 @@ export class PitcherClearancesAltTable extends BaseTable {
     setupRowExpansion() {
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "Pitcher Name") {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 var row = cell.getRow();
                 var data = row.getData();
                 data._expanded = !data._expanded;
-                row.update(data);
-                row.reformat();
                 
-                setTimeout(() => {
-                    try {
-                        var cellElement = cell.getElement();
-                        if (cellElement && cellElement.querySelector) {
-                            var expanderIcon = cellElement.querySelector('.row-expander');
-                            if (expanderIcon) {
-                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                requestAnimationFrame(() => {
+                    row.update(data);
+                    
+                    requestAnimationFrame(() => {
+                        row.reformat();
+                        
+                        setTimeout(() => {
+                            try {
+                                var cellElement = cell.getElement();
+                                if (cellElement && cellElement.querySelector) {
+                                    var expanderIcon = cellElement.querySelector('.row-expander');
+                                    if (expanderIcon) {
+                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
                             }
-                        }
-                    } catch (error) {
-                        console.error("Error updating expander icon:", error);
-                    }
-                }, 100);
+                        }, 10);
+                    });
+                });
             }
         });
     }
@@ -248,7 +256,7 @@ export class PitcherClearancesAltTable extends BaseTable {
     // Override createSubtable1 for pitcher data
     createSubtable1(container, data) {
         // Combine park factors for display (R/L order)
-        var parkFactorDisplay = "R: " + data["Pitcher Prop Park Factor R"] + " / L: " + data["Pitcher Prop Park Factor L"];
+        var parkFactorDisplay = "R: " + (data["Pitcher Prop Park Factor R"] || "-") + " / L: " + (data["Pitcher Prop Park Factor L"] || "-");
         
         new Tabulator(container, {
             layout: "fitColumns",
@@ -258,8 +266,8 @@ export class PitcherClearancesAltTable extends BaseTable {
             movableColumns: false,
             data: [{
                 propFactor: parkFactorDisplay,
-                matchup: data["Matchup"],
-                handedness: data["Handedness"]
+                matchup: data["Matchup"] || "-",
+                handedness: data["Handedness"] || "-"
             }],
             columns: [
                 {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 300},
@@ -270,36 +278,41 @@ export class PitcherClearancesAltTable extends BaseTable {
     }
 
     createSubtable2(container, data) {
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
-        
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            data: [
-                {
-                    player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
-                    propData: data["Pitcher Prop Total R"]
-                },
-                {
-                    player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-                    propData: data["Pitcher Prop Total L"]
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + data["R Batters"] + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
-                    propData: data["RB Prop Total"]
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + data["L Batters"] + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
-                    propData: data["LB Prop Total"]
-                }
-            ],
-            columns: [
-                {title: "Players", field: "player", headerSort: false, resizable: false, width: 400},
-                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 200}
-            ]
-        });
+        try {
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
+            
+            new Tabulator(container, {
+                layout: "fitColumns",
+                columnHeaderSortMulti: false,
+                resizableColumns: false,
+                resizableRows: false,
+                movableColumns: false,
+                data: [
+                    {
+                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                        propData: data["Pitcher Prop Total R"] || "-"
+                    },
+                    {
+                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                        propData: data["Pitcher Prop Total L"] || "-"
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
+                        propData: data["RB Prop Total"] || "-"
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
+                        propData: data["LB Prop Total"] || "-"
+                    }
+                ],
+                columns: [
+                    {title: "Players", field: "player", headerSort: false, resizable: false, width: 400},
+                    {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 200}
+                ]
+            });
+        } catch (error) {
+            console.error("Error creating pitcher clearances alt subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
+        }
     }
 }
