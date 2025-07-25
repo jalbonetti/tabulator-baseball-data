@@ -1,4 +1,4 @@
-// tables/modPitcherStats.js
+// tables/modPitcherStats.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -21,6 +21,12 @@ export class ModPitcherStatsTable extends BaseTable {
             ],
             rowFormatter: (row) => {
                 var data = row.getData();
+                
+                // Initialize _expanded if undefined
+                if (data._expanded === undefined) {
+                    data._expanded = false;
+                }
+                
                 if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
                     var holderEl = document.createElement("div");
                     holderEl.classList.add('subrow-container');
@@ -34,8 +40,22 @@ export class ModPitcherStatsTable extends BaseTable {
                     holderEl.appendChild(subtable2);
                     row.getElement().appendChild(holderEl);
                     
-                    this.createSubtable1(subtable1, data);
-                    this.createSubtable2(subtable2, data);
+                    // Use setTimeout to ensure DOM is ready
+                    setTimeout(() => {
+                        try {
+                            this.createSubtable1(subtable1, data);
+                        } catch (error) {
+                            console.error("Error creating pitcher stats subtable1:", error);
+                            subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1</div>';
+                        }
+                        
+                        try {
+                            this.createSubtable2(subtable2, data);
+                        } catch (error) {
+                            console.error("Error creating pitcher stats subtable2:", error);
+                            subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2</div>';
+                        }
+                    }, 50);
                 } else if (!data._expanded) {
                     var existingSubrow = row.getElement().querySelector('.subrow-container');
                     if (existingSubrow) {
@@ -50,25 +70,35 @@ export class ModPitcherStatsTable extends BaseTable {
         // Setup click handler for row expansion
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "Pitcher Name") {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 var row = cell.getRow();
                 var data = row.getData();
-                data._expanded = !data._expanded;
-                row.update(data);
-                row.reformat();
                 
-                setTimeout(() => {
-                    try {
-                        var cellElement = cell.getElement();
-                        if (cellElement && cellElement.querySelector) {
-                            var expanderIcon = cellElement.querySelector('.row-expander');
-                            if (expanderIcon) {
-                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                data._expanded = !data._expanded;
+                
+                requestAnimationFrame(() => {
+                    row.update(data);
+                    
+                    requestAnimationFrame(() => {
+                        row.reformat();
+                        
+                        setTimeout(() => {
+                            try {
+                                var cellElement = cell.getElement();
+                                if (cellElement && cellElement.querySelector) {
+                                    var expanderIcon = cellElement.querySelector('.row-expander');
+                                    if (expanderIcon) {
+                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
                             }
-                        }
-                    } catch (error) {
-                        console.error("Error updating expander icon:", error);
-                    }
-                }, 100);
+                        }, 50);
+                    });
+                });
             }
         });
         
@@ -81,14 +111,14 @@ export class ModPitcherStatsTable extends BaseTable {
         // Simple number formatter function
         const simpleNumberFormatter = function(cell) {
             var value = cell.getValue();
-            if (value === null || value === undefined) return "-";
+            if (value === null || value === undefined || value === "") return "-";
             return parseFloat(value).toFixed(0);
         };
 
         // Ratio formatter function (3 decimal places) - removes leading 0 except for 0.000
         const ratioFormatter = function(cell) {
             var value = cell.getValue();
-            if (value === null || value === undefined) return "-";
+            if (value === null || value === undefined || value === "") return "-";
             var formatted = parseFloat(value).toFixed(3);
             
             // If the value starts with "0." and is not exactly "0.000", remove the leading "0"
@@ -338,7 +368,7 @@ export class ModPitcherStatsTable extends BaseTable {
     // Create first subtable for the expanded row
     createSubtable1(container, data) {
         // Format batting lineup info
-        var lineupInfo = data["R Batters"] + " R / " + data["L Batters"] + " L";
+        var lineupInfo = (data["R Batters"] || "0") + " R / " + (data["L Batters"] || "0") + " L";
         
         new Tabulator(container, {
             layout: "fitColumns",
@@ -347,9 +377,9 @@ export class ModPitcherStatsTable extends BaseTable {
             resizableRows: false,
             movableColumns: false,
             data: [{
-                propFactor: data["Pitcher Prop Park Factor"],
-                handedness: data["Handedness"],
-                matchup: data["Matchup"],
+                propFactor: data["Pitcher Prop Park Factor"] || "-",
+                handedness: data["Handedness"] || "-",
+                matchup: data["Matchup"] || "-",
                 opposingLineup: lineupInfo
             }],
             columns: [
@@ -363,98 +393,108 @@ export class ModPitcherStatsTable extends BaseTable {
 
     // Create second subtable for TBF/PA data
     createSubtable2(container, data) {
-        var statType = data["Pitcher Stat Type"];
-        var pitcherHand = data["Handedness"];
-        
-        // Get opponent team
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
-        
-        // Determine handedness matchups for batters
-        var rbVersusText = pitcherHand === "L" ? "Lefties" : "Righties";
-        var lbVersusText = pitcherHand === "R" ? "Righties" : "Lefties";
-        
-        // Format ratio values
-        const formatRatio = (value) => {
-            if (value === null || value === undefined) return "-";
-            return parseFloat(value).toFixed(3);
-        };
-        
-        // Calculate ratios for vs R and vs L
-        const calculateRatio = (total, tbf) => {
-            const totalNum = parseFloat(total);
-            const tbfNum = parseFloat(tbf);
-            if (isNaN(totalNum) || isNaN(tbfNum) || tbfNum === 0) return "-";
-            return formatRatio(totalNum / tbfNum);
-        };
-        
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            data: [
-                {
-                    player: data["Pitcher Name"] + " (" + pitcherHand + ") Versus Righties",
-                    stat: data["Pitcher Total vs R"] + " " + statType,
-                    tbf: data["Pitcher TBF vs R"] + " TBF",
-                    ratio: calculateRatio(data["Pitcher Total vs R"], data["Pitcher TBF vs R"])
-                },
-                {
-                    player: data["Pitcher Name"] + " (" + pitcherHand + ") Versus Lefties",
-                    stat: data["Pitcher Total vs L"] + " " + statType,
-                    tbf: data["Pitcher TBF vs L"] + " TBF",
-                    ratio: calculateRatio(data["Pitcher Total vs L"], data["Pitcher TBF vs L"])
-                },
-                {
-                    player: data["Pitcher Name"] + " (" + pitcherHand + ") Total",
-                    stat: data["Pitcher Total"] + " " + statType,
-                    tbf: data["Pitcher TBF"] + " TBF",
-                    ratio: formatRatio(data["Pitcher Total Ratio"])
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + data["R Batters"] + ") Versus " + rbVersusText,
-                    stat: data["RB Stat Total"] + " " + statType,
-                    tbf: data["RB PA"] + " PA",
-                    ratio: calculateRatio(data["RB Stat Total"], data["RB PA"])
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + data["L Batters"] + ") Versus " + lbVersusText,
-                    stat: data["LB Stat Total"] + " " + statType,
-                    tbf: data["LB PA"] + " PA",
-                    ratio: calculateRatio(data["LB Stat Total"], data["LB PA"])
-                },
-                {
-                    player: "Opposing Batting Total",
-                    stat: data["Opposing Batting Stat Total"] + " " + statType,
-                    tbf: data["Opposing Batting PA"] + " PA",
-                    ratio: formatRatio(data["Opposing Batting Total Ratio"])
-                },
-                {
-                    player: "Matchup Total V. Righties",
-                    stat: data["Matchup Total vs R"] + " " + statType,
-                    tbf: data["Pitcher TBF vs R"] + " TBF / " + data["RB PA"] + " PA",
-                    ratio: formatRatio(data["Matchup Rate vs R"])
-                },
-                {
-                    player: "Matchup Total V. Lefties",
-                    stat: data["Matchup Total vs L"] + " " + statType,
-                    tbf: data["Pitcher TBF vs L"] + " TBF / " + data["LB PA"] + " PA",
-                    ratio: formatRatio(data["Matchup Rate vs L"])
-                },
-                {
-                    player: "Matchup Total",
-                    stat: data["Matchup Stat Total"] + " " + statType,
-                    tbf: data["Pitcher TBF"] + " TBF / " + data["Opposing Batting PA"] + " PA",
-                    ratio: formatRatio(data["Matchup Rate"])
-                }
-            ],
-            columns: [
-                {title: "Players", field: "player", headerSort: false, width: 320},
-                {title: statType + " Total", field: "stat", headerSort: false, width: 140},
-                {title: "TBF / PA", field: "tbf", headerSort: false, width: 150},
-                {title: "Ratio/Rate", field: "ratio", headerSort: false, width: 90}
-            ]
-        });
+        try {
+            var statType = data["Pitcher Stat Type"] || "Stats";
+            var pitcherHand = data["Handedness"] || "?";
+            
+            // Get opponent team
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
+            
+            // Determine handedness matchups for batters
+            var rbVersusText = pitcherHand === "L" ? "Lefties" : "Righties";
+            var lbVersusText = pitcherHand === "R" ? "Righties" : "Lefties";
+            
+            // Format ratio values
+            const formatRatio = (value) => {
+                if (value === null || value === undefined || value === "") return "-";
+                return parseFloat(value).toFixed(3);
+            };
+            
+            // Calculate ratios for vs R and vs L
+            const calculateRatio = (total, tbf) => {
+                const totalNum = parseFloat(total);
+                const tbfNum = parseFloat(tbf);
+                if (isNaN(totalNum) || isNaN(tbfNum) || tbfNum === 0) return "-";
+                return formatRatio(totalNum / tbfNum);
+            };
+            
+            const safeNum = (value, fallback = "0") => {
+                if (value === null || value === undefined || value === "") return fallback;
+                return value.toString();
+            };
+            
+            new Tabulator(container, {
+                layout: "fitColumns",
+                columnHeaderSortMulti: false,
+                resizableColumns: false,
+                resizableRows: false,
+                movableColumns: false,
+                data: [
+                    {
+                        player: data["Pitcher Name"] + " (" + pitcherHand + ") Versus Righties",
+                        stat: safeNum(data["Pitcher Total vs R"]) + " " + statType,
+                        tbf: safeNum(data["Pitcher TBF vs R"]) + " TBF",
+                        ratio: calculateRatio(data["Pitcher Total vs R"], data["Pitcher TBF vs R"])
+                    },
+                    {
+                        player: data["Pitcher Name"] + " (" + pitcherHand + ") Versus Lefties",
+                        stat: safeNum(data["Pitcher Total vs L"]) + " " + statType,
+                        tbf: safeNum(data["Pitcher TBF vs L"]) + " TBF",
+                        ratio: calculateRatio(data["Pitcher Total vs L"], data["Pitcher TBF vs L"])
+                    },
+                    {
+                        player: data["Pitcher Name"] + " (" + pitcherHand + ") Total",
+                        stat: safeNum(data["Pitcher Total"]) + " " + statType,
+                        tbf: safeNum(data["Pitcher TBF"]) + " TBF",
+                        ratio: formatRatio(data["Pitcher Total Ratio"])
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + safeNum(data["R Batters"], "0") + ") Versus " + rbVersusText,
+                        stat: safeNum(data["RB Stat Total"]) + " " + statType,
+                        tbf: safeNum(data["RB PA"]) + " PA",
+                        ratio: calculateRatio(data["RB Stat Total"], data["RB PA"])
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + safeNum(data["L Batters"], "0") + ") Versus " + lbVersusText,
+                        stat: safeNum(data["LB Stat Total"]) + " " + statType,
+                        tbf: safeNum(data["LB PA"]) + " PA",
+                        ratio: calculateRatio(data["LB Stat Total"], data["LB PA"])
+                    },
+                    {
+                        player: "Opposing Batting Total",
+                        stat: safeNum(data["Opposing Batting Stat Total"]) + " " + statType,
+                        tbf: safeNum(data["Opposing Batting PA"]) + " PA",
+                        ratio: formatRatio(data["Opposing Batting Total Ratio"])
+                    },
+                    {
+                        player: "Matchup Total V. Righties",
+                        stat: safeNum(data["Matchup Total vs R"]) + " " + statType,
+                        tbf: safeNum(data["Pitcher TBF vs R"]) + " TBF / " + safeNum(data["RB PA"]) + " PA",
+                        ratio: formatRatio(data["Matchup Rate vs R"])
+                    },
+                    {
+                        player: "Matchup Total V. Lefties",
+                        stat: safeNum(data["Matchup Total vs L"]) + " " + statType,
+                        tbf: safeNum(data["Pitcher TBF vs L"]) + " TBF / " + safeNum(data["LB PA"]) + " PA",
+                        ratio: formatRatio(data["Matchup Rate vs L"])
+                    },
+                    {
+                        player: "Matchup Total",
+                        stat: safeNum(data["Matchup Stat Total"]) + " " + statType,
+                        tbf: safeNum(data["Pitcher TBF"]) + " TBF / " + safeNum(data["Opposing Batting PA"]) + " PA",
+                        ratio: formatRatio(data["Matchup Rate"])
+                    }
+                ],
+                columns: [
+                    {title: "Players", field: "player", headerSort: false, width: 320},
+                    {title: statType + " Total", field: "stat", headerSort: false, width: 140},
+                    {title: "TBF / PA", field: "tbf", headerSort: false, width: 150},
+                    {title: "Ratio/Rate", field: "ratio", headerSort: false, width: 90}
+                ]
+            });
+        } catch (error) {
+            console.error("Error creating pitcher stats subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
+        }
     }
 }
