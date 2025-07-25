@@ -1,4 +1,4 @@
-// tables/modBatterStats.js - COMPLETE FILE WITH FIXES
+// tables/modBatterStats.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -12,7 +12,6 @@ export class ModBatterStatsTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
-            // Remove all limit overrides - use base class universal pagination
             placeholder: "Loading all batter stats records...",
             columns: this.getColumns(),
             initialSort: [
@@ -23,6 +22,12 @@ export class ModBatterStatsTable extends BaseTable {
             ],
             rowFormatter: (row) => {
                 var data = row.getData();
+                
+                // Initialize _expanded if undefined
+                if (data._expanded === undefined) {
+                    data._expanded = false;
+                }
+                
                 if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
                     var holderEl = document.createElement("div");
                     holderEl.classList.add('subrow-container');
@@ -36,8 +41,22 @@ export class ModBatterStatsTable extends BaseTable {
                     holderEl.appendChild(subtable2);
                     row.getElement().appendChild(holderEl);
                     
-                    this.createSubtable1(subtable1, data);
-                    this.createSubtable2(subtable2, data);
+                    // Use setTimeout to ensure DOM is ready
+                    setTimeout(() => {
+                        try {
+                            this.createSubtable1(subtable1, data);
+                        } catch (error) {
+                            console.error("Error creating stats subtable1:", error);
+                            subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1</div>';
+                        }
+                        
+                        try {
+                            this.createSubtable2(subtable2, data);
+                        } catch (error) {
+                            console.error("Error creating stats subtable2:", error);
+                            subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2</div>';
+                        }
+                    }, 50);
                 } else if (!data._expanded) {
                     var existingSubrow = row.getElement().querySelector('.subrow-container');
                     if (existingSubrow) {
@@ -52,25 +71,35 @@ export class ModBatterStatsTable extends BaseTable {
         // Setup click handler for row expansion
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "Batter Name") {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 var row = cell.getRow();
                 var data = row.getData();
-                data._expanded = !data._expanded;
-                row.update(data);
-                row.reformat();
                 
-                setTimeout(() => {
-                    try {
-                        var cellElement = cell.getElement();
-                        if (cellElement && cellElement.querySelector) {
-                            var expanderIcon = cellElement.querySelector('.row-expander');
-                            if (expanderIcon) {
-                                expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                data._expanded = !data._expanded;
+                
+                requestAnimationFrame(() => {
+                    row.update(data);
+                    
+                    requestAnimationFrame(() => {
+                        row.reformat();
+                        
+                        setTimeout(() => {
+                            try {
+                                var cellElement = cell.getElement();
+                                if (cellElement && cellElement.querySelector) {
+                                    var expanderIcon = cellElement.querySelector('.row-expander');
+                                    if (expanderIcon) {
+                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
                             }
-                        }
-                    } catch (error) {
-                        console.error("Error updating expander icon:", error);
-                    }
-                }, 100);
+                        }, 50);
+                    });
+                });
             }
         });
         
@@ -80,20 +109,17 @@ export class ModBatterStatsTable extends BaseTable {
     }
 
     getColumns() {
-        // Simple number formatter function
         const simpleNumberFormatter = function(cell) {
             var value = cell.getValue();
-            if (value === null || value === undefined) return "-";
+            if (value === null || value === undefined || value === "") return "-";
             return parseFloat(value).toFixed(0);
         };
 
-        // Ratio formatter function (3 decimal places) - removes leading 0 except for 0.000
         const ratioFormatter = function(cell) {
             var value = cell.getValue();
-            if (value === null || value === undefined) return "-";
+            if (value === null || value === undefined || value === "") return "-";
             var formatted = parseFloat(value).toFixed(3);
             
-            // If the value starts with "0." and is not exactly "0.000", remove the leading "0"
             if (formatted.startsWith("0.") && formatted !== "0.000") {
                 return formatted.substring(1);
             }
@@ -109,7 +135,7 @@ export class ModBatterStatsTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,  // Text filter for name
+                    headerFilter: true,
                     resizable: false,
                     formatter: function(cell, formatterParams, onRendered) {
                         var value = cell.getValue();
@@ -158,7 +184,7 @@ export class ModBatterStatsTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Dropdown filter
+                    headerFilter: createCustomMultiSelect,
                     resizable: false,
                     formatter: function(cell) {
                         var value = cell.getValue();
@@ -173,7 +199,7 @@ export class ModBatterStatsTable extends BaseTable {
                     width: 160, 
                     minWidth: 100,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Dropdown filter
+                    headerFilter: createCustomMultiSelect,
                     resizable: false
                 },
                 {
@@ -182,7 +208,7 @@ export class ModBatterStatsTable extends BaseTable {
                     width: 220, 
                     minWidth: 180,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Dropdown filter
+                    headerFilter: createCustomMultiSelect,
                     resizable: false,
                     formatter: function(cell) {
                         var value = cell.getValue();
@@ -357,16 +383,12 @@ export class ModBatterStatsTable extends BaseTable {
         ];
     }
 
-    // Create first subtable for the expanded row
     createSubtable1(container, data) {
-        // Format bullpen info
-        var bullpenInfo = data["R Relievers"] + " R / " + data["L Relievers"] + " L";
+        var bullpenInfo = (data["R Relievers"] || "0") + " R / " + (data["L Relievers"] || "0") + " L";
         
-        // Extract SP handedness from the "Opposing Pitcher" field if not in SP Handedness
         var spInfo = data["SP"] || "";
         var spHand = data["SP Handedness"];
         
-        // If SP Handedness is not available, try to extract from SP info
         if (!spHand && spInfo.includes("(") && spInfo.includes(")")) {
             var match = spInfo.match(/\(([RL])\)/);
             if (match) {
@@ -381,11 +403,11 @@ export class ModBatterStatsTable extends BaseTable {
             resizableRows: false,
             movableColumns: false,
             data: [{
-                propFactor: data["Batter Prop Park Factor"],
-                lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
-                handedness: data["Handedness"],
-                matchup: data["Matchup"],
-                opposingPitcher: data["SP"],
+                propFactor: data["Batter Prop Park Factor"] || "-",
+                lineupStatus: (data["Lineup Status"] || "") + ": " + (data["Batting Position"] || ""),
+                handedness: data["Handedness"] || "-",
+                matchup: data["Matchup"] || "-",
+                opposingPitcher: data["SP"] || "-",
                 bullpen: bullpenInfo
             }],
             columns: [
@@ -399,150 +421,137 @@ export class ModBatterStatsTable extends BaseTable {
         });
     }
 
-    // Create second subtable for PA/TBF data
     createSubtable2(container, data) {
-        var statType = data["Batter Stat Type"] || "Stats";
-        var batterHand = data["Handedness"] || "?";
-        var spInfo = data["SP"] || "";
-        var spHand = data["SP Handedness"];
-        
-        // If SP Handedness field is not available, extract from SP name
-        if (!spHand && spInfo.includes("(") && spInfo.includes(")")) {
-            var match = spInfo.match(/\(([RL])\)/);
-            if (match) {
-                spHand = match[1];
-            }
-        }
-        
-        // Clean up SP handedness - ensure it's just R or L
-        if (spHand) {
-            spHand = spHand.toString().trim().toUpperCase();
-            if (spHand !== "R" && spHand !== "L") {
-                spHand = null;
-            }
-        }
-        
-        // Extract SP name without handedness
-        var spName = spInfo;
-        if (spInfo.includes("(")) {
-            spName = spInfo.substring(0, spInfo.indexOf("(")).trim();
-        }
-        
-        // Determine handedness matchups
-        var spVersusText;
-        if (batterHand === "S") {
-            // Switch hitter faces opposite of pitcher's hand
-            if (spHand === "R") {
-                spVersusText = "Lefties";
-            } else if (spHand === "L") {
-                spVersusText = "Righties";
-            } else {
-                spVersusText = "Unknown";
-            }
-        } else {
-            // Regular hitter
-            spVersusText = batterHand === "L" ? "Lefties" : "Righties";
-        }
-        
-        // Get opponent team
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
-        var rrVersusText, lrVersusText;
-        if (batterHand === "S") {
-            // Switch hitter faces opposite hand
-            rrVersusText = "Lefties";
-            lrVersusText = "Righties";
-        } else {
-            // Regular hitter faces same as their batting hand
-            rrVersusText = batterHand === "L" ? "Lefties" : "Righties";
-            lrVersusText = batterHand === "L" ? "Lefties" : "Righties";
-        }
-        
-        // Format ratio values
-        const formatRatio = (value) => {
-            if (value === null || value === undefined || value === "") return "-";
-            var num = parseFloat(value);
-            if (isNaN(num)) return "-";
-            return num.toFixed(3);
-        };
-        
-        // Calculate ratios for vs R and vs L
-        const calculateRatio = (total, pa) => {
-            const totalNum = parseFloat(total);
-            const paNum = parseFloat(pa);
-            if (isNaN(totalNum) || isNaN(paNum) || paNum === 0) return "-";
-            return formatRatio(totalNum / paNum);
-        };
-        
-        // Helper to safely get numeric value
-        const safeNum = (value, fallback = "0") => {
-            if (value === null || value === undefined || value === "") return fallback;
-            return value.toString();
-        };
-        
-        var tableData = [
-            {
-                player: data["Batter Name"] + " (" + batterHand + ") Versus Righties",
-                stat: safeNum(data["Batter Total vs R"]) + " " + statType,
-                pa: safeNum(data["Batter PA vs R"]) + " PA",
-                ratio: calculateRatio(data["Batter Total vs R"], data["Batter PA vs R"])
-            },
-            {
-                player: data["Batter Name"] + " (" + batterHand + ") Versus Lefties",
-                stat: safeNum(data["Batter Total vs L"]) + " " + statType,
-                pa: safeNum(data["Batter PA vs L"]) + " PA",
-                ratio: calculateRatio(data["Batter Total vs L"], data["Batter PA vs L"])
-            },
-            {
-                player: data["Batter Name"] + " (" + batterHand + ") Total",
-                stat: safeNum(data["Batter Total"]) + " " + statType,
-                pa: safeNum(data["Batter PA"]) + " PA",
-                ratio: formatRatio(data["Batter Ratio"])
-            },
-            {
-                player: spName + " (" + (spHand || "?") + ") Versus " + spVersusText,
-                stat: safeNum(data["SP Stat Total"]) + " " + statType,
-                pa: safeNum(data["SP TBF"]) + " TBF",
-                ratio: formatRatio(data["SP Ratio"])
-            },
-            {
-                player: "Batter + SP Total",
-                stat: safeNum(data["Batter + SP Stat Total"]) + " " + statType,
-                pa: safeNum(data["Batter PA"]) + " PA / " + safeNum(data["SP TBF"]) + " TBF",
-                ratio: formatRatio(data["Batter + SP Ratio"])
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + safeNum(data["R Relievers"]) + ") Versus " + rrVersusText,
-                stat: safeNum(data["RR Stat Total"]) + " " + statType,
-                pa: safeNum(data["RR TBF"]) + " TBF",
-                ratio: calculateRatio(data["RR Stat Total"], data["RR TBF"])
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + safeNum(data["L Relievers"]) + ") Versus " + lrVersusText,
-                stat: safeNum(data["LR Stat Total"]) + " " + statType,
-                pa: safeNum(data["LR TBF"]) + " TBF",
-                ratio: calculateRatio(data["LR Stat Total"], data["LR TBF"])
-            },
-            {
-                player: "Bullpen Total",
-                stat: safeNum(data["Bullpen Stat Total"]) + " " + statType,
-                pa: (parseFloat(safeNum(data["RR TBF"], "0")) + parseFloat(safeNum(data["LR TBF"], "0"))) + " TBF",
-                ratio: formatRatio(data["Bullpen Ratio"])
-            },
-            {
-                player: "Opposing Pitching Total",
-                stat: safeNum(data["Opposing Pitching Stat Total"]) + " " + statType,
-                pa: safeNum(data["Opposing Pitching TBF"]) + " TBF",
-                ratio: formatRatio(data["Opposing Pitching Ratio"])
-            },
-            {
-                player: "Matchup Total",
-                stat: safeNum(data["Matchup Stat Total"]) + " " + statType,
-                pa: safeNum(data["Batter PA"]) + " PA / " + safeNum(data["Opposing Pitching TBF"]) + " TBF",
-                ratio: formatRatio(data["Matchup Rate"])
-            }
-        ];
-        
         try {
+            var statType = data["Batter Stat Type"] || "Stats";
+            var batterHand = data["Handedness"] || "?";
+            var spInfo = data["SP"] || "";
+            var spHand = data["SP Handedness"];
+            
+            if (!spHand && spInfo.includes("(") && spInfo.includes(")")) {
+                var match = spInfo.match(/\(([RL])\)/);
+                if (match) {
+                    spHand = match[1];
+                }
+            }
+            
+            if (spHand) {
+                spHand = spHand.toString().trim().toUpperCase();
+                if (spHand !== "R" && spHand !== "L") {
+                    spHand = null;
+                }
+            }
+            
+            var spName = spInfo;
+            if (spInfo.includes("(")) {
+                spName = spInfo.substring(0, spInfo.indexOf("(")).trim();
+            }
+            
+            var spVersusText;
+            if (batterHand === "S") {
+                if (spHand === "R") {
+                    spVersusText = "Lefties";
+                } else if (spHand === "L") {
+                    spVersusText = "Righties";
+                } else {
+                    spVersusText = "Unknown";
+                }
+            } else {
+                spVersusText = batterHand === "L" ? "Lefties" : "Righties";
+            }
+            
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
+            var rrVersusText, lrVersusText;
+            if (batterHand === "S") {
+                rrVersusText = "Lefties";
+                lrVersusText = "Righties";
+            } else {
+                rrVersusText = batterHand === "L" ? "Lefties" : "Righties";
+                lrVersusText = batterHand === "L" ? "Lefties" : "Righties";
+            }
+            
+            const formatRatio = (value) => {
+                if (value === null || value === undefined || value === "") return "-";
+                var num = parseFloat(value);
+                if (isNaN(num)) return "-";
+                return num.toFixed(3);
+            };
+            
+            const calculateRatio = (total, pa) => {
+                const totalNum = parseFloat(total);
+                const paNum = parseFloat(pa);
+                if (isNaN(totalNum) || isNaN(paNum) || paNum === 0) return "-";
+                return formatRatio(totalNum / paNum);
+            };
+            
+            const safeNum = (value, fallback = "0") => {
+                if (value === null || value === undefined || value === "") return fallback;
+                return value.toString();
+            };
+            
+            var tableData = [
+                {
+                    player: data["Batter Name"] + " (" + batterHand + ") Versus Righties",
+                    stat: safeNum(data["Batter Total vs R"]) + " " + statType,
+                    pa: safeNum(data["Batter PA vs R"]) + " PA",
+                    ratio: calculateRatio(data["Batter Total vs R"], data["Batter PA vs R"])
+                },
+                {
+                    player: data["Batter Name"] + " (" + batterHand + ") Versus Lefties",
+                    stat: safeNum(data["Batter Total vs L"]) + " " + statType,
+                    pa: safeNum(data["Batter PA vs L"]) + " PA",
+                    ratio: calculateRatio(data["Batter Total vs L"], data["Batter PA vs L"])
+                },
+                {
+                    player: data["Batter Name"] + " (" + batterHand + ") Total",
+                    stat: safeNum(data["Batter Total"]) + " " + statType,
+                    pa: safeNum(data["Batter PA"]) + " PA",
+                    ratio: formatRatio(data["Batter Ratio"])
+                },
+                {
+                    player: spName + " (" + (spHand || "?") + ") Versus " + spVersusText,
+                    stat: safeNum(data["SP Stat Total"]) + " " + statType,
+                    pa: safeNum(data["SP TBF"]) + " TBF",
+                    ratio: formatRatio(data["SP Ratio"])
+                },
+                {
+                    player: "Batter + SP Total",
+                    stat: safeNum(data["Batter + SP Stat Total"]) + " " + statType,
+                    pa: safeNum(data["Batter PA"]) + " PA / " + safeNum(data["SP TBF"]) + " TBF",
+                    ratio: formatRatio(data["Batter + SP Ratio"])
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + safeNum(data["R Relievers"], "0") + ") Versus " + rrVersusText,
+                    stat: safeNum(data["RR Stat Total"]) + " " + statType,
+                    pa: safeNum(data["RR TBF"]) + " TBF",
+                    ratio: calculateRatio(data["RR Stat Total"], data["RR TBF"])
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + safeNum(data["L Relievers"], "0") + ") Versus " + lrVersusText,
+                    stat: safeNum(data["LR Stat Total"]) + " " + statType,
+                    pa: safeNum(data["LR TBF"]) + " TBF",
+                    ratio: calculateRatio(data["LR Stat Total"], data["LR TBF"])
+                },
+                {
+                    player: "Bullpen Total",
+                    stat: safeNum(data["Bullpen Stat Total"]) + " " + statType,
+                    pa: (parseFloat(safeNum(data["RR TBF"], "0")) + parseFloat(safeNum(data["LR TBF"], "0"))) + " TBF",
+                    ratio: formatRatio(data["Bullpen Ratio"])
+                },
+                {
+                    player: "Opposing Pitching Total",
+                    stat: safeNum(data["Opposing Pitching Stat Total"]) + " " + statType,
+                    pa: safeNum(data["Opposing Pitching TBF"]) + " TBF",
+                    ratio: formatRatio(data["Opposing Pitching Ratio"])
+                },
+                {
+                    player: "Matchup Total",
+                    stat: safeNum(data["Matchup Stat Total"]) + " " + statType,
+                    pa: safeNum(data["Batter PA"]) + " PA / " + safeNum(data["Opposing Pitching TBF"]) + " TBF",
+                    ratio: formatRatio(data["Matchup Rate"])
+                }
+            ];
+            
             new Tabulator(container, {
                 layout: "fitColumns",
                 columnHeaderSortMulti: false,
@@ -558,8 +567,8 @@ export class ModBatterStatsTable extends BaseTable {
                 ]
             });
         } catch (error) {
-            console.error("Error creating subtable2:", error);
-            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data</div>';
+            console.error("Error creating batter stats subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
         }
     }
 }
