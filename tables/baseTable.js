@@ -301,8 +301,19 @@ export class BaseTable {
                     row.getElement().appendChild(holderEl);
                     
                     // Create subtables immediately without requestAnimationFrame
-                    this.createSubtable1(subtable1, data);
-                    this.createSubtable2(subtable2, data);
+                    try {
+                        this.createSubtable1(subtable1, data);
+                    } catch (error) {
+                        console.error("Error creating subtable1:", error);
+                        subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1</div>';
+                    }
+                    
+                    try {
+                        this.createSubtable2(subtable2, data);
+                    } catch (error) {
+                        console.error("Error creating subtable2:", error);
+                        subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2</div>';
+                    }
                     
                     // Mark as rendered
                     holderEl.classList.add('rendered');
