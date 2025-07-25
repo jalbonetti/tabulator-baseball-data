@@ -1,4 +1,4 @@
-// tables/batterClearancesAltTable.js - COMPLETE FILE WITH FIXES
+// tables/batterClearancesAltTable.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -11,7 +11,6 @@ export class BatterClearancesAltTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
-            // Remove custom pagination - use base class universal pagination
             placeholder: "Loading all batter clearance alt records...",
             columns: this.getColumns(),
             initialSort: [
@@ -31,12 +30,10 @@ export class BatterClearancesAltTable extends BaseTable {
         });
     }
 
-    // Helper method to determine if team is home or away
     getPlayerLocation(matchup, playerTeam) {
         if (!matchup || !playerTeam) return "Home/Away";
         
         if (matchup.includes(" @ ")) {
-            // Format: Away @ Home
             const teams = matchup.split(" @ ");
             if (teams.length === 2) {
                 const awayTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
@@ -49,7 +46,6 @@ export class BatterClearancesAltTable extends BaseTable {
                 }
             }
         } else if (matchup.includes(" vs ")) {
-            // Format: Home vs Away
             const teams = matchup.split(" vs ");
             if (teams.length === 2) {
                 const homeTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
@@ -63,11 +59,11 @@ export class BatterClearancesAltTable extends BaseTable {
             }
         }
         
-        return "Home/Away"; // Fallback if we can't determine
+        return "Home/Away";
     }
 
     getColumns() {
-        const self = this; // Reference to use in formatter
+        const self = this;
         
         return [
             {title: "Player Info", columns: [
@@ -77,23 +73,22 @@ export class BatterClearancesAltTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,  // Keep text filter for name
+                    headerFilter: true,
                     resizable: false,
                     formatter: this.createNameFormatter()
                 },
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 120, // Reduced width for abbreviations
+                    width: 120,
                     minWidth: 80,
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
-                            dropdownWidth: 80 // Custom width for team dropdown
+                            dropdownWidth: 80
                         });
                     },
                     resizable: false,
-                    // No formatter - show abbreviation as-is
                 }
             ]},
             {title: "Prop Info", columns: [
@@ -105,7 +100,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
-                            dropdownWidth: 120 // Custom width for prop type dropdown
+                            dropdownWidth: 120
                         });
                     },
                     resizable: false
@@ -118,7 +113,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     sorter: "number", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
-                            dropdownWidth: 60 // Custom width for prop value dropdown
+                            dropdownWidth: 60
                         });
                     },
                     resizable: false
@@ -131,7 +126,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
-                            dropdownWidth: 140 // Custom width for split dropdown
+                            dropdownWidth: 140
                         });
                     },
                     resizable: false,
@@ -175,63 +170,59 @@ export class BatterClearancesAltTable extends BaseTable {
     }
 
     createSubtable2(container, data) {
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
-        
-        // Fixed switch hitter logic for starting pitcher
-        var spVersusText;
-        var spInfo = data["SP"] || "";
-        var spHandedness = null;
-        
-        // Extract handedness from SP info
-        if (spInfo.includes("(") && spInfo.includes(")")) {
-            var match = spInfo.match(/\(([RL])\)/);
-            if (match) {
-                spHandedness = match[1];
-            }
-        }
-        
-        if (data["Handedness"] === "S") {
-            // Switch hitter - they bat opposite of pitcher's hand
-            if (spHandedness === "R") {
-                spVersusText = "Lefties"; // Switch hitter bats left vs righty
-            } else if (spHandedness === "L") {
-                spVersusText = "Righties"; // Switch hitter bats right vs lefty
-            } else {
-                spVersusText = "Unknown";
-            }
-        } else {
-            // Regular hitter - pitcher faces their natural handedness
-            spVersusText = data["Handedness"] === "L" ? "Lefties" : "Righties";
-        }
-        
-        // For relievers with switch hitters - they also bat opposite hand
-        var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
-        var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
-        
-        var tableData = [
-            {
-                player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
-                propData: data["Batter Prop Total R"] || "-"
-            },
-            {
-                player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-                propData: data["Batter Prop Total L"] || "-"
-            },
-            {
-                player: data["SP"] + " Versus " + spVersusText,
-                propData: data["SP Prop Total"] || "-"
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
-                propData: data["RR Prop Total"] || "-"
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
-                propData: data["LR Prop Total"] || "-"
-            }
-        ];
-        
         try {
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
+            
+            // Extract SP handedness
+            var spInfo = data["SP"] || "";
+            var spHandedness = null;
+            
+            if (spInfo.includes("(") && spInfo.includes(")")) {
+                var match = spInfo.match(/\(([RL])\)/);
+                if (match) {
+                    spHandedness = match[1];
+                }
+            }
+            
+            var spVersusText;
+            if (data["Handedness"] === "S") {
+                if (spHandedness === "R") {
+                    spVersusText = "Lefties";
+                } else if (spHandedness === "L") {
+                    spVersusText = "Righties";
+                } else {
+                    spVersusText = "Unknown";
+                }
+            } else {
+                spVersusText = data["Handedness"] === "L" ? "Lefties" : "Righties";
+            }
+            
+            var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+            var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+            
+            var tableData = [
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                    propData: data["Batter Prop Total R"] || "-"
+                },
+                {
+                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                    propData: data["Batter Prop Total L"] || "-"
+                },
+                {
+                    player: data["SP"] + " Versus " + spVersusText,
+                    propData: data["SP Prop Total"] || "-"
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
+                    propData: data["RR Prop Total"] || "-"
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
+                    propData: data["LR Prop Total"] || "-"
+                }
+            ];
+            
             new Tabulator(container, {
                 layout: "fitColumns",
                 columnHeaderSortMulti: false,
@@ -245,8 +236,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 ]
             });
         } catch (error) {
-            console.error("Error creating subtable2:", error);
-            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data</div>';
+            console.error("Error creating batter clearances alt subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
         }
     }
 }
