@@ -1,4 +1,4 @@
-// tables/gameProps.js
+// tables/gameProps.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -11,10 +11,11 @@ export class GamePropsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
+            // FIXED: Use correct field names
             initialSort: [
-                {column: "Label", dir: "asc"},
-                {column: "Prop Type", dir: "asc"},
-                {column: "Prop Line", dir: "asc"}  // Updated from "Line"
+                {column: "Game Label", dir: "asc"},
+                {column: "Game Prop Type", dir: "asc"},
+                {column: "Game Line", dir: "asc"}
             ],
             dataLoaded: (data) => {
                 console.log(`Game Props table loaded ${data.length} records`);
@@ -53,12 +54,12 @@ export class GamePropsTable extends BaseTable {
                 sorter: "string"
             },
             {
-                title: "Prop Line",  // Renamed from "Line"
+                title: "Prop Line",
                 field: "Game Line",
                 width: 100,
                 sorter: "number",
                 hozAlign: "center",
-                headerFilter: createCustomMultiSelect  // Added dropdown filter
+                headerFilter: createCustomMultiSelect
             },
             {
                 title: "DraftKings", 
@@ -167,15 +168,14 @@ export class GamePropsTable extends BaseTable {
             {
                 title: "Best Above Median", 
                 field: "Game Best Odds",
-                width: 300,  // Increased width to accommodate full data
-                hozAlign: "left",  // Left align for better readability
+                width: 300,
+                hozAlign: "left",
                 formatter: function(cell) {
                     const value = cell.getValue();
                     if (!value) return "-";
-                    return value;  // Show full data
+                    return value;
                 },
                 sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
-                    // Extract the first number for sorting
                     const extractFirstNumber = (str) => {
                         if (!str) return 0;
                         const match = str.match(/^([+-]?\d+)/);
