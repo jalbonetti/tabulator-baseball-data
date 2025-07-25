@@ -1,4 +1,4 @@
-// tables/baseTable.js - FIXED VERSION WITH PERFORMANCE IMPROVEMENTS
+// tables/baseTable.js - FIXED VERSION WITH PROPER CONTEXT BINDING
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -250,8 +250,11 @@ export class BaseTable {
         console.log("createSubtable2 should be overridden by child class");
     }
 
-    // FIXED: Improved row formatter with better error handling
+    // FIXED: Improved row formatter with proper context binding
     createRowFormatter() {
+        // Store reference to 'this' for use in the returned function
+        const self = this;
+        
         return (row) => {
             var data = row.getData();
             
@@ -277,8 +280,8 @@ export class BaseTable {
                     holderEl.appendChild(subtableEl);
                     row.getElement().appendChild(holderEl);
                     
-                    if (this.createMatchupsSubtable) {
-                        this.createMatchupsSubtable(subtableEl, data);
+                    if (self.createMatchupsSubtable) {
+                        self.createMatchupsSubtable(subtableEl, data);
                     }
                 } else {
                     // For other tables, create two subtables
@@ -289,24 +292,20 @@ export class BaseTable {
                     holderEl.appendChild(subtable2);
                     row.getElement().appendChild(holderEl);
                     
-                    // Use Promise.resolve to ensure proper error handling
-                    Promise.resolve().then(() => {
-                        try {
-                            this.createSubtable1(subtable1, data);
-                        } catch (error) {
-                            console.error("Error creating subtable1:", error);
-                            subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1</div>';
-                        }
-                    });
+                    // Create subtables immediately with proper error handling
+                    try {
+                        self.createSubtable1(subtable1, data);
+                    } catch (error) {
+                        console.error("Error creating subtable1:", error);
+                        subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                    }
                     
-                    Promise.resolve().then(() => {
-                        try {
-                            this.createSubtable2(subtable2, data);
-                        } catch (error) {
-                            console.error("Error creating subtable2:", error);
-                            subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2</div>';
-                        }
-                    });
+                    try {
+                        self.createSubtable2(subtable2, data);
+                    } catch (error) {
+                        console.error("Error creating subtable2:", error);
+                        subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                    }
                     
                     holderEl.classList.add('rendered');
                 }
