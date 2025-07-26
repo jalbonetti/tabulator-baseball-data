@@ -1,10 +1,11 @@
-// components/tabManager.js - UPDATED VERSION WITH BETTER STATE MANAGEMENT
+// components/tabManager.js - OPTIMIZED VERSION WITH LAZY REDRAW
 export class TabManager {
     constructor(tables) {
         this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table9: tableInstance }
         this.currentActiveTab = 'table0';
         this.scrollPositions = {}; // Store scroll positions for each tab
         this.tableStates = {}; // Store table states for each tab
+        this.tabInitialized = {}; // Track which tabs have been initialized
         this.setupTabSwitching();
     }
 
@@ -52,10 +53,25 @@ export class TabManager {
                     containers[targetTab].style.display = 'block';
                     this.currentActiveTab = targetTab;
                     
-                    // Restore tab state and redraw
-                    setTimeout(() => {
-                        this.restoreTabState(targetTab);
-                    }, 100);
+                    // Only redraw if this is not the first time showing the tab
+                    // and if it's not the BatterClearancesAlt table (table2)
+                    if (this.tabInitialized[targetTab]) {
+                        setTimeout(() => {
+                            this.restoreTabState(targetTab);
+                        }, 50); // Reduced timeout
+                    } else {
+                        this.tabInitialized[targetTab] = true;
+                        // For BatterClearancesAlt (table2), delay the redraw
+                        if (targetTab === 'table2') {
+                            setTimeout(() => {
+                                this.restoreTabState(targetTab);
+                            }, 200);
+                        } else {
+                            setTimeout(() => {
+                                this.restoreTabState(targetTab);
+                            }, 50);
+                        }
+                    }
                 }
             }
         });
@@ -103,8 +119,8 @@ export class TabManager {
         const tableWrapper = this.tables[tabId];
         
         if (tableWrapper) {
-            // First redraw the table
-            if (tableWrapper.redraw) {
+            // Only redraw if necessary and avoid for large tables on initial load
+            if (tableWrapper.redraw && this.tabInitialized[tabId] && tabId !== 'table2') {
                 tableWrapper.redraw(); // Call the wrapper's redraw method
             }
             
@@ -115,10 +131,15 @@ export class TabManager {
                 // Use the new setExpandedRows method if available
                 if (tableWrapper.setExpandedRows) {
                     tableWrapper.setExpandedRows(expandedRows);
-                    // Force a redraw to apply the state
+                    // Minimal redraw for state application
                     setTimeout(() => {
-                        tableWrapper.redraw();
-                    }, 100);
+                        const tableInstance = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+                        if (tableInstance && tableInstance.getRows) {
+                            tableInstance.getRows().forEach(row => {
+                                row.normalizeHeight();
+                            });
+                        }
+                    }, 50);
                 } else {
                     // Fallback to the old method
                     const tableInstance = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
@@ -159,7 +180,7 @@ export class TabManager {
                                     }, 50);
                                 });
                             }
-                        }, 200);
+                        }, 100);
                     }
                 }
             }
@@ -169,7 +190,7 @@ export class TabManager {
                 setTimeout(() => {
                     window.scrollTo(0, this.scrollPositions[tabId].window || 0);
                     this.setTableScrollPosition(tabId, this.scrollPositions[tabId].table || 0);
-                }, 300);
+                }, 150); // Reduced timeout
             }
         }
     }
