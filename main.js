@@ -1,4 +1,4 @@
-// main.js - UPDATED VERSION WITH FIXED TAB MANAGEMENT
+// main.js - OPTIMIZED VERSION WITH LAZY LOADING
 import { MatchupsTable } from './tables/combinedMatchupsTable.js';
 import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
@@ -13,7 +13,7 @@ import { TabManager } from './components/tabManager.js';
 import { injectStyles } from './styles/tableStyles.js';
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('GitHub Pages: DOM ready, initializing modular Tabulator functionality...');
+    console.log('GitHub Pages: DOM ready, initializing modular Tabulator functionality with lazy loading...');
 
     // Inject styles
     injectStyles();
@@ -27,10 +27,55 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Found batter-table element, proceeding with initialization...");
     }
 
-    // Initialize tab manager and create structure
-    const tabManager = new TabManager({});
+    // Create table instances but DON'T initialize them yet (lazy loading)
+    const table0 = new MatchupsTable("#matchups-table");
+    const table1 = new BatterClearancesTable("#batter-table");
+    const table2 = new BatterClearancesAltTable("#batter-table-alt");
+    const table3 = new PitcherClearancesTable("#pitcher-table");
+    const table4 = new PitcherClearancesAltTable("#pitcher-table-alt");
+    const table5 = new ModBatterStatsTable("#mod-batter-stats-table");
+    const table6 = new ModPitcherStatsTable("#mod-pitcher-stats-table");
+    const table7 = new BatterPropsTable("#batter-props-table");
+    const table8 = new PitcherPropsTable("#pitcher-props-table");
+    const table9 = new GamePropsTable("#game-props-table");
+
+    // Initialize tab manager with table instances
+    const tabManager = new TabManager({
+        table0: table0,
+        table1: table1,
+        table2: table2,
+        table3: table3,
+        table4: table4,
+        table5: table5,
+        table6: table6,
+        table7: table7,
+        table8: table8,
+        table9: table9
+    });
+
+    // Create tab structure
     tabManager.createTabStructure(tableElement);
 
+    // Create all table elements but don't initialize tables yet
+    createTableElements();
+
+    // Start periodic cleanup of unused tabs
+    tabManager.startPeriodicCleanup();
+
+    // Add performance monitoring
+    if (window.performance && window.performance.mark) {
+        window.performance.mark('tables-initialized');
+        
+        // Log performance metrics
+        window.performance.measure('init-time', 'navigationStart', 'tables-initialized');
+        const measure = window.performance.getEntriesByName('init-time')[0];
+        console.log(`Tables initialized in ${measure.duration.toFixed(2)}ms`);
+    }
+
+    console.log('Lazy loading setup complete - tables will load on demand');
+});
+
+function createTableElements() {
     // Create matchups table element
     var matchupsTableElement = document.createElement('div');
     matchupsTableElement.id = 'matchups-table';
@@ -60,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var gamePropsElement = document.createElement('div');
     gamePropsElement.id = 'game-props-table';
 
-    // Add matchups table container - NOW ACTIVE BY DEFAULT
+    // Add matchups table container
     var table0Container = document.getElementById('table0-container');
     if (!table0Container) {
         table0Container = document.createElement('div');
@@ -138,45 +183,22 @@ document.addEventListener('DOMContentLoaded', function() {
             table1Container.style.display = 'none';
         }
     }
+}
 
-    // Initialize all table instances
-    const table0 = new MatchupsTable("#matchups-table");
-    const table1 = new BatterClearancesTable("#batter-table");
-    const table2 = new BatterClearancesAltTable("#batter-table-alt");
-    const table3 = new PitcherClearancesTable("#pitcher-table");
-    const table4 = new PitcherClearancesAltTable("#pitcher-table-alt");
-    const table5 = new ModBatterStatsTable("#mod-batter-stats-table");
-    const table6 = new ModPitcherStatsTable("#mod-pitcher-stats-table");
-    const table7 = new BatterPropsTable("#batter-props-table");
-    const table8 = new PitcherPropsTable("#pitcher-props-table");
-    const table9 = new GamePropsTable("#game-props-table");
-
-    // Initialize all tables
-    table0.initialize();
-    table1.initialize();
-    table2.initialize();
-    table3.initialize();
-    table4.initialize();
-    table5.initialize();
-    table6.initialize();
-    table7.initialize();
-    table8.initialize();
-    table9.initialize();
-
-    // Update tab manager with table instances - passing the class instances
-    // TabManager will call the redraw method on these instances
-    tabManager.tables = {
-        table0: table0,
-        table1: table1,
-        table2: table2,
-        table3: table3,
-        table4: table4,
-        table5: table5,
-        table6: table6,
-        table7: table7,
-        table8: table8,
-        table9: table9
-    };
-
-    console.log('All tables initialized successfully');
+// Preload data for next likely tab (predictive loading)
+window.addEventListener('mouseover', function(e) {
+    if (e.target.classList.contains('tab-button')) {
+        const tabId = e.target.dataset.tab;
+        const tabManager = window.tabManager;
+        
+        if (tabManager && !tabManager.tabInitialized[tabId]) {
+            console.log(`Pre-warming tab: ${tabId}`);
+            // Pre-fetch data but don't fully initialize
+            const table = tabManager.tables[tabId];
+            if (table && table.endpoint && !table.dataLoaded) {
+                // This will trigger the data fetch and caching
+                table.getBaseConfig();
+            }
+        }
+    }
 });
