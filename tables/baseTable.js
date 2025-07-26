@@ -1,4 +1,4 @@
-// tables/baseTable.js - COMPLETE FIXED VERSION
+// tables/baseTable.js - FIXED VERSION WITHOUT SCROLL JUMP
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -169,7 +169,7 @@ export class BaseTable {
         };
     }
 
-    // FIXED: Setup row expansion with better handling
+    // FIXED: Setup row expansion without scroll jump
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -218,13 +218,6 @@ export class BaseTable {
                         } catch (error) {
                             console.error("Error updating expander icon:", error);
                         }
-                        
-                        // Force a table redraw to ensure proper layout
-                        if (this.table && data._expanded) {
-                            setTimeout(() => {
-                                this.table.redraw();
-                            }, 150);
-                        }
                     });
                 });
             }
@@ -258,7 +251,7 @@ export class BaseTable {
         console.log("createSubtable2 should be overridden by child class");
     }
 
-    // FIXED: Improved row formatter with proper expansion handling
+    // FIXED: Row formatter without table redraw
     createRowFormatter() {
         const self = this;
         
@@ -324,13 +317,9 @@ export class BaseTable {
                         }
                     }
                     
-                    // Force row height recalculation
+                    // Force row height recalculation without redraw
                     setTimeout(() => {
                         row.normalizeHeight();
-                        // Trigger table redraw to fix any layout issues
-                        if (self.table) {
-                            self.table.redraw();
-                        }
                     }, 100);
                 }
             } else {
