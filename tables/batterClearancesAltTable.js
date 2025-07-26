@@ -1,4 +1,4 @@
-// tables/batterClearancesAltTable.js - FIXED VERSION
+// tables/batterClearancesAltTable.js - OPTIMIZED VERSION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -11,6 +11,14 @@ export class BatterClearancesAltTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
+            // Remove progressive loading to improve performance
+            progressiveLoad: false,
+            progressiveLoadDelay: null,
+            progressiveLoadScrollMargin: null,
+            // Add performance optimizations
+            virtualDom: true, // Re-enable for large dataset
+            virtualDomBuffer: 100, // Reduced buffer
+            renderVertical: "virtual", // Virtual rendering for performance
             placeholder: "Loading all batter clearance alt records...",
             columns: this.getColumns(),
             initialSort: [
