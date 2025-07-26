@@ -1,4 +1,4 @@
-// tables/baseTable.js - FIXED VERSION WITH PROPER CONTEXT BINDING
+// tables/baseTable.js - COMPLETE FIXED VERSION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -23,10 +23,10 @@ export class BaseTable {
             resizableRows: false,
             movableColumns: false,
             placeholder: "Loading data...",
-            // RE-ENABLE virtual rendering for better performance
-            virtualDom: true,
+            // DISABLE virtual rendering for better compatibility with dynamic row heights
+            virtualDom: false,
             virtualDomBuffer: 300,
-            renderVertical: "virtual", // Changed back to virtual
+            renderVertical: "basic",
             renderHorizontal: "basic",
             dataLoaded: (data) => {
                 console.log(`Table loaded ${data.length} total records`);
@@ -169,7 +169,7 @@ export class BaseTable {
         };
     }
 
-    // FIXED: Setup row expansion without scroll manipulation
+    // FIXED: Setup row expansion with better handling
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -189,34 +189,42 @@ export class BaseTable {
                 var row = cell.getRow();
                 var data = row.getData();
                 
+                // Initialize if undefined
                 if (data._expanded === undefined) {
                     data._expanded = false;
                 }
                 
+                // Toggle expansion state
                 data._expanded = !data._expanded;
                 
-                // Use requestAnimationFrame to defer the update
+                // Update the row data
+                row.update(data);
+                
+                // Use requestAnimationFrame for smooth updates
                 requestAnimationFrame(() => {
-                    row.update(data);
+                    // Reformat the row to trigger the rowFormatter
+                    row.reformat();
                     
-                    // Defer reformatting to prevent stuttering
+                    // Update expander icon
                     requestAnimationFrame(() => {
-                        row.reformat();
-                        
-                        // Update expander icon after reformat
-                        setTimeout(() => {
-                            try {
-                                var cellElement = cell.getElement();
-                                if (cellElement && cellElement.querySelector) {
-                                    var expanderIcon = cellElement.querySelector('.row-expander');
-                                    if (expanderIcon) {
-                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                                    }
+                        try {
+                            var cellElement = cell.getElement();
+                            if (cellElement) {
+                                var expanderIcon = cellElement.querySelector('.row-expander');
+                                if (expanderIcon) {
+                                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
                                 }
-                            } catch (error) {
-                                console.error("Error updating expander icon:", error);
                             }
-                        }, 10);
+                        } catch (error) {
+                            console.error("Error updating expander icon:", error);
+                        }
+                        
+                        // Force a table redraw to ensure proper layout
+                        if (this.table && data._expanded) {
+                            setTimeout(() => {
+                                this.table.redraw();
+                            }, 150);
+                        }
                     });
                 });
             }
@@ -250,75 +258,92 @@ export class BaseTable {
         console.log("createSubtable2 should be overridden by child class");
     }
 
-    // FIXED: Improved row formatter with proper context binding
+    // FIXED: Improved row formatter with proper expansion handling
     createRowFormatter() {
-        // Store reference to 'this' for use in the returned function
         const self = this;
         
         return (row) => {
             var data = row.getData();
+            var rowElement = row.getElement();
             
+            // Initialize _expanded if undefined
             if (data._expanded === undefined) {
                 data._expanded = false;
             }
             
+            // Add/remove expanded class
             if (data._expanded) {
-                row.getElement().classList.add('row-expanded');
+                rowElement.classList.add('row-expanded');
             } else {
-                row.getElement().classList.remove('row-expanded');
+                rowElement.classList.remove('row-expanded');
             }
             
-            if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
-                var holderEl = document.createElement("div");
-                holderEl.classList.add('subrow-container');
-                holderEl.style.padding = "10px";
-                holderEl.style.background = "#f8f9fa";
+            // Handle expansion
+            if (data._expanded) {
+                // Check if subtables already exist
+                let existingSubrow = rowElement.querySelector('.subrow-container');
                 
-                // Check if this is the matchups table
-                if (data["Matchup Team"] !== undefined) {
-                    var subtableEl = document.createElement("div");
-                    holderEl.appendChild(subtableEl);
-                    row.getElement().appendChild(holderEl);
+                if (!existingSubrow) {
+                    // Create container for subtables
+                    var holderEl = document.createElement("div");
+                    holderEl.classList.add('subrow-container');
+                    holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%;';
                     
-                    if (self.createMatchupsSubtable) {
-                        self.createMatchupsSubtable(subtableEl, data);
+                    // Check if this is the matchups table
+                    if (data["Matchup Team"] !== undefined) {
+                        var subtableEl = document.createElement("div");
+                        holderEl.appendChild(subtableEl);
+                        rowElement.appendChild(holderEl);
+                        
+                        if (self.createMatchupsSubtable) {
+                            self.createMatchupsSubtable(subtableEl, data);
+                        }
+                    } else {
+                        // For other tables, create two subtables
+                        var subtable1 = document.createElement("div");
+                        subtable1.style.marginBottom = "15px"; // Add spacing between subtables
+                        var subtable2 = document.createElement("div");
+                        
+                        holderEl.appendChild(subtable1);
+                        holderEl.appendChild(subtable2);
+                        rowElement.appendChild(holderEl);
+                        
+                        // Create subtables with error handling
+                        try {
+                            self.createSubtable1(subtable1, data);
+                        } catch (error) {
+                            console.error("Error creating subtable1:", error);
+                            subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                        }
+                        
+                        try {
+                            self.createSubtable2(subtable2, data);
+                        } catch (error) {
+                            console.error("Error creating subtable2:", error);
+                            subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                        }
                     }
-                } else {
-                    // For other tables, create two subtables
-                    var subtable1 = document.createElement("div");
-                    var subtable2 = document.createElement("div");
                     
-                    holderEl.appendChild(subtable1);
-                    holderEl.appendChild(subtable2);
-                    row.getElement().appendChild(holderEl);
-                    
-                    // Create subtables immediately with proper error handling
-                    try {
-                        self.createSubtable1(subtable1, data);
-                    } catch (error) {
-                        console.error("Error creating subtable1:", error);
-                        subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
-                    }
-                    
-                    try {
-                        self.createSubtable2(subtable2, data);
-                    } catch (error) {
-                        console.error("Error creating subtable2:", error);
-                        subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
-                    }
-                    
-                    holderEl.classList.add('rendered');
+                    // Force row height recalculation
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                        // Trigger table redraw to fix any layout issues
+                        if (self.table) {
+                            self.table.redraw();
+                        }
+                    }, 100);
                 }
-                
-                // Defer height recalculation
-                requestAnimationFrame(() => {
-                    row.reformat();
-                });
-            } else if (!data._expanded) {
-                var existingSubrow = row.getElement().querySelector('.subrow-container');
+            } else {
+                // Handle contraction
+                var existingSubrow = rowElement.querySelector('.subrow-container');
                 if (existingSubrow) {
                     existingSubrow.remove();
-                    row.getElement().classList.remove('row-expanded');
+                    rowElement.classList.remove('row-expanded');
+                    
+                    // Force row height recalculation
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                    }, 50);
                 }
             }
         };
