@@ -1,4 +1,4 @@
-// tables/modBatterStats.js - FIXED VERSION
+// tables/modBatterStats.js - COMPLETE FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -23,43 +23,73 @@ export class ModBatterStatsTable extends BaseTable {
             rowFormatter: ((self) => {
                 return (row) => {
                     var data = row.getData();
+                    var rowElement = row.getElement();
                     
                     // Initialize _expanded if undefined
                     if (data._expanded === undefined) {
                         data._expanded = false;
                     }
                     
-                    if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
-                        var holderEl = document.createElement("div");
-                        holderEl.classList.add('subrow-container');
-                        holderEl.style.padding = "10px";
-                        holderEl.style.background = "#f8f9fa";
+                    // Add/remove expanded class
+                    if (data._expanded) {
+                        rowElement.classList.add('row-expanded');
+                    } else {
+                        rowElement.classList.remove('row-expanded');
+                    }
+                    
+                    // Handle expansion
+                    if (data._expanded) {
+                        // Check if subtables already exist
+                        let existingSubrow = rowElement.querySelector('.subrow-container');
                         
-                        var subtable1 = document.createElement("div");
-                        var subtable2 = document.createElement("div");
-                        
-                        holderEl.appendChild(subtable1);
-                        holderEl.appendChild(subtable2);
-                        row.getElement().appendChild(holderEl);
-                        
-                        // Create subtables immediately with proper context
-                        try {
-                            self.createSubtable1(subtable1, data);
-                        } catch (error) {
-                            console.error("Error creating stats subtable1:", error);
-                            subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                        if (!existingSubrow) {
+                            var holderEl = document.createElement("div");
+                            holderEl.classList.add('subrow-container');
+                            holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%;';
+                            
+                            var subtable1 = document.createElement("div");
+                            subtable1.style.cssText = 'margin-bottom: 15px; width: 100%;';
+                            var subtable2 = document.createElement("div");
+                            subtable2.style.cssText = 'width: 100%;';
+                            
+                            holderEl.appendChild(subtable1);
+                            holderEl.appendChild(subtable2);
+                            rowElement.appendChild(holderEl);
+                            
+                            // Create subtables immediately with proper context
+                            try {
+                                self.createSubtable1(subtable1, data);
+                            } catch (error) {
+                                console.error("Error creating stats subtable1:", error);
+                                subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                            }
+                            
+                            try {
+                                self.createSubtable2(subtable2, data);
+                            } catch (error) {
+                                console.error("Error creating stats subtable2:", error);
+                                subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                            }
+                            
+                            // Force height recalculation
+                            setTimeout(() => {
+                                row.normalizeHeight();
+                                if (self.table) {
+                                    self.table.redraw();
+                                }
+                            }, 100);
                         }
-                        
-                        try {
-                            self.createSubtable2(subtable2, data);
-                        } catch (error) {
-                            console.error("Error creating stats subtable2:", error);
-                            subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
-                        }
-                    } else if (!data._expanded) {
-                        var existingSubrow = row.getElement().querySelector('.subrow-container');
+                    } else {
+                        // Handle contraction
+                        var existingSubrow = rowElement.querySelector('.subrow-container');
                         if (existingSubrow) {
                             existingSubrow.remove();
+                            rowElement.classList.remove('row-expanded');
+                            
+                            // Force height recalculation
+                            setTimeout(() => {
+                                row.normalizeHeight();
+                            }, 50);
                         }
                     }
                 };
