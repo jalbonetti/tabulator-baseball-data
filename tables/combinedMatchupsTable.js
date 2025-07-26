@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH FLEXIBLE WIDTHS
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH OPPOSING TEAM DATA
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -299,16 +299,27 @@ export class MatchupsTable extends BaseTable {
         return matchupGame.includes(" @ ");
     }
 
+    // Helper method to get opposing team's matchup ID
+    getOpposingMatchupId(matchupId) {
+        const id = parseInt(matchupId);
+        // If odd number, add 1; if even number, subtract 1
+        return id % 2 === 1 ? id + 1 : id - 1;
+    }
+
     // Fetch all data for a matchup
     async fetchMatchupData(matchupId) {
         try {
             console.log(`Fetching all data for matchup ${matchupId}...`);
             
+            // Get opposing team's ID for pitcher and bullpen data
+            const opposingMatchupId = this.getOpposingMatchupId(matchupId);
+            console.log(`Using opposing matchup ID ${opposingMatchupId} for pitcher/bullpen data`);
+            
             const [parkFactors, pitcherStats, batterMatchups, bullpenMatchups] = await Promise.all([
-                this.fetchParkFactors(matchupId),
-                this.fetchPitcherStats(matchupId),
-                this.fetchBatterMatchups(matchupId),
-                this.fetchBullpenMatchups(matchupId)
+                this.fetchParkFactors(matchupId),                    // Use team's own ID
+                this.fetchPitcherStats(opposingMatchupId),          // Use opposing team's ID
+                this.fetchBatterMatchups(matchupId),                // Use team's own ID
+                this.fetchBullpenMatchups(opposingMatchupId)        // Use opposing team's ID
             ]);
             
             return { parkFactors, pitcherStats, batterMatchups, bullpenMatchups };
@@ -346,6 +357,7 @@ export class MatchupsTable extends BaseTable {
         }
 
         try {
+            console.log(`Fetching opposing pitcher stats for matchup ID: ${matchupId}`);
             const response = await fetch(
                 `${API_CONFIG.baseURL}ModPitcherMatchups?Starter Game ID=eq.${matchupId}`,
                 { method: 'GET', headers: API_CONFIG.headers }
@@ -390,6 +402,7 @@ export class MatchupsTable extends BaseTable {
         }
 
         try {
+            console.log(`Fetching opposing bullpen matchups for matchup ID: ${matchupId}`);
             const response = await fetch(
                 `${API_CONFIG.baseURL}ModBullpenMatchups?Bullpen Game ID=eq.${matchupId}`,
                 { method: 'GET', headers: API_CONFIG.headers }
