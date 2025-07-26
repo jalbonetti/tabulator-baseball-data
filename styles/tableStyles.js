@@ -1,4 +1,4 @@
-// styles/tableStyles.js - OPTIMIZED VERSION WITH STUTTERING FIXES
+// styles/tableStyles.js - COMPLETE FIXED VERSION
 export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
@@ -105,41 +105,74 @@ export function injectStyles() {
             overflow-x: auto !important;
             overflow-y: visible !important; /* Always allow vertical expansion */
             -webkit-overflow-scrolling: touch !important;
-            /* Remove transform and will-change to reduce stuttering */
-            /* transform: translateZ(0); */
-            /* will-change: scroll-position; */
         }
         
-        /* Ensure subtables inherit the scroll context */
+        /* CRITICAL ROW HEIGHT FIXES FOR EXPANSION */
+        .tabulator-row {
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 31px !important;
+            position: relative !important;
+        }
+
+        /* When a row has a subrow container, ensure it can expand */
+        .tabulator-row:has(.subrow-container),
+        .tabulator-row.row-expanded {
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+        }
+
+        /* Ensure the table element itself allows overflow */
+        .tabulator-table {
+            overflow: visible !important;
+        }
+
+        /* Row holder must allow vertical overflow */
+        .tabulator-row-holder {
+            overflow: visible !important;
+            min-height: 0 !important;
+        }
+
+        /* FIXED SUBTABLE CONTAINER STYLING */
         .subrow-container {
             position: relative !important;
             z-index: 1 !important;
-            overflow: visible !important; /* Don't create new scroll contexts */
-            margin: 0 !important;
+            overflow: visible !important;
+            margin: 10px 0 !important;
             min-height: 0 !important;
             max-height: none !important;
             width: 100% !important;
-            /* Ensure subtables can be as wide as needed */
-            min-width: max-content !important;
+            display: block !important;
+            background: #f8f9fa !important;
+            padding: 10px !important;
+            border-radius: 4px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         }
         
-        /* Make subtables participate in parent's horizontal scroll */
+        /* Ensure subtables are visible */
         .subrow-container .tabulator {
             overflow: visible !important;
             height: auto !important;
             max-height: none !important;
             margin-top: 10px !important;
-            /* Subtables should size to their content */
-            width: max-content !important;
+            margin-bottom: 10px !important;
+            width: 100% !important;
+            display: block !important;
             min-width: 100% !important;
-            display: inline-block !important;
         }
         
-        /* Prevent subtable holders from creating scroll */
+        /* Fix subtable table holders */
         .subrow-container .tabulator .tabulator-tableHolder {
             overflow: visible !important;
             max-height: none !important;
             height: auto !important;
+        }
+
+        /* Ensure cells don't block clicks */
+        .tabulator-cell {
+            position: relative !important;
+            z-index: auto !important;
         }
         
         /* Add scroll indicators for mobile */
@@ -251,11 +284,6 @@ export function injectStyles() {
             /* Single scroll context */
             overflow-x: auto !important;
             overflow-y: visible !important;
-            /* Remove contain property to reduce stuttering */
-            /* contain: layout style; */
-            /* Remove hardware acceleration that might cause issues */
-            /* will-change: scroll-position; */
-            /* transform: translateZ(0); */
             /* Ensure container expands to contain all content */
             min-height: 600px;
             height: auto !important;
@@ -267,8 +295,6 @@ export function injectStyles() {
             vertical-align: top !important;
             min-width: 1900px !important;
         }
-        
-        /* Specific table min-widths - removed duplicate, see above section */
         
         /* Specific fixes for all table positioning */
         #table0-container, #table1-container, #table2-container, #table3-container, 
@@ -321,8 +347,6 @@ export function injectStyles() {
             position: relative !important;
             /* Prevent layout thrashing */
             contain: layout;
-            /* Remove GPU acceleration to reduce stuttering */
-            /* transform: translateZ(0); */
         }
         
         /* Mobile height adjustment */
@@ -610,72 +634,13 @@ export function injectStyles() {
             text-align: left !important;
         }
         
-        /* Subtable styling - unified scroll approach */
-        .subrow-container {
-            position: relative !important;
-            z-index: 1 !important;
-            overflow: visible !important;
-            margin: 0 !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            width: 100% !important;
-            min-width: max-content !important;
-        }
-        
-        /* Fix for expanded rows to work with scrollable containers */
-        .tabulator-row.tabulator-row-even,
-        .tabulator-row.tabulator-row-odd {
-            position: relative !important;
-            overflow: visible !important;
-        }
-        
-        /* Ensure expanded content is visible */
-        .tabulator-row.tabulator-selectable {
-            overflow: visible !important;
-        }
-        
-        /* CRITICAL FIX: Allow row expansion to work with horizontal scroll */
-        .tabulator-row {
-            overflow: visible !important;
-        }
-        
-        /* When a row has a subrow container, ensure it can expand */
-        .tabulator-row:has(.subrow-container),
-        .tabulator-row.row-expanded {
-            height: auto !important;
-            min-height: auto !important;
-            overflow: visible !important;
-        }
-        
-        /* Ensure the table element itself allows overflow */
-        .tabulator-table {
-            overflow: visible !important;
-        }
-        
-        /* Row holder must allow vertical overflow */
-        .tabulator-row-holder {
-            overflow: visible !important;
-            min-height: 0 !important;
-        }
-        
         /* Matchups subtables - unified scroll approach */
         #matchups-table .subrow-container {
             width: 100% !important;
             overflow: visible !important; /* Don't create separate scroll */
         }
         
-        .subrow-container .tabulator {
-            overflow: visible !important;
-            height: auto !important;
-            max-height: none !important;
-            margin-top: 10px !important;
-            /* Subtables should size to their content */
-            width: max-content !important;
-            min-width: 100% !important;
-            display: inline-block !important;
-        }
-        
-        /* Rest of subtable styles remain the same... */
+        /* Rest of subtable styles */
         .subrow-container .tabulator .tabulator-header .tabulator-col {
             cursor: default !important;
         }
@@ -711,13 +676,6 @@ export function injectStyles() {
             z-index: 1 !important;
             background: #f8f9fa !important;
             border-bottom: 1px solid #ddd !important;
-        }
-        
-        /* Prevent subtable holders from creating scroll */
-        .subrow-container .tabulator .tabulator-tableHolder {
-            overflow: visible !important;
-            max-height: none !important;
-            height: auto !important;
         }
         
         /* Subtable tables should size naturally */
@@ -764,16 +722,6 @@ export function injectStyles() {
         .subrow-container .tabulator {
             position: relative !important;
             z-index: 2 !important;
-        }
-
-        /* Fix any potential overflow issues */
-        .tabulator-row-holder {
-            overflow: visible !important;
-            min-height: 0 !important;
-        }
-
-        .tabulator-table {
-            overflow: visible !important;
         }
         
         /* Frozen columns styling */
