@@ -222,35 +222,136 @@ export class BaseTable {
         rows.forEach(row => {
             const data = row.getData();
             if (data._expanded) {
-                const id = data["Matchup Game ID"] || data["_id"] || 
-                          `${data["Batter Name"] || data["Pitcher Name"]}_${data["Batter Prop Type"] || data["Pitcher Prop Type"]}_${data["Batter Prop Value"] || data["Pitcher Prop Value"]}`;
+                // Create a unique ID for each row based on available data
+                let id;
+                
+                // For Matchups table
+                if (data["Matchup Game ID"]) {
+                    id = data["Matchup Game ID"];
+                } 
+                // For Clearances tables (Batter or Pitcher)
+                else if (data["Batter Name"] && data["Batter Prop Type"] && data["Batter Prop Value"]) {
+                    id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Prop Type"]}_${data["Batter Prop Value"]}`;
+                    if (data["Batter Prop Split ID"]) {
+                        id += `_${data["Batter Prop Split ID"]}`;
+                    }
+                } else if (data["Pitcher Name"] && data["Pitcher Prop Type"] && data["Pitcher Prop Value"]) {
+                    id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Prop Type"]}_${data["Pitcher Prop Value"]}`;
+                    if (data["Pitcher Prop Split ID"]) {
+                        id += `_${data["Pitcher Prop Split ID"]}`;
+                    }
+                }
+                // For Stats tables
+                else if (data["Batter Name"] && data["Batter Stat Type"]) {
+                    id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Stat Type"]}_${data["Batter Prop Split ID"]}`;
+                } else if (data["Pitcher Name"] && data["Pitcher Stat Type"]) {
+                    id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Stat Type"]}_${data["Pitcher Prop Split ID"]}`;
+                }
+                // Fallback
+                else {
+                    id = JSON.stringify(data);
+                }
+                
                 this.expandedRowsCache.add(id);
+                console.log(`Saving expanded row: ${id}`);
             }
         });
+        
+        console.log(`Saved ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
     }
 
     // Restore table state when switching back
     restoreState() {
         if (!this.table) return;
         
+        console.log(`Restoring ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
+        
         // Use requestAnimationFrame for smooth restoration
         requestAnimationFrame(() => {
             // Restore expanded rows
             if (this.expandedRowsCache.size > 0) {
                 const rows = this.table.getRows();
+                const rowsToReformat = [];
+                
                 rows.forEach(row => {
                     const data = row.getData();
-                    const id = data["Matchup Game ID"] || data["_id"] || 
-                              `${data["Batter Name"] || data["Pitcher Name"]}_${data["Batter Prop Type"] || data["Pitcher Prop Type"]}_${data["Batter Prop Value"] || data["Pitcher Prop Value"]}`;
                     
-                    if (this.expandedRowsCache.has(id) && !data._expanded) {
+                    // Generate the same ID used when saving
+                    let id;
+                    
+                    // For Matchups table
+                    if (data["Matchup Game ID"]) {
+                        id = data["Matchup Game ID"];
+                    } 
+                    // For Clearances tables (Batter or Pitcher)
+                    else if (data["Batter Name"] && data["Batter Prop Type"] && data["Batter Prop Value"]) {
+                        id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Prop Type"]}_${data["Batter Prop Value"]}`;
+                        if (data["Batter Prop Split ID"]) {
+                            id += `_${data["Batter Prop Split ID"]}`;
+                        }
+                    } else if (data["Pitcher Name"] && data["Pitcher Prop Type"] && data["Pitcher Prop Value"]) {
+                        id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Prop Type"]}_${data["Pitcher Prop Value"]}`;
+                        if (data["Pitcher Prop Split ID"]) {
+                            id += `_${data["Pitcher Prop Split ID"]}`;
+                        }
+                    }
+                    // For Stats tables
+                    else if (data["Batter Name"] && data["Batter Stat Type"]) {
+                        id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Stat Type"]}_${data["Batter Prop Split ID"]}`;
+                    } else if (data["Pitcher Name"] && data["Pitcher Stat Type"]) {
+                        id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Stat Type"]}_${data["Pitcher Prop Split ID"]}`;
+                    }
+                    // Fallback
+                    else {
+                        id = JSON.stringify(data);
+                    }
+                    
+                    if (this.expandedRowsCache.has(id)) {
+                        console.log(`Restoring expanded row: ${id}`);
+                        
+                        // Always set expanded state, even if already true
                         data._expanded = true;
                         row.update(data);
+                        rowsToReformat.push(row);
                         
-                        // Defer reformat to avoid blocking
-                        setTimeout(() => row.reformat(), 0);
+                        // Update the expander icon immediately
+                        const cells = row.getCells();
+                        const nameField = data["Batter Name"] ? "Batter Name" : 
+                                        data["Pitcher Name"] ? "Pitcher Name" : 
+                                        "Matchup Team";
+                        const nameCell = cells.find(cell => cell.getField() === nameField);
+                        
+                        if (nameCell) {
+                            const cellElement = nameCell.getElement();
+                            const expander = cellElement.querySelector('.row-expander');
+                            if (expander) {
+                                expander.innerHTML = "−";
+                            }
+                        }
                     }
                 });
+                
+                // Reformat all expanded rows to recreate their subrows
+                setTimeout(() => {
+                    rowsToReformat.forEach(row => {
+                        // Force remove any existing subrow to ensure clean recreation
+                        const rowElement = row.getElement();
+                        const existingSubrow = rowElement.querySelector('.subrow-container');
+                        if (existingSubrow) {
+                            existingSubrow.remove();
+                        }
+                        
+                        // Now reformat to recreate the subrow
+                        row.reformat();
+                    });
+                    
+                    // After all rows are reformatted, normalize their heights
+                    setTimeout(() => {
+                        rowsToReformat.forEach(row => {
+                            row.normalizeHeight();
+                        });
+                    }, 100);
+                }, 50);
             }
             
             // Restore scroll position
@@ -356,38 +457,54 @@ export class BaseTable {
                 expansionTimeout = setTimeout(() => {
                     var row = cell.getRow();
                     var data = row.getData();
+                    var rowElement = row.getElement();
                     
                     // Initialize if undefined
                     if (data._expanded === undefined) {
                         data._expanded = false;
                     }
                     
-                    // Toggle expansion state
-                    data._expanded = !data._expanded;
+                    // Check if the visual state matches the data state
+                    var hasSubrow = rowElement.querySelector('.subrow-container') !== null;
                     
-                    // Update the row data
-                    row.update(data);
-                    
-                    // Use requestAnimationFrame for smooth updates
-                    requestAnimationFrame(() => {
-                        // Reformat the row to trigger the rowFormatter
+                    // If states don't match, sync them
+                    if (data._expanded && !hasSubrow) {
+                        // Data says expanded but no subrow visible - reformat to show it
                         row.reformat();
+                    } else if (!data._expanded && hasSubrow) {
+                        // Data says collapsed but subrow is visible - remove it
+                        var existingSubrow = rowElement.querySelector('.subrow-container');
+                        if (existingSubrow) {
+                            existingSubrow.remove();
+                        }
+                    } else {
+                        // States match, perform normal toggle
+                        data._expanded = !data._expanded;
                         
-                        // Update expander icon
+                        // Update the row data
+                        row.update(data);
+                        
+                        // Use requestAnimationFrame for smooth updates
                         requestAnimationFrame(() => {
-                            try {
-                                var cellElement = cell.getElement();
-                                if (cellElement) {
-                                    var expanderIcon = cellElement.querySelector('.row-expander');
-                                    if (expanderIcon) {
-                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                            // Reformat the row to trigger the rowFormatter
+                            row.reformat();
+                            
+                            // Update expander icon
+                            requestAnimationFrame(() => {
+                                try {
+                                    var cellElement = cell.getElement();
+                                    if (cellElement) {
+                                        var expanderIcon = cellElement.querySelector('.row-expander');
+                                        if (expanderIcon) {
+                                            expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                        }
                                     }
+                                } catch (error) {
+                                    console.error("Error updating expander icon:", error);
                                 }
-                            } catch (error) {
-                                console.error("Error updating expander icon:", error);
-                            }
+                            });
                         });
-                    });
+                    }
                 }, 100);
             }
         });
