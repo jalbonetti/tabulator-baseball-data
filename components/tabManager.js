@@ -135,6 +135,9 @@ export class TabManager {
                 // Use the table's built-in restore state method
                 tableWrapper.restoreState();
                 
+                // DO NOT call redraw after restoreState as it will clear the subrows
+                // The restoreState method handles all necessary reformatting
+                
                 // For very large tables, use progressive restoration
                 if (tabId === 'table2' || tabId === 'table4') {
                     // These are the Alt view tables with potentially more data
