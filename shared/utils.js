@@ -73,7 +73,16 @@ export function formatPercentage(value) {
     return (parseFloat(value) * 100).toFixed(1) + "%";
 }
 
+// FIXED: This function should multiply by 100 if the value is stored as a decimal
 export function formatClearancePercentage(value) {
     if (value === null || value === undefined) return "0%";
-    return parseFloat(value).toFixed(1) + "%";
+    // Check if the value appears to be a decimal (less than 1) that should be a percentage
+    const numValue = parseFloat(value);
+    if (numValue >= 0 && numValue <= 1) {
+        // Value is stored as decimal, multiply by 100
+        return (numValue * 100).toFixed(1) + "%";
+    } else {
+        // Value is already a percentage
+        return numValue.toFixed(1) + "%";
+    }
 }
