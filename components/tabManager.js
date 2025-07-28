@@ -1,4 +1,4 @@
-// components/tabManager.js - OPTIMIZED VERSION WITH LAZY LOADING AND PERFORMANCE IMPROVEMENTS
+// components/tabManager.js - FIXED VERSION WITH PROPER STATE RESTORATION
 export class TabManager {
     constructor(tables) {
         this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table9: tableInstance }
@@ -7,6 +7,7 @@ export class TabManager {
         this.tableStates = {}; // Store table states for each tab
         this.tabInitialized = {}; // Track which tabs have been initialized
         this.isTransitioning = false; // Prevent rapid tab switching
+        this.expandedRowsStates = {}; // Store expanded rows state for each tab
         this.setupTabSwitching();
         
         // Only initialize the first tab
@@ -95,7 +96,7 @@ export class TabManager {
                         targetContainer.style.display = 'block';
                         this.currentActiveTab = targetTab;
                         
-                        // Restore tab state with animation frame for smoothness
+                        // Restore tab state with improved logic
                         requestAnimationFrame(() => {
                             this.restoreTabState(targetTab);
                             
@@ -119,10 +120,19 @@ export class TabManager {
             // Use the table's built-in save state method
             tableWrapper.saveState();
             
-            // Save additional state info
+            // Save additional detailed state info
+            const expandedRows = [];
+            if (tableWrapper.expandedRowsCache) {
+                expandedRows.push(...tableWrapper.expandedRowsCache);
+            }
+            
+            this.expandedRowsStates[this.currentActiveTab] = expandedRows;
             this.tableStates[this.currentActiveTab] = {
-                savedAt: Date.now()
+                savedAt: Date.now(),
+                expandedCount: expandedRows.length
             };
+            
+            console.log(`Saved state for ${this.currentActiveTab}: ${expandedRows.length} expanded rows`);
         }
     }
 
@@ -130,24 +140,120 @@ export class TabManager {
         const tableWrapper = this.tables[tabId];
         
         if (tableWrapper && tableWrapper.isInitialized) {
+            console.log(`Restoring state for ${tabId}`);
+            
+            // First restore the saved expanded rows to the table's cache
+            const savedExpandedRows = this.expandedRowsStates[tabId];
+            if (savedExpandedRows && savedExpandedRows.length > 0) {
+                tableWrapper.expandedRowsCache = new Set(savedExpandedRows);
+                console.log(`Restored ${savedExpandedRows.length} expanded rows to cache`);
+            }
+            
             // Small delay to ensure DOM is ready
             setTimeout(() => {
-                // Use the table's built-in restore state method
-                tableWrapper.restoreState();
+                const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+                if (!table) return;
                 
-                // DO NOT call redraw after restoreState as it will clear the subrows
-                // The restoreState method handles all necessary reformatting
-                
-                // For very large tables, use progressive restoration
-                if (tabId === 'table2' || tabId === 'table4') {
-                    // These are the Alt view tables with potentially more data
-                    this.progressiveRestore(tableWrapper);
+                // Force restore the visual state of expanded rows
+                if (savedExpandedRows && savedExpandedRows.length > 0) {
+                    const rows = table.getRows();
+                    let restoredCount = 0;
+                    
+                    rows.forEach(row => {
+                        const data = row.getData();
+                        
+                        // Generate the same ID used when saving
+                        let id;
+                        
+                        // For Matchups table
+                        if (data["Matchup Game ID"]) {
+                            id = data["Matchup Game ID"];
+                        } 
+                        // For Clearances tables (Batter or Pitcher)
+                        else if (data["Batter Name"] && data["Batter Prop Type"] && data["Batter Prop Value"]) {
+                            id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Prop Type"]}_${data["Batter Prop Value"]}`;
+                            if (data["Batter Prop Split ID"]) {
+                                id += `_${data["Batter Prop Split ID"]}`;
+                            }
+                        } else if (data["Pitcher Name"] && data["Pitcher Prop Type"] && data["Pitcher Prop Value"]) {
+                            id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Prop Type"]}_${data["Pitcher Prop Value"]}`;
+                            if (data["Pitcher Prop Split ID"]) {
+                                id += `_${data["Pitcher Prop Split ID"]}`;
+                            }
+                        }
+                        // For Stats tables
+                        else if (data["Batter Name"] && data["Batter Stat Type"]) {
+                            id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Stat Type"]}_${data["Batter Prop Split ID"]}`;
+                        } else if (data["Pitcher Name"] && data["Pitcher Stat Type"]) {
+                            id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Stat Type"]}_${data["Pitcher Prop Split ID"]}`;
+                        }
+                        // Fallback
+                        else {
+                            id = JSON.stringify(data);
+                        }
+                        
+                        if (savedExpandedRows.includes(id)) {
+                            // Mark as expanded
+                            data._expanded = true;
+                            row.update(data);
+                            
+                            // Force the row to reformat which will create the subrow
+                            requestAnimationFrame(() => {
+                                row.reformat();
+                                restoredCount++;
+                                
+                                // After reformatting, update the expander icon
+                                setTimeout(() => {
+                                    const cells = row.getCells();
+                                    const nameField = data["Batter Name"] ? "Batter Name" : 
+                                                    data["Pitcher Name"] ? "Pitcher Name" : 
+                                                    "Matchup Team";
+                                    const nameCell = cells.find(cell => cell.getField() === nameField);
+                                    
+                                    if (nameCell) {
+                                        const cellElement = nameCell.getElement();
+                                        const expander = cellElement.querySelector('.row-expander');
+                                        if (expander) {
+                                            expander.innerHTML = "−";
+                                        }
+                                    }
+                                }, 50);
+                            });
+                        } else if (data._expanded) {
+                            // If marked as expanded but not in saved list, collapse it
+                            data._expanded = false;
+                            row.update(data);
+                            
+                            // Update the expander icon
+                            requestAnimationFrame(() => {
+                                const cells = row.getCells();
+                                const nameField = data["Batter Name"] ? "Batter Name" : 
+                                                data["Pitcher Name"] ? "Pitcher Name" : 
+                                                "Matchup Team";
+                                const nameCell = cells.find(cell => cell.getField() === nameField);
+                                
+                                if (nameCell) {
+                                    const cellElement = nameCell.getElement();
+                                    const expander = cellElement.querySelector('.row-expander');
+                                    if (expander) {
+                                        expander.innerHTML = "+";
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    
+                    console.log(`Restored visual state for ${restoredCount} rows`);
+                    
+                    // Force a final redraw to ensure everything is visible
+                    setTimeout(() => {
+                        table.redraw(false); // Partial redraw
+                    }, 200);
                 }
-            }, 50);
+            }, 100);
         }
     }
 
-    // Progressive restoration for large tables
     progressiveRestore(tableWrapper) {
         if (!tableWrapper.expandedRowsCache || tableWrapper.expandedRowsCache.size === 0) {
             return;
@@ -292,6 +398,7 @@ export class TabManager {
                 tableWrapper.destroy();
                 this.tabInitialized[tabId] = false;
                 delete this.tableStates[tabId];
+                delete this.expandedRowsStates[tabId];
             }
         }
     }
