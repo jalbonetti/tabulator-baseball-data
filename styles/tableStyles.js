@@ -1,4 +1,4 @@
-// styles/tableStyles.js - COMPLETE FIXED VERSION
+// styles/tableStyles.js - FIXED VERSION WITH COLUMN RESIZE DISABLED
 export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
@@ -25,6 +25,45 @@ export function injectStyles() {
         /* Prevent iOS zoom on input focus */
         input, select, textarea {
             font-size: 16px !important;
+        }
+        
+        /* CRITICAL FIX: Disable column resizing completely with maximum specificity */
+        /* This must be at the top level, not inside media queries */
+        .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle,
+        .tabulator-col-resize-handle,
+        .tabulator-header .tabulator-col-resize-handle,
+        div.tabulator-col-resize-handle {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            right: -9999px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            z-index: -1 !important;
+        }
+        
+        /* Prevent any column resizing behavior */
+        .tabulator .tabulator-header .tabulator-col,
+        .tabulator-col,
+        .tabulator-header-contents {
+            resize: none !important;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+        }
+        
+        /* Override any inline resize styles that Tabulator might add */
+        .tabulator-col[style*="resize"] {
+            resize: none !important;
+        }
+        
+        /* Ensure columns maintain their set widths */
+        .tabulator .tabulator-header .tabulator-col {
+            flex-shrink: 0 !important;
+            flex-grow: 0 !important;
         }
         
         /* Table wrapper - LEFT JUSTIFIED with mobile optimization */
@@ -447,17 +486,6 @@ export function injectStyles() {
         /* Hide placeholder when data is loaded */
         .tabulator-loaded .tabulator-placeholder {
             display: none !important;
-        }
-        
-        /* Disable column resizing on mobile for better UX */
-        @media (max-width: 768px) {
-            .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle {
-                display: none !important;
-            }
-        }
-        
-        .tabulator .tabulator-header .tabulator-col {
-            resize: none !important;
         }
         
         /* Disable row height resizing */
