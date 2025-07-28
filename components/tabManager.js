@@ -1,444 +1,701 @@
-// components/tabManager.js - FIXED VERSION WITH PROPER STATE RESTORATION
-export class TabManager {
-    constructor(tables) {
-        this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table9: tableInstance }
-        this.currentActiveTab = 'table0';
-        this.scrollPositions = {}; // Store scroll positions for each tab
-        this.tableStates = {}; // Store table states for each tab
-        this.tabInitialized = {}; // Track which tabs have been initialized
-        this.isTransitioning = false; // Prevent rapid tab switching
-        this.expandedRowsStates = {}; // Store expanded rows state for each tab
-        this.setupTabSwitching();
-        
-        // Only initialize the first tab
-        this.initializeTab(this.currentActiveTab);
+// tables/baseTable.js - FIXED VERSION WITH BETTER STATE MANAGEMENT
+import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
+import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
+import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+
+// Global data cache to persist between tab switches
+const dataCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+export class BaseTable {
+    constructor(elementId, endpoint) {
+        this.elementId = elementId;
+        this.endpoint = endpoint;
+        this.table = null;
+        this.isInitialized = false;
+        this.dataLoaded = false;
+        this.expandedRowsCache = new Set();
+        this.lastScrollPosition = 0;
+        this.tableConfig = this.getBaseConfig();
+        this.expandedRowsSet = new Set(); // Track expanded rows like Matchups table
     }
 
-    // Lazy initialize a specific tab
-    initializeTab(tabId) {
-        if (this.tabInitialized[tabId]) {
-            return Promise.resolve();
-        }
-        
-        console.log(`Lazy initializing tab: ${tabId}`);
-        
-        return new Promise((resolve) => {
-            requestAnimationFrame(() => {
-                const tableWrapper = this.tables[tabId];
-                
-                if (tableWrapper && !tableWrapper.isInitialized) {
-                    // Initialize the table
-                    tableWrapper.initialize();
-                    this.tabInitialized[tabId] = true;
-                    
-                    // Give the table time to render
-                    setTimeout(resolve, 100);
-                } else {
-                    this.tabInitialized[tabId] = true;
-                    resolve();
-                }
-            });
-        });
-    }
+    getBaseConfig() {
+        const config = {
+            layout: "fitColumns",
+            responsiveLayout: false,
+            persistence: false,
+            paginationSize: false,
+            height: "600px",
+            minWidth: 1900,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            placeholder: "Loading data...",
+            // ENABLE virtual rendering for performance
+            virtualDom: true,
+            virtualDomBuffer: 300,
+            renderVertical: "virtual",
+            renderHorizontal: "virtual",
+            // Progressive rendering
+            progressiveRender: true,
+            progressiveRenderSize: 20,
+            progressiveRenderMargin: 100,
+            // Block rendering during scrolling for performance
+            blockHozScrollKeyboard: true,
+            // Optimize rendering
+            layoutColumnsOnNewData: false,
+            columnVertAlign: "center",
+            dataLoaded: (data) => {
+                console.log(`Table loaded ${data.length} total records`);
+                this.dataLoaded = true;
+                data.forEach(row => {
+                    if (row._expanded === undefined) {
+                        row._expanded = false;
+                    }
+                });
+            }
+        };
 
-    setupTabSwitching() {
-        let switchTimeout;
-        
-        document.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('tab-button')) {
-                e.preventDefault();
-                e.stopPropagation();
+        // Only add AJAX config if endpoint is provided and not cached
+        if (this.endpoint) {
+            const cacheKey = `${this.endpoint}_data`;
+            const cachedData = this.getCachedData(cacheKey);
+            
+            if (cachedData) {
+                console.log(`Using cached data for ${this.endpoint}`);
+                config.data = cachedData;
+            } else {
+                config.ajaxURL = API_CONFIG.baseURL + this.endpoint;
+                config.ajaxConfig = {
+                    method: "GET",
+                    headers: {
+                        ...API_CONFIG.headers,
+                        "Prefer": "count=exact"
+                    }
+                };
+                config.ajaxContentType = "json";
                 
-                // Prevent rapid switching
-                if (this.isTransitioning) {
-                    console.log('Tab transition in progress, ignoring click');
-                    return;
-                }
-                
-                var targetTab = e.target.dataset.tab;
-                
-                // Don't switch if already on this tab
-                if (targetTab === this.currentActiveTab) {
-                    return;
-                }
-                
-                // Clear any pending switch
-                if (switchTimeout) {
-                    clearTimeout(switchTimeout);
-                }
-                
-                // Debounce tab switching
-                switchTimeout = setTimeout(async () => {
-                    console.log('Switching to tab:', targetTab);
-                    this.isTransitioning = true;
+                // Optimized pagination function with caching
+                config.ajaxRequestFunc = async (url, config, params) => {
+                    const cacheKey = `${this.endpoint}_data`;
+                    const cachedData = this.getCachedData(cacheKey);
                     
-                    // Save current tab state before switching
-                    this.saveCurrentTabState();
-                    
-                    // Update button states immediately for responsive UI
-                    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-                    e.target.classList.add('active');
-                    
-                    // Hide current tab
-                    const currentContainer = document.getElementById(`${this.currentActiveTab}-container`);
-                    if (currentContainer) {
-                        currentContainer.className = 'table-container inactive-table';
-                        currentContainer.style.display = 'none';
+                    if (cachedData) {
+                        console.log(`Using cached data for ${this.endpoint}`);
+                        return cachedData;
                     }
                     
-                    // Initialize target tab if needed (lazy loading)
-                    await this.initializeTab(targetTab);
+                    const allRecords = [];
+                    const pageSize = 1000;
+                    let offset = 0;
+                    let hasMore = true;
+                    let totalExpected = null;
                     
-                    // Show target tab
-                    const targetContainer = document.getElementById(`${targetTab}-container`);
-                    if (targetContainer) {
-                        targetContainer.className = 'table-container active-table';
-                        targetContainer.style.display = 'block';
-                        this.currentActiveTab = targetTab;
-                        
-                        // Restore tab state with improved logic
-                        requestAnimationFrame(() => {
-                            this.restoreTabState(targetTab);
-                            
-                            // Clear transition flag after a delay
-                            setTimeout(() => {
-                                this.isTransitioning = false;
-                            }, 300);
-                        });
-                    } else {
-                        this.isTransitioning = false;
-                    }
-                }, 100); // 100ms debounce
-            }
-        });
-    }
-
-    saveCurrentTabState() {
-        const tableWrapper = this.tables[this.currentActiveTab];
-        
-        if (tableWrapper && tableWrapper.isInitialized) {
-            // Use the table's built-in save state method
-            tableWrapper.saveState();
-            
-            // Save additional detailed state info
-            const expandedRows = [];
-            if (tableWrapper.expandedRowsCache) {
-                expandedRows.push(...tableWrapper.expandedRowsCache);
-            }
-            
-            this.expandedRowsStates[this.currentActiveTab] = expandedRows;
-            this.tableStates[this.currentActiveTab] = {
-                savedAt: Date.now(),
-                expandedCount: expandedRows.length
-            };
-            
-            console.log(`Saved state for ${this.currentActiveTab}: ${expandedRows.length} expanded rows`);
-        }
-    }
-
-    restoreTabState(tabId) {
-        const tableWrapper = this.tables[tabId];
-        
-        if (tableWrapper && tableWrapper.isInitialized) {
-            console.log(`Restoring state for ${tabId}`);
-            
-            // First restore the saved expanded rows to the table's cache
-            const savedExpandedRows = this.expandedRowsStates[tabId];
-            if (savedExpandedRows && savedExpandedRows.length > 0) {
-                tableWrapper.expandedRowsCache = new Set(savedExpandedRows);
-                console.log(`Restored ${savedExpandedRows.length} expanded rows to cache`);
-            }
-            
-            // Small delay to ensure DOM is ready
-            setTimeout(() => {
-                const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
-                if (!table) return;
-                
-                // Force restore the visual state of expanded rows
-                if (savedExpandedRows && savedExpandedRows.length > 0) {
-                    const rows = table.getRows();
-                    let restoredCount = 0;
+                    console.log(`Loading data from ${url}...`);
                     
-                    rows.forEach(row => {
-                        const data = row.getData();
+                    while (hasMore) {
+                        const requestUrl = `${url}?select=*&limit=${pageSize}&offset=${offset}`;
                         
-                        // Generate the same ID used when saving
-                        let id;
-                        
-                        // For Matchups table
-                        if (data["Matchup Game ID"]) {
-                            id = data["Matchup Game ID"];
-                        } 
-                        // For Clearances tables (Batter or Pitcher)
-                        else if (data["Batter Name"] && data["Batter Prop Type"] && data["Batter Prop Value"]) {
-                            id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Prop Type"]}_${data["Batter Prop Value"]}`;
-                            if (data["Batter Prop Split ID"]) {
-                                id += `_${data["Batter Prop Split ID"]}`;
-                            }
-                        } else if (data["Pitcher Name"] && data["Pitcher Prop Type"] && data["Pitcher Prop Value"]) {
-                            id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Prop Type"]}_${data["Pitcher Prop Value"]}`;
-                            if (data["Pitcher Prop Split ID"]) {
-                                id += `_${data["Pitcher Prop Split ID"]}`;
-                            }
-                        }
-                        // For Stats tables
-                        else if (data["Batter Name"] && data["Batter Stat Type"]) {
-                            id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Stat Type"]}_${data["Batter Prop Split ID"]}`;
-                        } else if (data["Pitcher Name"] && data["Pitcher Stat Type"]) {
-                            id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Stat Type"]}_${data["Pitcher Prop Split ID"]}`;
-                        }
-                        // Fallback
-                        else {
-                            id = JSON.stringify(data);
-                        }
-                        
-                        if (savedExpandedRows.includes(id)) {
-                            // Mark as expanded
-                            data._expanded = true;
-                            row.update(data);
-                            
-                            // Force the row to reformat which will create the subrow
-                            requestAnimationFrame(() => {
-                                row.reformat();
-                                restoredCount++;
-                                
-                                // After reformatting, update the expander icon
-                                setTimeout(() => {
-                                    const cells = row.getCells();
-                                    const nameField = data["Batter Name"] ? "Batter Name" : 
-                                                    data["Pitcher Name"] ? "Pitcher Name" : 
-                                                    "Matchup Team";
-                                    const nameCell = cells.find(cell => cell.getField() === nameField);
-                                    
-                                    if (nameCell) {
-                                        const cellElement = nameCell.getElement();
-                                        const expander = cellElement.querySelector('.row-expander');
-                                        if (expander) {
-                                            expander.innerHTML = "−";
-                                        }
-                                    }
-                                }, 50);
-                            });
-                        } else if (data._expanded) {
-                            // If marked as expanded but not in saved list, collapse it
-                            data._expanded = false;
-                            row.update(data);
-                            
-                            // Update the expander icon
-                            requestAnimationFrame(() => {
-                                const cells = row.getCells();
-                                const nameField = data["Batter Name"] ? "Batter Name" : 
-                                                data["Pitcher Name"] ? "Pitcher Name" : 
-                                                "Matchup Team";
-                                const nameCell = cells.find(cell => cell.getField() === nameField);
-                                
-                                if (nameCell) {
-                                    const cellElement = nameCell.getElement();
-                                    const expander = cellElement.querySelector('.row-expander');
-                                    if (expander) {
-                                        expander.innerHTML = "+";
-                                    }
+                        try {
+                            const response = await fetch(requestUrl, {
+                                ...config,
+                                headers: {
+                                    ...config.headers,
+                                    'Range': `${offset}-${offset + pageSize - 1}`,
+                                    'Range-Unit': 'items'
                                 }
                             });
+                            
+                            if (!response.ok) {
+                                throw new Error(`Network response was not ok: ${response.status}`);
+                            }
+                            
+                            const contentRange = response.headers.get('content-range');
+                            if (contentRange && totalExpected === null) {
+                                const match = contentRange.match(/\d+-\d+\/(\d+)/);
+                                if (match) {
+                                    totalExpected = parseInt(match[1]);
+                                    console.log(`Total records to fetch: ${totalExpected}`);
+                                }
+                            }
+                            
+                            const data = await response.json();
+                            allRecords.push(...data);
+                            
+                            if (totalExpected) {
+                                const progress = ((allRecords.length / totalExpected) * 100).toFixed(1);
+                                console.log(`Loading progress: ${allRecords.length}/${totalExpected} (${progress}%)`);
+                            }
+                            
+                            hasMore = data.length === pageSize;
+                            offset += pageSize;
+                            
+                            if (offset > 10000) {
+                                console.warn('Safety limit reached, stopping data fetch');
+                                hasMore = false;
+                            }
+                        } catch (error) {
+                            console.error("Error loading batch:", error);
+                            hasMore = false;
                         }
-                    });
+                    }
                     
-                    console.log(`Restored visual state for ${restoredCount} rows`);
+                    console.log(`✅ Data loading complete: ${allRecords.length} total records`);
                     
-                    // Force a final redraw to ensure everything is visible
-                    setTimeout(() => {
-                        table.redraw(false); // Partial redraw
-                    }, 200);
+                    // Cache the data
+                    this.setCachedData(cacheKey, allRecords);
+                    
+                    return allRecords;
+                };
+            }
+        }
+
+        return config;
+    }
+
+    // Cache management methods
+    getCachedData(key) {
+        const cached = dataCache.get(key);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            return cached.data;
+        }
+        return null;
+    }
+
+    setCachedData(key, data) {
+        dataCache.set(key, {
+            data: data,
+            timestamp: Date.now()
+        });
+    }
+
+    clearCache() {
+        const cacheKey = `${this.endpoint}_data`;
+        dataCache.delete(cacheKey);
+    }
+
+    // Lazy initialization
+    initialize() {
+        if (this.isInitialized) {
+            console.log(`Table ${this.elementId} already initialized`);
+            return;
+        }
+        
+        console.log(`Lazy initializing table ${this.elementId}`);
+        this.isInitialized = true;
+        
+        // Child classes should implement their specific initialization
+        throw new Error("initialize must be implemented by child class");
+    }
+
+    // Helper methods for scroll position (like Matchups table)
+    getTableScrollPosition() {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        return tableHolder ? tableHolder.scrollTop : 0;
+    }
+    
+    setTableScrollPosition(position) {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        if (tableHolder) {
+            tableHolder.scrollTop = position;
+        }
+    }
+    
+    // Get the internal Tabulator instance
+    getTabulator() {
+        return this.table;
+    }
+    
+    // Get current expanded rows
+    getExpandedRows() {
+        return Array.from(this.expandedRowsSet);
+    }
+    
+    // Set expanded rows (useful for state restoration)
+    setExpandedRows(expandedRowIds) {
+        this.expandedRowsSet = new Set(expandedRowIds);
+    }
+
+    // Generate unique ID for a row
+    generateRowId(data) {
+        // For Matchups table
+        if (data["Matchup Game ID"]) {
+            return data["Matchup Game ID"];
+        } 
+        // For Clearances tables (Batter or Pitcher)
+        else if (data["Batter Name"] && data["Batter Prop Type"] && data["Batter Prop Value"]) {
+            let id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Prop Type"]}_${data["Batter Prop Value"]}`;
+            if (data["Batter Prop Split ID"]) {
+                id += `_${data["Batter Prop Split ID"]}`;
+            }
+            return id;
+        } else if (data["Pitcher Name"] && data["Pitcher Prop Type"] && data["Pitcher Prop Value"]) {
+            let id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Prop Type"]}_${data["Pitcher Prop Value"]}`;
+            if (data["Pitcher Prop Split ID"]) {
+                id += `_${data["Pitcher Prop Split ID"]}`;
+            }
+            return id;
+        }
+        // For Stats tables
+        else if (data["Batter Name"] && data["Batter Stat Type"]) {
+            return `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Stat Type"]}_${data["Batter Prop Split ID"]}`;
+        } else if (data["Pitcher Name"] && data["Pitcher Stat Type"]) {
+            return `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Stat Type"]}_${data["Pitcher Prop Split ID"]}`;
+        }
+        // Fallback
+        else {
+            return JSON.stringify(data);
+        }
+    }
+
+    // Override redraw with state preservation (like Matchups table)
+    redraw() {
+        if (this.table) {
+            // Store current scroll position
+            const scrollPos = this.getTableScrollPosition();
+            
+            // Store current expanded rows before redraw
+            const rows = this.table.getRows();
+            this.expandedRowsSet.clear();
+            rows.forEach(row => {
+                const data = row.getData();
+                if (data._expanded) {
+                    const rowId = this.generateRowId(data);
+                    this.expandedRowsSet.add(rowId);
                 }
+            });
+            
+            this.table.redraw(true); // Force full redraw
+            
+            // Restore expanded state and data after redraw
+            setTimeout(() => {
+                const rows = this.table.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    const rowId = this.generateRowId(data);
+                    const shouldBeExpanded = this.expandedRowsSet.has(rowId);
+                    
+                    if (shouldBeExpanded && !data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        row.reformat();
+                        
+                        // Update expander icon
+                        setTimeout(() => {
+                            const cells = row.getCells();
+                            const nameField = data["Batter Name"] ? "Batter Name" : 
+                                            data["Pitcher Name"] ? "Pitcher Name" : 
+                                            "Matchup Team";
+                            const nameCell = cells.find(cell => cell.getField() === nameField);
+                            if (nameCell) {
+                                const cellElement = nameCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "−";
+                                }
+                            }
+                        }, 50);
+                    } else if (!shouldBeExpanded && data._expanded) {
+                        data._expanded = false;
+                        row.update(data);
+                        row.reformat();
+                        
+                        // Update expander icon
+                        setTimeout(() => {
+                            const cells = row.getCells();
+                            const nameField = data["Batter Name"] ? "Batter Name" : 
+                                            data["Pitcher Name"] ? "Pitcher Name" : 
+                                            "Matchup Team";
+                            const nameCell = cells.find(cell => cell.getField() === nameField);
+                            if (nameCell) {
+                                const cellElement = nameCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "+";
+                                }
+                            }
+                        }, 50);
+                    }
+                });
+                
+                // Restore scroll position
+                this.setTableScrollPosition(scrollPos);
             }, 100);
         }
     }
 
-    progressiveRestore(tableWrapper) {
-        if (!tableWrapper.expandedRowsCache || tableWrapper.expandedRowsCache.size === 0) {
-            return;
+    // Save table state before switching away
+    saveState() {
+        if (!this.table) return;
+        
+        // Save scroll position
+        const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+        if (tableHolder) {
+            this.lastScrollPosition = tableHolder.scrollTop;
         }
         
-        const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
-        if (!table) return;
-        
-        const expandedIds = Array.from(tableWrapper.expandedRowsCache);
-        let index = 0;
-        
-        const restoreNext = () => {
-            if (index >= expandedIds.length) return;
-            
-            const id = expandedIds[index];
-            const rows = table.getRows();
-            
-            for (let row of rows) {
-                const data = row.getData();
-                const rowId = data["Matchup Game ID"] || data["_id"] || 
-                            `${data["Batter Name"] || data["Pitcher Name"]}_${data["Batter Prop Type"] || data["Pitcher Prop Type"]}_${data["Batter Prop Value"] || data["Pitcher Prop Value"]}`;
-                
-                if (rowId === id && !data._expanded) {
-                    data._expanded = true;
-                    row.update(data);
-                    row.reformat();
-                    break;
-                }
+        // Save expanded rows
+        this.expandedRowsCache.clear();
+        this.expandedRowsSet.clear();
+        const rows = this.table.getRows();
+        rows.forEach(row => {
+            const data = row.getData();
+            if (data._expanded) {
+                const id = this.generateRowId(data);
+                this.expandedRowsCache.add(id);
+                this.expandedRowsSet.add(id);
+                console.log(`Saving expanded row: ${id}`);
             }
-            
-            index++;
-            
-            // Continue with next item after a small delay
-            if (index < expandedIds.length) {
-                requestAnimationFrame(restoreNext);
-            }
-        };
+        });
         
-        // Start progressive restoration
-        requestAnimationFrame(restoreNext);
+        console.log(`Saved ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
     }
 
-    createTabStructure(tableElement) {
-        if (tableElement && !tableElement.parentElement.classList.contains('table-wrapper')) {
-            var wrapper = document.createElement('div');
-            wrapper.className = 'table-wrapper';
-            wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
-            
-            // Create tabs container with all tabs including new props tabs
-            var tabsContainer = document.createElement('div');
-            tabsContainer.className = 'tabs-container';
-            tabsContainer.innerHTML = `
-                <div class="tab-buttons">
-                    <button class="tab-button active" data-tab="table0">Matchups</button>
-                    <button class="tab-button" data-tab="table1">Batter Prop Clearances</button>
-                    <button class="tab-button" data-tab="table2">Batter Prop Clearances (Alt. View)</button>
-                    <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
-                    <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
-                    <button class="tab-button" data-tab="table5">Batter Stats</button>
-                    <button class="tab-button" data-tab="table6">Pitcher Stats</button>
-                    <button class="tab-button" data-tab="table7">Batter Props</button>
-                    <button class="tab-button" data-tab="table8">Pitcher Props</button>
-                    <button class="tab-button" data-tab="table9">Game Props</button>
-                </div>
-            `;
-            
-            // Add loading indicator
-            var loadingIndicator = document.createElement('div');
-            loadingIndicator.className = 'tab-loading-indicator';
-            loadingIndicator.style.cssText = 'display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;';
-            loadingIndicator.innerHTML = '<div class="spinner"></div><div>Loading table...</div>';
-            
-            // Create table containers wrapper
-            var tablesContainer = document.createElement('div');
-            tablesContainer.className = 'tables-container';
-            tablesContainer.style.cssText = 'width: 100%; position: relative; min-height: 500px;';
-            tablesContainer.appendChild(loadingIndicator);
-            
-            // Create matchups container - now the active table
-            var table0Container = document.createElement('div');
-            table0Container.className = 'table-container active-table';
-            table0Container.id = 'table0-container';
-            table0Container.style.cssText = 'width: 100%; display: block;';
-            
-            // Move original table into first container - now inactive
-            var table1Container = document.createElement('div');
-            table1Container.className = 'table-container inactive-table';
-            table1Container.id = 'table1-container';
-            table1Container.style.cssText = 'width: 100%; display: none;';
-            
-            // Create second table container
-            var table2Container = document.createElement('div');
-            table2Container.className = 'table-container inactive-table';
-            table2Container.id = 'table2-container';
-            table2Container.style.cssText = 'width: 100%; display: none;';
-            
-            // Create second table element
-            var table2Element = document.createElement('div');
-            table2Element.id = 'batter-table-alt';
-            
-            tableElement.parentNode.insertBefore(wrapper, tableElement);
-            wrapper.appendChild(tabsContainer);
-            wrapper.appendChild(tablesContainer);
-            
-            // Move table1 into its container
-            table1Container.appendChild(tableElement);
-            table2Container.appendChild(table2Element);
-            
-            tablesContainer.appendChild(table0Container);
-            tablesContainer.appendChild(table1Container);
-            tablesContainer.appendChild(table2Container);
-        }
-    }
-    
-    // Show loading indicator
-    showLoading() {
-        const indicator = document.querySelector('.tab-loading-indicator');
-        if (indicator) {
-            indicator.style.display = 'block';
-        }
-    }
-    
-    // Hide loading indicator
-    hideLoading() {
-        const indicator = document.querySelector('.tab-loading-indicator');
-        if (indicator) {
-            indicator.style.display = 'none';
-        }
-    }
-    
-    // Memory cleanup for inactive tabs
-    cleanupInactiveTab(tabId) {
-        const tableWrapper = this.tables[tabId];
+    // Restore table state when switching back
+    restoreState() {
+        if (!this.table) return;
         
-        if (tableWrapper && tableWrapper.isInitialized) {
-            // Only cleanup if tab hasn't been used recently (5 minutes)
-            const lastUsed = this.tableStates[tabId]?.savedAt || 0;
-            const timeSinceUsed = Date.now() - lastUsed;
-            
-            if (timeSinceUsed > 5 * 60 * 1000) {
-                console.log(`Cleaning up inactive tab: ${tabId}`);
-                tableWrapper.destroy();
-                this.tabInitialized[tabId] = false;
-                delete this.tableStates[tabId];
-                delete this.expandedRowsStates[tabId];
+        console.log(`Restoring ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
+        
+        // Use requestAnimationFrame for smooth restoration
+        requestAnimationFrame(() => {
+            // Restore expanded rows
+            if (this.expandedRowsCache.size > 0) {
+                const rows = this.table.getRows();
+                const rowsToReformat = [];
+                
+                rows.forEach(row => {
+                    const data = row.getData();
+                    const id = this.generateRowId(data);
+                    
+                    if (this.expandedRowsCache.has(id)) {
+                        console.log(`Restoring expanded row: ${id}`);
+                        
+                        // Always set expanded state, even if already true
+                        data._expanded = true;
+                        row.update(data);
+                        rowsToReformat.push(row);
+                        
+                        // Update the expander icon immediately
+                        const cells = row.getCells();
+                        const nameField = data["Batter Name"] ? "Batter Name" : 
+                                        data["Pitcher Name"] ? "Pitcher Name" : 
+                                        "Matchup Team";
+                        const nameCell = cells.find(cell => cell.getField() === nameField);
+                        
+                        if (nameCell) {
+                            const cellElement = nameCell.getElement();
+                            const expander = cellElement.querySelector('.row-expander');
+                            if (expander) {
+                                expander.innerHTML = "−";
+                            }
+                        }
+                    }
+                });
+                
+                // Reformat all expanded rows to recreate their subrows
+                setTimeout(() => {
+                    rowsToReformat.forEach(row => {
+                        // Force remove any existing subrow to ensure clean recreation
+                        const rowElement = row.getElement();
+                        const existingSubrow = rowElement.querySelector('.subrow-container');
+                        if (existingSubrow) {
+                            existingSubrow.remove();
+                        }
+                        
+                        // Now reformat to recreate the subrow
+                        row.reformat();
+                    });
+                    
+                    // After all rows are reformatted, normalize their heights
+                    setTimeout(() => {
+                        rowsToReformat.forEach(row => {
+                            row.normalizeHeight();
+                        });
+                    }, 100);
+                }, 50);
             }
-        }
-    }
-    
-    // Periodic cleanup of inactive tabs
-    startPeriodicCleanup() {
-        setInterval(() => {
-            Object.keys(this.tables).forEach(tabId => {
-                if (tabId !== this.currentActiveTab) {
-                    this.cleanupInactiveTab(tabId);
+            
+            // Restore scroll position
+            requestAnimationFrame(() => {
+                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                if (tableHolder && this.lastScrollPosition > 0) {
+                    tableHolder.scrollTop = this.lastScrollPosition;
                 }
             });
-        }, 60 * 1000); // Check every minute
+        });
+    }
+
+    // Cleanup method to free memory
+    destroy() {
+        if (this.table) {
+            this.saveState();
+            this.table.destroy();
+            this.table = null;
+        }
+        this.isInitialized = false;
+        this.dataLoaded = false;
+    }
+
+    getTable() {
+        return this.table;
+    }
+
+    createNameFormatter() {
+        return function(cell, formatterParams, onRendered) {
+            var value = cell.getValue();
+            var row = cell.getRow();
+            var expanded = row.getData()._expanded || false;
+            
+            onRendered(function() {
+                try {
+                    var cellElement = cell.getElement();
+                    if (cellElement && cellElement.querySelector) {
+                        cellElement.innerHTML = '';
+                        
+                        var container = document.createElement("div");
+                        container.style.display = "flex";
+                        container.style.alignItems = "center";
+                        container.style.cursor = "pointer";
+                        
+                        var expander = document.createElement("span");
+                        expander.innerHTML = expanded ? "−" : "+";
+                        expander.style.marginRight = "8px";
+                        expander.style.fontWeight = "bold";
+                        expander.style.color = "#007bff";
+                        expander.style.fontSize = "14px";
+                        expander.style.minWidth = "12px";
+                        expander.classList.add("row-expander");
+                        
+                        var textSpan = document.createElement("span");
+                        textSpan.textContent = value || "";
+                        
+                        container.appendChild(expander);
+                        container.appendChild(textSpan);
+                        
+                        cellElement.appendChild(container);
+                    }
+                } catch (error) {
+                    console.error("Error in formatter onRendered:", error);
+                }
+            });
+            
+            return (expanded ? "− " : "+ ") + (value || "");
+        };
+    }
+
+    createTeamFormatter() {
+        return function(cell) {
+            var value = cell.getValue();
+            return value;
+        };
+    }
+
+    // Optimized row expansion with debouncing
+    setupRowExpansion() {
+        if (!this.table) return;
+        
+        let expansionTimeout;
+        
+        this.table.on("cellClick", (e, cell) => {
+            const field = cell.getField();
+            
+            const expandableFields = [
+                "Batter Name", 
+                "Pitcher Name", 
+                "Matchup Team"
+            ];
+            
+            if (expandableFields.includes(field)) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Clear any pending expansion
+                if (expansionTimeout) {
+                    clearTimeout(expansionTimeout);
+                }
+                
+                // Debounce expansion to prevent rapid clicks
+                expansionTimeout = setTimeout(() => {
+                    var row = cell.getRow();
+                    var data = row.getData();
+                    var rowElement = row.getElement();
+                    
+                    // Initialize if undefined
+                    if (data._expanded === undefined) {
+                        data._expanded = false;
+                    }
+                    
+                    // Check if the visual state matches the data state
+                    var hasSubrow = rowElement.querySelector('.subrow-container') !== null;
+                    
+                    // If states don't match, sync them
+                    if (data._expanded && !hasSubrow) {
+                        // Data says expanded but no subrow visible - reformat to show it
+                        row.reformat();
+                    } else if (!data._expanded && hasSubrow) {
+                        // Data says collapsed but subrow is visible - remove it
+                        var existingSubrow = rowElement.querySelector('.subrow-container');
+                        if (existingSubrow) {
+                            existingSubrow.remove();
+                        }
+                    } else {
+                        // States match, perform normal toggle
+                        data._expanded = !data._expanded;
+                        
+                        // Update expanded rows tracking
+                        const rowId = this.generateRowId(data);
+                        if (data._expanded) {
+                            this.expandedRowsSet.add(rowId);
+                        } else {
+                            this.expandedRowsSet.delete(rowId);
+                        }
+                        
+                        // Update the row data
+                        row.update(data);
+                        
+                        // Use requestAnimationFrame for smooth updates
+                        requestAnimationFrame(() => {
+                            // Reformat the row to trigger the rowFormatter
+                            row.reformat();
+                            
+                            // Update expander icon
+                            requestAnimationFrame(() => {
+                                try {
+                                    var cellElement = cell.getElement();
+                                    if (cellElement) {
+                                        var expanderIcon = cellElement.querySelector('.row-expander');
+                                        if (expanderIcon) {
+                                            expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error("Error updating expander icon:", error);
+                                }
+                            });
+                        });
+                    }
+                }, 100);
+            }
+        });
+    }
+
+    createSubtable1(container, data) {
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            height: false,
+            virtualDom: false, // Disable for small subtables
+            data: [{
+                propFactor: data["Batter Prop Park Factor"] || data["Pitcher Prop Park Factor"],
+                lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
+                matchup: data["Matchup"],
+                opposingPitcher: data["SP"]
+            }],
+            columns: [
+                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 300},
+                {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 200},
+                {title: "Matchup", field: "matchup", headerSort: false, width: 300},
+                {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 400}
+            ]
+        });
+    }
+
+    createSubtable2(container, data) {
+        console.log("createSubtable2 should be overridden by child class");
+    }
+
+    // Optimized row formatter with lazy subtable creation
+    createRowFormatter() {
+        const self = this;
+        
+        return (row) => {
+            var data = row.getData();
+            var rowElement = row.getElement();
+            
+            // Initialize _expanded if undefined
+            if (data._expanded === undefined) {
+                data._expanded = false;
+            }
+            
+            // Add/remove expanded class
+            if (data._expanded) {
+                rowElement.classList.add('row-expanded');
+            } else {
+                rowElement.classList.remove('row-expanded');
+            }
+            
+            // Handle expansion
+            if (data._expanded) {
+                // Check if subtables already exist
+                let existingSubrow = rowElement.querySelector('.subrow-container');
+                
+                if (!existingSubrow) {
+                    // Defer subtable creation to avoid blocking
+                    requestAnimationFrame(() => {
+                        // Create container for subtables
+                        var holderEl = document.createElement("div");
+                        holderEl.classList.add('subrow-container');
+                        holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%;';
+                        
+                        // Check if this is the matchups table
+                        if (data["Matchup Team"] !== undefined) {
+                            var subtableEl = document.createElement("div");
+                            holderEl.appendChild(subtableEl);
+                            rowElement.appendChild(holderEl);
+                            
+                            if (self.createMatchupsSubtable) {
+                                self.createMatchupsSubtable(subtableEl, data);
+                            }
+                        } else {
+                            // For other tables, create two subtables
+                            var subtable1 = document.createElement("div");
+                            subtable1.style.marginBottom = "15px";
+                            var subtable2 = document.createElement("div");
+                            
+                            holderEl.appendChild(subtable1);
+                            holderEl.appendChild(subtable2);
+                            rowElement.appendChild(holderEl);
+                            
+                            // Create subtables with error handling
+                            try {
+                                self.createSubtable1(subtable1, data);
+                            } catch (error) {
+                                console.error("Error creating subtable1:", error);
+                                subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                            }
+                            
+                            try {
+                                self.createSubtable2(subtable2, data);
+                            } catch (error) {
+                                console.error("Error creating subtable2:", error);
+                                subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                            }
+                        }
+                        
+                        // Force row height recalculation without redraw
+                        setTimeout(() => {
+                            row.normalizeHeight();
+                        }, 100);
+                    });
+                }
+            } else {
+                // Handle contraction
+                var existingSubrow = rowElement.querySelector('.subrow-container');
+                if (existingSubrow) {
+                    existingSubrow.remove();
+                    rowElement.classList.remove('row-expanded');
+                    
+                    // Force row height recalculation
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                    }, 50);
+                }
+            }
+        };
     }
 }
-
-// Add CSS for loading spinner
-const style = document.createElement('style');
-style.textContent = `
-    .tab-loading-indicator {
-        text-align: center;
-        padding: 20px;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    .spinner {
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #007bff;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 10px;
-    }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-`;
-document.head.appendChild(style);
