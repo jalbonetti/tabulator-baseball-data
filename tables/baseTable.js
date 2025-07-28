@@ -1,4 +1,4 @@
-// tables/baseTable.js - OPTIMIZED VERSION WITH CACHING AND PERFORMANCE IMPROVEMENTS
+// tables/baseTable.js - FIXED VERSION WITH BETTER STATE MANAGEMENT
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -17,6 +17,7 @@ export class BaseTable {
         this.expandedRowsCache = new Set();
         this.lastScrollPosition = 0;
         this.tableConfig = this.getBaseConfig();
+        this.expandedRowsSet = new Set(); // Track expanded rows like Matchups table
     }
 
     getBaseConfig() {
@@ -188,22 +189,140 @@ export class BaseTable {
         throw new Error("initialize must be implemented by child class");
     }
 
-    // Optimized redraw with debouncing
-    redraw() {
-        if (!this.table || !this.isInitialized) return;
-        
-        // Cancel any pending redraw
-        if (this.redrawTimeout) {
-            clearTimeout(this.redrawTimeout);
+    // Helper methods for scroll position (like Matchups table)
+    getTableScrollPosition() {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        return tableHolder ? tableHolder.scrollTop : 0;
+    }
+    
+    setTableScrollPosition(position) {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        if (tableHolder) {
+            tableHolder.scrollTop = position;
         }
-        
-        // Debounce redraw calls
-        this.redrawTimeout = setTimeout(() => {
-            if (this.table) {
-                // Use partial redraw instead of full redraw
-                this.table.redraw(false);
+    }
+    
+    // Get the internal Tabulator instance
+    getTabulator() {
+        return this.table;
+    }
+    
+    // Get current expanded rows
+    getExpandedRows() {
+        return Array.from(this.expandedRowsSet);
+    }
+    
+    // Set expanded rows (useful for state restoration)
+    setExpandedRows(expandedRowIds) {
+        this.expandedRowsSet = new Set(expandedRowIds);
+    }
+
+    // Generate unique ID for a row
+    generateRowId(data) {
+        // For Matchups table
+        if (data["Matchup Game ID"]) {
+            return data["Matchup Game ID"];
+        } 
+        // For Clearances tables (Batter or Pitcher)
+        else if (data["Batter Name"] && data["Batter Prop Type"] && data["Batter Prop Value"]) {
+            let id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Prop Type"]}_${data["Batter Prop Value"]}`;
+            if (data["Batter Prop Split ID"]) {
+                id += `_${data["Batter Prop Split ID"]}`;
             }
-        }, 50);
+            return id;
+        } else if (data["Pitcher Name"] && data["Pitcher Prop Type"] && data["Pitcher Prop Value"]) {
+            let id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Prop Type"]}_${data["Pitcher Prop Value"]}`;
+            if (data["Pitcher Prop Split ID"]) {
+                id += `_${data["Pitcher Prop Split ID"]}`;
+            }
+            return id;
+        }
+        // For Stats tables
+        else if (data["Batter Name"] && data["Batter Stat Type"]) {
+            return `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Stat Type"]}_${data["Batter Prop Split ID"]}`;
+        } else if (data["Pitcher Name"] && data["Pitcher Stat Type"]) {
+            return `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Stat Type"]}_${data["Pitcher Prop Split ID"]}`;
+        }
+        // Fallback
+        else {
+            return JSON.stringify(data);
+        }
+    }
+
+    // Override redraw with state preservation (like Matchups table)
+    redraw() {
+        if (this.table) {
+            // Store current scroll position
+            const scrollPos = this.getTableScrollPosition();
+            
+            // Store current expanded rows before redraw
+            const rows = this.table.getRows();
+            this.expandedRowsSet.clear();
+            rows.forEach(row => {
+                const data = row.getData();
+                if (data._expanded) {
+                    const rowId = this.generateRowId(data);
+                    this.expandedRowsSet.add(rowId);
+                }
+            });
+            
+            this.table.redraw(true); // Force full redraw
+            
+            // Restore expanded state and data after redraw
+            setTimeout(() => {
+                const rows = this.table.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    const rowId = this.generateRowId(data);
+                    const shouldBeExpanded = this.expandedRowsSet.has(rowId);
+                    
+                    if (shouldBeExpanded && !data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        row.reformat();
+                        
+                        // Update expander icon
+                        setTimeout(() => {
+                            const cells = row.getCells();
+                            const nameField = data["Batter Name"] ? "Batter Name" : 
+                                            data["Pitcher Name"] ? "Pitcher Name" : 
+                                            "Matchup Team";
+                            const nameCell = cells.find(cell => cell.getField() === nameField);
+                            if (nameCell) {
+                                const cellElement = nameCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "−";
+                                }
+                            }
+                        }, 50);
+                    } else if (!shouldBeExpanded && data._expanded) {
+                        data._expanded = false;
+                        row.update(data);
+                        row.reformat();
+                        
+                        // Update expander icon
+                        setTimeout(() => {
+                            const cells = row.getCells();
+                            const nameField = data["Batter Name"] ? "Batter Name" : 
+                                            data["Pitcher Name"] ? "Pitcher Name" : 
+                                            "Matchup Team";
+                            const nameCell = cells.find(cell => cell.getField() === nameField);
+                            if (nameCell) {
+                                const cellElement = nameCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "+";
+                                }
+                            }
+                        }, 50);
+                    }
+                });
+                
+                // Restore scroll position
+                this.setTableScrollPosition(scrollPos);
+            }, 100);
+        }
     }
 
     // Save table state before switching away
@@ -218,41 +337,14 @@ export class BaseTable {
         
         // Save expanded rows
         this.expandedRowsCache.clear();
+        this.expandedRowsSet.clear();
         const rows = this.table.getRows();
         rows.forEach(row => {
             const data = row.getData();
             if (data._expanded) {
-                // Create a unique ID for each row based on available data
-                let id;
-                
-                // For Matchups table
-                if (data["Matchup Game ID"]) {
-                    id = data["Matchup Game ID"];
-                } 
-                // For Clearances tables (Batter or Pitcher)
-                else if (data["Batter Name"] && data["Batter Prop Type"] && data["Batter Prop Value"]) {
-                    id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Prop Type"]}_${data["Batter Prop Value"]}`;
-                    if (data["Batter Prop Split ID"]) {
-                        id += `_${data["Batter Prop Split ID"]}`;
-                    }
-                } else if (data["Pitcher Name"] && data["Pitcher Prop Type"] && data["Pitcher Prop Value"]) {
-                    id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Prop Type"]}_${data["Pitcher Prop Value"]}`;
-                    if (data["Pitcher Prop Split ID"]) {
-                        id += `_${data["Pitcher Prop Split ID"]}`;
-                    }
-                }
-                // For Stats tables
-                else if (data["Batter Name"] && data["Batter Stat Type"]) {
-                    id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Stat Type"]}_${data["Batter Prop Split ID"]}`;
-                } else if (data["Pitcher Name"] && data["Pitcher Stat Type"]) {
-                    id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Stat Type"]}_${data["Pitcher Prop Split ID"]}`;
-                }
-                // Fallback
-                else {
-                    id = JSON.stringify(data);
-                }
-                
+                const id = this.generateRowId(data);
                 this.expandedRowsCache.add(id);
+                this.expandedRowsSet.add(id);
                 console.log(`Saving expanded row: ${id}`);
             }
         });
@@ -275,36 +367,7 @@ export class BaseTable {
                 
                 rows.forEach(row => {
                     const data = row.getData();
-                    
-                    // Generate the same ID used when saving
-                    let id;
-                    
-                    // For Matchups table
-                    if (data["Matchup Game ID"]) {
-                        id = data["Matchup Game ID"];
-                    } 
-                    // For Clearances tables (Batter or Pitcher)
-                    else if (data["Batter Name"] && data["Batter Prop Type"] && data["Batter Prop Value"]) {
-                        id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Prop Type"]}_${data["Batter Prop Value"]}`;
-                        if (data["Batter Prop Split ID"]) {
-                            id += `_${data["Batter Prop Split ID"]}`;
-                        }
-                    } else if (data["Pitcher Name"] && data["Pitcher Prop Type"] && data["Pitcher Prop Value"]) {
-                        id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Prop Type"]}_${data["Pitcher Prop Value"]}`;
-                        if (data["Pitcher Prop Split ID"]) {
-                            id += `_${data["Pitcher Prop Split ID"]}`;
-                        }
-                    }
-                    // For Stats tables
-                    else if (data["Batter Name"] && data["Batter Stat Type"]) {
-                        id = `${data["Batter Name"]}_${data["Batter Team"]}_${data["Batter Stat Type"]}_${data["Batter Prop Split ID"]}`;
-                    } else if (data["Pitcher Name"] && data["Pitcher Stat Type"]) {
-                        id = `${data["Pitcher Name"]}_${data["Pitcher Team"]}_${data["Pitcher Stat Type"]}_${data["Pitcher Prop Split ID"]}`;
-                    }
-                    // Fallback
-                    else {
-                        id = JSON.stringify(data);
-                    }
+                    const id = this.generateRowId(data);
                     
                     if (this.expandedRowsCache.has(id)) {
                         console.log(`Restoring expanded row: ${id}`);
@@ -481,6 +544,14 @@ export class BaseTable {
                         // States match, perform normal toggle
                         data._expanded = !data._expanded;
                         
+                        // Update expanded rows tracking
+                        const rowId = this.generateRowId(data);
+                        if (data._expanded) {
+                            this.expandedRowsSet.add(rowId);
+                        } else {
+                            this.expandedRowsSet.delete(rowId);
+                        }
+                        
                         // Update the row data
                         row.update(data);
                         
@@ -626,9 +697,5 @@ export class BaseTable {
                 }
             }
         };
-    }
-    
-    getTabulator() {
-        return this.table;
     }
 }
