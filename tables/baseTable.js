@@ -1,11 +1,118 @@
-// tables/baseTable.js - FIXED VERSION WITH BETTER STATE MANAGEMENT
+// tables/baseTable.js - ENHANCED VERSION WITH BETTER CACHING AND PAGINATION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 // Global data cache to persist between tab switches
 const dataCache = new Map();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes to match Supabase update interval
+
+// IndexedDB for persistent cross-user caching
+const DB_NAME = 'TabulatorCache';
+const DB_VERSION = 1;
+const STORE_NAME = 'tableData';
+
+class CacheManager {
+    constructor() {
+        this.db = null;
+        this.initDB();
+    }
+
+    async initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            
+            request.onerror = () => {
+                console.error('Failed to open IndexedDB');
+                reject(request.error);
+            };
+            
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve();
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+                    store.createIndex('timestamp', 'timestamp', { unique: false });
+                }
+            };
+        });
+    }
+
+    async getCachedData(key) {
+        if (!this.db) await this.initDB();
+        
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(key);
+            
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result && Date.now() - result.timestamp < CACHE_DURATION) {
+                    console.log(`IndexedDB cache hit for ${key}`);
+                    resolve(result.data);
+                } else {
+                    resolve(null);
+                }
+            };
+            
+            request.onerror = () => {
+                console.error('Failed to read from IndexedDB');
+                resolve(null);
+            };
+        });
+    }
+
+    async setCachedData(key, data) {
+        if (!this.db) await this.initDB();
+        
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.put({
+                key: key,
+                data: data,
+                timestamp: Date.now()
+            });
+            
+            request.onsuccess = () => {
+                console.log(`Data cached in IndexedDB for ${key}`);
+                resolve();
+            };
+            
+            request.onerror = () => {
+                console.error('Failed to write to IndexedDB');
+                reject(request.error);
+            };
+        });
+    }
+
+    async clearOldCache() {
+        if (!this.db) await this.initDB();
+        
+        const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const index = store.index('timestamp');
+        const cutoffTime = Date.now() - CACHE_DURATION;
+        
+        const request = index.openCursor(IDBKeyRange.upperBound(cutoffTime));
+        
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                store.delete(cursor.primaryKey);
+                cursor.continue();
+            }
+        };
+    }
+}
+
+// Global cache manager instance
+const cacheManager = new CacheManager();
 
 export class BaseTable {
     constructor(elementId, endpoint) {
@@ -57,104 +164,178 @@ export class BaseTable {
             }
         };
 
-        // Only add AJAX config if endpoint is provided and not cached
+        // Only add AJAX config if endpoint is provided
         if (this.endpoint) {
-            const cacheKey = `${this.endpoint}_data`;
-            const cachedData = this.getCachedData(cacheKey);
+            config.ajaxURL = API_CONFIG.baseURL + this.endpoint;
+            config.ajaxConfig = {
+                method: "GET",
+                headers: {
+                    ...API_CONFIG.headers,
+                    "Prefer": "count=exact"
+                }
+            };
+            config.ajaxContentType = "json";
             
-            if (cachedData) {
-                console.log(`Using cached data for ${this.endpoint}`);
-                config.data = cachedData;
-            } else {
-                config.ajaxURL = API_CONFIG.baseURL + this.endpoint;
-                config.ajaxConfig = {
-                    method: "GET",
-                    headers: {
-                        ...API_CONFIG.headers,
-                        "Prefer": "count=exact"
-                    }
-                };
-                config.ajaxContentType = "json";
+            // Enhanced pagination function with multi-level caching
+            config.ajaxRequestFunc = async (url, config, params) => {
+                const cacheKey = `${this.endpoint}_data`;
                 
-                // Optimized pagination function with caching
-                config.ajaxRequestFunc = async (url, config, params) => {
-                    const cacheKey = `${this.endpoint}_data`;
-                    const cachedData = this.getCachedData(cacheKey);
-                    
-                    if (cachedData) {
-                        console.log(`Using cached data for ${this.endpoint}`);
-                        return cachedData;
-                    }
-                    
-                    const allRecords = [];
-                    const pageSize = 1000;
-                    let offset = 0;
-                    let hasMore = true;
-                    let totalExpected = null;
-                    
-                    console.log(`Loading data from ${url}...`);
-                    
-                    while (hasMore) {
-                        const requestUrl = `${url}?select=*&limit=${pageSize}&offset=${offset}`;
-                        
-                        try {
-                            const response = await fetch(requestUrl, {
-                                ...config,
-                                headers: {
-                                    ...config.headers,
-                                    'Range': `${offset}-${offset + pageSize - 1}`,
-                                    'Range-Unit': 'items'
-                                }
-                            });
-                            
-                            if (!response.ok) {
-                                throw new Error(`Network response was not ok: ${response.status}`);
-                            }
-                            
-                            const contentRange = response.headers.get('content-range');
-                            if (contentRange && totalExpected === null) {
-                                const match = contentRange.match(/\d+-\d+\/(\d+)/);
-                                if (match) {
-                                    totalExpected = parseInt(match[1]);
-                                    console.log(`Total records to fetch: ${totalExpected}`);
-                                }
-                            }
-                            
-                            const data = await response.json();
-                            allRecords.push(...data);
-                            
-                            if (totalExpected) {
-                                const progress = ((allRecords.length / totalExpected) * 100).toFixed(1);
-                                console.log(`Loading progress: ${allRecords.length}/${totalExpected} (${progress}%)`);
-                            }
-                            
-                            hasMore = data.length === pageSize;
-                            offset += pageSize;
-                            
-                            if (offset > 10000) {
-                                console.warn('Safety limit reached, stopping data fetch');
-                                hasMore = false;
-                            }
-                        } catch (error) {
-                            console.error("Error loading batch:", error);
-                            hasMore = false;
-                        }
-                    }
-                    
-                    console.log(`✅ Data loading complete: ${allRecords.length} total records`);
-                    
-                    // Cache the data
-                    this.setCachedData(cacheKey, allRecords);
-                    
-                    return allRecords;
-                };
-            }
+                // Check memory cache first
+                const memoryCached = this.getCachedData(cacheKey);
+                if (memoryCached) {
+                    console.log(`Memory cache hit for ${this.endpoint}`);
+                    return memoryCached;
+                }
+                
+                // Check IndexedDB cache
+                const dbCached = await cacheManager.getCachedData(cacheKey);
+                if (dbCached) {
+                    console.log(`IndexedDB cache hit for ${this.endpoint}`);
+                    // Also store in memory cache
+                    this.setCachedData(cacheKey, dbCached);
+                    return dbCached;
+                }
+                
+                // If no cache, fetch all data
+                console.log(`No cache found for ${this.endpoint}, fetching from API...`);
+                const allRecords = await this.fetchAllRecords(url, config);
+                
+                // Cache in both memory and IndexedDB
+                this.setCachedData(cacheKey, allRecords);
+                await cacheManager.setCachedData(cacheKey, allRecords);
+                
+                return allRecords;
+            };
         }
 
         return config;
     }
 
-    // Cache management methods
+    async fetchAllRecords(url, config) {
+        const allRecords = [];
+        const pageSize = 1000; // Supabase max
+        let offset = 0;
+        let hasMore = true;
+        let totalExpected = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        console.log(`Starting comprehensive data fetch from ${url}...`);
+        
+        // Show loading progress
+        if (this.elementId) {
+            const element = document.querySelector(this.elementId);
+            if (element) {
+                const progressDiv = document.createElement('div');
+                progressDiv.id = 'loading-progress';
+                progressDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px;';
+                progressDiv.innerHTML = '<div>Loading data...</div><div id="progress-text">0%</div>';
+                element.appendChild(progressDiv);
+            }
+        }
+        
+        while (hasMore) {
+            try {
+                // For large datasets, use range headers properly
+                const requestUrl = `${url}?limit=${pageSize}&offset=${offset}`;
+                
+                const response = await fetch(requestUrl, {
+                    ...config,
+                    headers: {
+                        ...config.headers,
+                        'Range': `${offset}-${offset + pageSize - 1}`,
+                        'Range-Unit': 'items',
+                        'Prefer': 'count=exact'
+                    }
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 416) {
+                        // Range not satisfiable - we've reached the end
+                        console.log('Reached end of data');
+                        hasMore = false;
+                        break;
+                    }
+                    throw new Error(`Network response was not ok: ${response.status}`);
+                }
+                
+                // Parse content range header to get total count
+                const contentRange = response.headers.get('content-range');
+                if (contentRange && totalExpected === null) {
+                    const match = contentRange.match(/\d+-\d+\/(\d+|\*)/);
+                    if (match && match[1] !== '*') {
+                        totalExpected = parseInt(match[1]);
+                        console.log(`Total records to fetch: ${totalExpected}`);
+                    }
+                }
+                
+                const data = await response.json();
+                
+                if (data.length === 0) {
+                    // No more data
+                    hasMore = false;
+                    break;
+                }
+                
+                allRecords.push(...data);
+                
+                // Update progress
+                if (totalExpected) {
+                    const progress = ((allRecords.length / totalExpected) * 100).toFixed(1);
+                    console.log(`Loading progress: ${allRecords.length}/${totalExpected} (${progress}%)`);
+                    
+                    const progressText = document.getElementById('progress-text');
+                    if (progressText) {
+                        progressText.textContent = `${progress}% - ${allRecords.length.toLocaleString()} / ${totalExpected.toLocaleString()} records`;
+                    }
+                }
+                
+                // Check if we got less than pageSize records
+                if (data.length < pageSize) {
+                    hasMore = false;
+                } else {
+                    offset += pageSize;
+                }
+                
+                // Reset retry count on successful fetch
+                retryCount = 0;
+                
+                // Add small delay to avoid rate limiting
+                if (hasMore && offset % 5000 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+            } catch (error) {
+                console.error(`Error loading batch at offset ${offset}:`, error);
+                
+                retryCount++;
+                if (retryCount >= maxRetries) {
+                    console.error(`Failed after ${maxRetries} retries at offset ${offset}`);
+                    hasMore = false;
+                } else {
+                    console.log(`Retrying (${retryCount}/${maxRetries})...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                }
+            }
+        }
+        
+        // Remove progress indicator
+        const progressDiv = document.getElementById('loading-progress');
+        if (progressDiv) {
+            progressDiv.remove();
+        }
+        
+        console.log(`✅ Data loading complete: ${allRecords.length} total records`);
+        
+        // Clear old cache entries periodically
+        if (Math.random() < 0.1) { // 10% chance
+            cacheManager.clearOldCache();
+        }
+        
+        return allRecords;
+    }
+
+    // Memory cache management methods
     getCachedData(key) {
         const cached = dataCache.get(key);
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -173,6 +354,20 @@ export class BaseTable {
     clearCache() {
         const cacheKey = `${this.endpoint}_data`;
         dataCache.delete(cacheKey);
+    }
+
+    // Force refresh data (bypasses cache)
+    async refreshData() {
+        const cacheKey = `${this.endpoint}_data`;
+        
+        // Clear both caches
+        dataCache.delete(cacheKey);
+        await cacheManager.setCachedData(cacheKey, null);
+        
+        // Reload table
+        if (this.table) {
+            this.table.setData();
+        }
     }
 
     // Lazy initialization
