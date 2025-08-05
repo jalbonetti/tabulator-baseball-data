@@ -17,7 +17,7 @@ export class MatchupsTable extends BaseTable {
         this.subtableConfig = {
             // Container widths
             parkFactorsContainerWidth: 662,  // Was 600px
-            weatherContainerWidth: 508,       // Was 600px
+            weatherContainerWidth: 498,       // Was 600px
             containerGap: 20,                 // Gap between containers
             
             // Park Factors table column widths
@@ -36,7 +36,7 @@ export class MatchupsTable extends BaseTable {
             // Weather table configuration (if converted to table)
             weatherAsTable: false,  // Set to true to use table instead of divs
             weatherColumns: {
-                description: 500    // Weather description column width
+                description: 498    // Weather description column width
             }
         };
     }
@@ -47,7 +47,7 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
-            height: "900px",
+            height: "1080px",
             layout: "fitColumns",
             placeholder: "Loading matchups data...",
             headerVisible: true,
@@ -798,7 +798,7 @@ export class MatchupsTable extends BaseTable {
                         {
                             title: "Name", 
                             field: "name", 
-                            width: 280,
+                            width: 270,
                             headerSort: false,
                             formatter: function(cell) {
                                 const rowData = cell.getRow().getData();
@@ -814,7 +814,7 @@ export class MatchupsTable extends BaseTable {
                                 return `<div style="margin-left: 30px;">${value}</div>`;
                             }
                         },
-                        {title: "Split", field: "split", width: 150, headerSort: false},
+                        {title: "Split", field: "split", width: 140, headerSort: false},
                         {title: "TBF", field: "TBF", width: 70, hozAlign: "center", headerSort: false},
                         {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
                         {title: "H", field: "H", width: 70, hozAlign: "center", headerSort: false},
@@ -1159,7 +1159,7 @@ export class MatchupsTable extends BaseTable {
                     {
                         title: "Type", 
                         field: "name", 
-                        width: 280,
+                        width: 270,
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
@@ -1175,7 +1175,7 @@ export class MatchupsTable extends BaseTable {
                             return `<div style="margin-left: 30px;">${value}</div>`;
                         }
                     },
-                    {title: "Split", field: "split", width: 150, headerSort: false},
+                    {title: "Split", field: "split", width: 140, headerSort: false},
                     {title: "TBF", field: "TBF", width: 70, hozAlign: "center", headerSort: false},
                     {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
                     {title: "H", field: "H", width: 70, hozAlign: "center", headerSort: false},
