@@ -17,12 +17,12 @@ export class MatchupsTable extends BaseTable {
         this.subtableConfig = {
             // Container widths
             parkFactorsContainerWidth: 662,  // Was 600px
-            weatherContainerWidth: 525,       // Was 600px
+            weatherContainerWidth: 523,       // Was 600px
             containerGap: 20,                 // Gap between containers
             
             // Park Factors table column widths
             parkFactorsColumns: {
-                split: 120,    // "Split" column
+                split: 119,    // "Split" column
                 H: 65,         // "H" column
                 "1B": 65,      // "1B" column
                 "2B": 65,      // "2B" column
