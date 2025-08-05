@@ -1,4 +1,4 @@
-// main.js - OPTIMIZED VERSION WITH LAZY LOADING
+// main.js - ENHANCED VERSION WITH SERVICE WORKER
 import { MatchupsTable } from './tables/combinedMatchupsTable.js';
 import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
@@ -11,12 +11,76 @@ import { PitcherPropsTable } from './tables/pitcherProps.js';
 import { GamePropsTable } from './tables/gameProps.js';
 import { TabManager } from './components/tabManager.js';
 import { injectStyles } from './styles/tableStyles.js';
+import { SW_CONFIG } from './shared/config.js';
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('GitHub Pages: DOM ready, initializing modular Tabulator functionality with lazy loading...');
+// Register Service Worker for advanced caching
+async function registerServiceWorker() {
+    if ('serviceWorker' in navigator && SW_CONFIG.enabled) {
+        try {
+            const registration = await navigator.serviceWorker.register('/service-worker.js', {
+                scope: '/'
+            });
+            
+            console.log('Service Worker registered successfully:', registration);
+            
+            // Check for updates every hour
+            setInterval(() => {
+                registration.update();
+            }, 60 * 60 * 1000);
+            
+            // Send periodic cleanup message
+            setInterval(() => {
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'CLEANUP_CACHE'
+                    });
+                }
+            }, 30 * 60 * 1000); // Every 30 minutes
+            
+        } catch (error) {
+            console.error('Service Worker registration failed:', error);
+        }
+    }
+}
+
+// Check if data needs refresh based on cache age
+async function checkDataFreshness() {
+    if ('caches' in window) {
+        try {
+            const cache = await caches.open('tabulator-api-v1');
+            const keys = await cache.keys();
+            
+            for (const request of keys) {
+                const response = await cache.match(request);
+                const cachedAt = response.headers.get('sw-cached-at');
+                
+                if (cachedAt) {
+                    const age = Date.now() - parseInt(cachedAt);
+                    
+                    // If cache is older than 15 minutes, trigger background refresh
+                    if (age > 15 * 60 * 1000) {
+                        console.log('Cache is stale, triggering refresh for:', request.url);
+                        fetch(request.url).catch(() => {}); // Silent background refresh
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error checking cache freshness:', error);
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('GitHub Pages: DOM ready, initializing modular Tabulator functionality with enhanced caching...');
+
+    // Register Service Worker first
+    await registerServiceWorker();
 
     // Inject styles
     injectStyles();
+
+    // Check data freshness
+    checkDataFreshness();
 
     // Check if required element exists
     var tableElement = document.getElementById('batter-table');
@@ -72,7 +136,26 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`Tables initialized in ${measure.duration.toFixed(2)}ms`);
     }
 
-    console.log('Lazy loading setup complete - tables will load on demand');
+    // Monitor memory usage for large datasets
+    if (performance.memory) {
+        setInterval(() => {
+            const used = (performance.memory.usedJSHeapSize / 1048576).toFixed(2);
+            const total = (performance.memory.totalJSHeapSize / 1048576).toFixed(2);
+            console.log(`Memory usage: ${used}MB / ${total}MB`);
+        }, 30000); // Every 30 seconds
+    }
+
+    // Add global error handler for network issues
+    window.addEventListener('online', () => {
+        console.log('Connection restored - refreshing stale data');
+        checkDataFreshness();
+    });
+
+    window.addEventListener('offline', () => {
+        console.log('Connection lost - using cached data');
+    });
+
+    console.log('Enhanced lazy loading setup complete - tables will load on demand with advanced caching');
 });
 
 function createTableElements() {
@@ -202,3 +285,6 @@ window.addEventListener('mouseover', function(e) {
         }
     }
 });
+
+// Export for debugging
+window.tabManager = tabManager;
