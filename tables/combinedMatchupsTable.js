@@ -15,28 +15,39 @@ export class MatchupsTable extends BaseTable {
         
         // UPDATED CONFIGURATION FOR 1200px TABLE WIDTH
         this.subtableConfig = {
-            // Container widths adjusted for 1200px total width (accounting for padding)
-            parkFactorsContainerWidth: 520,  // Reduced to fit within 1200px
-            weatherContainerWidth: 520,       // Reduced to fit within 1200px
+            // Container widths adjusted to fill available space better
+            parkFactorsContainerWidth: 570,  // Increased to fill space
+            weatherContainerWidth: 570,       // Increased to fill space
             containerGap: 20,                 // Gap between containers
             
             // Park Factors table column widths - exact pixel widths
             parkFactorsColumns: {
-                split: 92,     // "Split" column
-                H: 50,         // "H" column
-                "1B": 50,      // "1B" column
-                "2B": 50,      // "2B" column
-                "3B": 50,      // "3B" column
-                HR: 50,        // "HR" column
-                R: 50,         // "R" column
-                BB: 50,        // "BB" column
-                SO: 50         // "SO" column
+                split: 100,    // "Split" column
+                H: 55,         // "H" column
+                "1B": 55,      // "1B" column
+                "2B": 55,      // "2B" column
+                "3B": 55,      // "3B" column
+                HR: 55,        // "HR" column
+                R: 55,         // "R" column
+                BB: 55,        // "BB" column
+                SO: 55         // "SO" column
             },
             
             // Weather table configuration
             weatherAsTable: false,
             weatherColumns: {
-                description: 500    // Weather description column width
+                description: 550    // Weather description column width
+            },
+            
+            // Standardized column widths for all stat tables
+            statTableColumns: {
+                name: 250,      // Name/Type column width
+                split: 150,     // Split column width
+                tbf_pa: 60,     // TBF/PA column width
+                ratio: 70,      // H/TBF, H/PA column width
+                stat: 50,       // H, 1B, 2B, 3B, HR, R, BB column width
+                era_rbi: 60,    // ERA/RBI column width
+                so: 60          // SO column width
             }
         };
     }
