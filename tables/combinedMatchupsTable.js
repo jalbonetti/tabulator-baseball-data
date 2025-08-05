@@ -15,28 +15,28 @@ export class MatchupsTable extends BaseTable {
         
         // UPDATED CONFIGURATION FOR 1200px TABLE WIDTH
         this.subtableConfig = {
-            // Container widths adjusted for 1200px total width
-            parkFactorsContainerWidth: 580,  // Reduced from 662
-            weatherContainerWidth: 580,       // Reduced from 498
+            // Container widths adjusted for 1200px total width (accounting for padding)
+            parkFactorsContainerWidth: 520,  // Reduced to fit within 1200px
+            weatherContainerWidth: 520,       // Reduced to fit within 1200px
             containerGap: 20,                 // Gap between containers
             
-            // Park Factors table column widths - proportionally reduced
+            // Park Factors table column widths - exact pixel widths
             parkFactorsColumns: {
-                split: 104,    // "Split" column
-                H: 57,         // "H" column
-                "1B": 57,      // "1B" column
-                "2B": 57,      // "2B" column
-                "3B": 57,      // "3B" column
-                HR: 57,        // "HR" column
-                R: 57,         // "R" column
-                BB: 57,        // "BB" column
-                SO: 57         // "SO" column
+                split: 92,     // "Split" column
+                H: 50,         // "H" column
+                "1B": 50,      // "1B" column
+                "2B": 50,      // "2B" column
+                "3B": 50,      // "3B" column
+                HR: 50,        // "HR" column
+                R: 50,         // "R" column
+                BB: 50,        // "BB" column
+                SO: 50         // "SO" column
             },
             
             // Weather table configuration
             weatherAsTable: false,
             weatherColumns: {
-                description: 560    // Weather description column width
+                description: 500    // Weather description column width
             }
         };
     }
@@ -152,10 +152,10 @@ export class MatchupsTable extends BaseTable {
 
         const ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
         
-        // Calculate total width for proper containment (1200px - padding)
+        // Calculate total width for proper containment
         const totalWidth = this.subtableConfig.parkFactorsContainerWidth + 
                           this.subtableConfig.weatherContainerWidth + 
-                          this.subtableConfig.containerGap;
+                          this.subtableConfig.containerGap; // Should equal 1060px
 
         // Create the two-column layout
         let tableHTML = `
@@ -307,7 +307,7 @@ export class MatchupsTable extends BaseTable {
             ];
 
             new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataStretch", // Changed to fitDataStretch
+                layout: "fitData", // Changed from fitDataStretch
                 width: "100%",
                 data: sortedParkFactors.map(pf => ({
                     split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
@@ -374,13 +374,13 @@ export class MatchupsTable extends BaseTable {
                 }];
 
                 const pitcherTable = new Tabulator(`#pitcher-stats-subtable-${data["Matchup Game ID"]}`, {
-                    layout: "fitDataStretch", // Changed to fitDataStretch
+                    layout: "fitData", // Changed from fitDataStretch
                     data: tableData,
                     columns: [
                         {
                             title: "Name", 
                             field: "name", 
-                            widthGrow: 2, // Changed from fixed width
+                            width: 200, // Fixed width
                             headerSort: false,
                             formatter: function(cell) {
                                 const rowData = cell.getRow().getData();
@@ -396,18 +396,18 @@ export class MatchupsTable extends BaseTable {
                                 return `<div style="margin-left: 30px;">${value}</div>`;
                             }
                         },
-                        {title: "Split", field: "split", widthGrow: 1.5, headerSort: false},
-                        {title: "TBF", field: "TBF", widthGrow: 0.7, hozAlign: "center", headerSort: false},
-                        {title: "H/TBF", field: "H/TBF", widthGrow: 0.7, hozAlign: "center", headerSort: false},
-                        {title: "H", field: "H", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                        {title: "1B", field: "1B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                        {title: "2B", field: "2B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                        {title: "3B", field: "3B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                        {title: "HR", field: "HR", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                        {title: "R", field: "R", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                        {title: "ERA", field: "ERA", widthGrow: 0.7, hozAlign: "center", headerSort: false},
-                        {title: "BB", field: "BB", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                        {title: "SO", field: "SO", widthGrow: 0.6, hozAlign: "center", headerSort: false}
+                        {title: "Split", field: "split", width: 140, headerSort: false},
+                        {title: "TBF", field: "TBF", width: 60, hozAlign: "center", headerSort: false},
+                        {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
+                        {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
+                        {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
+                        {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
+                        {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
+                        {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
+                        {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
+                        {title: "ERA", field: "ERA", width: 60, hozAlign: "center", headerSort: false},
+                        {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
+                        {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
                     ],
                     height: false,
                     headerHeight: 30,
@@ -557,13 +557,13 @@ export class MatchupsTable extends BaseTable {
                 });
 
             const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataStretch", // Changed to fitDataStretch
+                layout: "fitData", // Changed from fitDataStretch
                 data: tableData,
                 columns: [
                     {
                         title: "Name", 
                         field: "name", 
-                        widthGrow: 2, // Changed from fixed width
+                        width: 200, // Fixed width
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
@@ -579,18 +579,18 @@ export class MatchupsTable extends BaseTable {
                             return `<div style="margin-left: 30px;">${value}</div>`;
                         }
                     },
-                    {title: "Split", field: "split", widthGrow: 1.5, headerSort: false},
-                    {title: "PA", field: "PA", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "H/PA", field: "H/PA", widthGrow: 0.7, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "RBI", field: "RBI", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", widthGrow: 0.6, hozAlign: "center", headerSort: false}
+                    {title: "Split", field: "split", width: 140, headerSort: false},
+                    {title: "PA", field: "PA", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "H/PA", field: "H/PA", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "RBI", field: "RBI", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
                 ],
                 height: false,
                 headerHeight: 30,
@@ -725,13 +725,13 @@ export class MatchupsTable extends BaseTable {
             });
 
             const bullpenTable = new Tabulator(`#bullpen-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataStretch", // Changed to fitDataStretch
+                layout: "fitData", // Changed from fitDataStretch
                 data: tableData,
                 columns: [
                     {
                         title: "Type", 
                         field: "name", 
-                        widthGrow: 2, // Changed from fixed width
+                        width: 200, // Fixed width
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
@@ -747,18 +747,18 @@ export class MatchupsTable extends BaseTable {
                             return `<div style="margin-left: 30px;">${value}</div>`;
                         }
                     },
-                    {title: "Split", field: "split", widthGrow: 1.5, headerSort: false},
-                    {title: "TBF", field: "TBF", widthGrow: 0.7, hozAlign: "center", headerSort: false},
-                    {title: "H/TBF", field: "H/TBF", widthGrow: 0.7, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "ERA", field: "ERA", widthGrow: 0.7, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", widthGrow: 0.6, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", widthGrow: 0.6, hozAlign: "center", headerSort: false}
+                    {title: "Split", field: "split", width: 140, headerSort: false},
+                    {title: "TBF", field: "TBF", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
+                    {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "ERA", field: "ERA", width: 60, hozAlign: "center", headerSort: false},
+                    {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
+                    {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
                 ],
                 height: false,
                 headerHeight: 30,
@@ -837,7 +837,7 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
-            height: "1080px",
+            height: "600px", // Reduced from 1080px
             layout: "fitColumns",
             placeholder: "Loading matchups data...",
             headerVisible: true,
