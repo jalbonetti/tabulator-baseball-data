@@ -798,7 +798,7 @@ export class MatchupsTable extends BaseTable {
                         {
                             title: "Name", 
                             field: "name", 
-                            width: 270,
+                            width: 268,
                             headerSort: false,
                             formatter: function(cell) {
                                 const rowData = cell.getRow().getData();
@@ -986,7 +986,7 @@ export class MatchupsTable extends BaseTable {
                     {
                         title: "Name", 
                         field: "name", 
-                        width: 270,
+                        width: 268,
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
@@ -1159,7 +1159,7 @@ export class MatchupsTable extends BaseTable {
                     {
                         title: "Type", 
                         field: "name", 
-                        width: 270,
+                        width: 268,
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
