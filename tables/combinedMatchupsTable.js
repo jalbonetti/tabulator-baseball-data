@@ -16,8 +16,8 @@ export class MatchupsTable extends BaseTable {
         // CONFIGURABLE WIDTHS - Easily modify these values
         this.subtableConfig = {
             // Container widths
-            parkFactorsContainerWidth: 665,  // Was 600px
-            weatherContainerWidth: 510,       // Was 600px
+            parkFactorsContainerWidth: 663,  // Was 600px
+            weatherContainerWidth: 530,       // Was 600px
             containerGap: 20,                 // Gap between containers
             
             // Park Factors table column widths
