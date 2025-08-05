@@ -1,4 +1,4 @@
-// tables/batterClearancesAltTable.js - OPTIMIZED VERSION
+// tables/batterClearancesAltTable.js - ENHANCED VERSION FOR LARGE DATASETS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -11,15 +11,21 @@ export class BatterClearancesAltTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
-            // Remove progressive loading to improve performance
-            progressiveLoad: false,
-            progressiveLoadDelay: null,
-            progressiveLoadScrollMargin: null,
-            // Add performance optimizations
-            virtualDom: true, // Re-enable for large dataset
-            virtualDomBuffer: 100, // Reduced buffer
+            // Optimize for large datasets
+            virtualDom: true, // Essential for 40k records
+            virtualDomBuffer: 500, // Increased buffer for smoother scrolling
             renderVertical: "virtual", // Virtual rendering for performance
-            placeholder: "Loading all batter clearance alt records...",
+            renderHorizontal: "virtual",
+            // Remove pagination - we want all data loaded
+            pagination: false,
+            paginationSize: false,
+            // Optimize rendering
+            layoutColumnsOnNewData: false,
+            responsiveLayout: false,
+            // Large dataset specific settings
+            maxHeight: "600px",
+            height: "600px",
+            placeholder: "Loading batter clearance alt records... This may take a moment for large datasets.",
             columns: this.getColumns(),
             initialSort: [
                 {column: "Batter Name", dir: "asc"},
@@ -27,15 +33,119 @@ export class BatterClearancesAltTable extends BaseTable {
                 {column: "Batter Prop Type", dir: "asc"},
                 {column: "Batter Prop Value", dir: "asc"}
             ],
-            rowFormatter: this.createRowFormatter()
+            rowFormatter: this.createRowFormatter(),
+            // Add data loaded callback for large datasets
+            dataLoaded: (data) => {
+                console.log(`BatterClearancesAlt loaded ${data.length} records successfully`);
+                this.dataLoaded = true;
+                
+                // Initialize expanded state for all rows
+                data.forEach(row => {
+                    if (row._expanded === undefined) {
+                        row._expanded = false;
+                    }
+                });
+                
+                // Update any loading indicators
+                const element = document.querySelector(this.elementId);
+                if (element) {
+                    const loadingDiv = element.querySelector('.loading-indicator');
+                    if (loadingDiv) {
+                        loadingDiv.remove();
+                    }
+                }
+                
+                // Trigger initial render optimization
+                setTimeout(() => {
+                    if (this.table) {
+                        this.table.redraw(true);
+                    }
+                }, 100);
+            },
+            // Add data loading error handler
+            ajaxError: (error) => {
+                console.error("Error loading BatterClearancesAlt data:", error);
+                const element = document.querySelector(this.elementId);
+                if (element) {
+                    element.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: red;">
+                            Error loading data. Please refresh the page or try again later.
+                            <br>
+                            <button onclick="location.reload()">Refresh Page</button>
+                        </div>
+                    `;
+                }
+            }
         };
+
+        // Create loading indicator for large dataset
+        const element = document.querySelector(this.elementId);
+        if (element && !element.querySelector('.loading-indicator')) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-indicator';
+            loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center;';
+            loadingDiv.innerHTML = `
+                <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
+                <div>Loading data...</div>
+                <div style="font-size: 12px; color: #666; margin-top: 10px;">This table contains many records and may take a moment to load.</div>
+            `;
+            element.appendChild(loadingDiv);
+        }
 
         this.table = new Tabulator(this.elementId, config);
         this.setupRowExpansion();
         
         this.table.on("tableBuilt", () => {
             console.log("Batter Clearances Alt table built successfully");
+            
+            // Add refresh button for manual cache refresh
+            this.addRefreshButton();
         });
+        
+        // Optimize scroll performance for large datasets
+        this.table.on("scrollVertical", () => {
+            // Debounce scroll events
+            if (this.scrollTimeout) {
+                clearTimeout(this.scrollTimeout);
+            }
+            
+            this.scrollTimeout = setTimeout(() => {
+                // Force garbage collection hint
+                if (window.gc) {
+                    window.gc();
+                }
+            }, 300);
+        });
+    }
+
+    // Add refresh button to manually clear cache and reload data
+    addRefreshButton() {
+        const headerElement = document.querySelector(`${this.elementId} .tabulator-header`);
+        if (headerElement && !headerElement.querySelector('.refresh-button')) {
+            const refreshButton = document.createElement('button');
+            refreshButton.className = 'refresh-button';
+            refreshButton.style.cssText = 'position: absolute; right: 10px; top: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; z-index: 100;';
+            refreshButton.textContent = 'Refresh Data';
+            refreshButton.title = 'Clear cache and reload data from server';
+            
+            refreshButton.addEventListener('click', async () => {
+                refreshButton.disabled = true;
+                refreshButton.textContent = 'Refreshing...';
+                
+                try {
+                    await this.refreshData();
+                    refreshButton.textContent = 'Refresh Data';
+                } catch (error) {
+                    console.error('Error refreshing data:', error);
+                    refreshButton.textContent = 'Error - Try Again';
+                } finally {
+                    refreshButton.disabled = false;
+                }
+            });
+            
+            headerElement.style.position = 'relative';
+            headerElement.appendChild(refreshButton);
+        }
     }
 
     getPlayerLocation(matchup, playerTeam) {
