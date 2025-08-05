@@ -1,9 +1,9 @@
-// styles/tableStyles.js - FIXED VERSION WITH PROPER WIDTH HANDLING
+// styles/tableStyles.js - UPDATED VERSION WITHOUT BACKGROUND IMAGE
 export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
-        matchups: '1200px',
-        batterClearances: '1200px',     // Updated to match your header width
+        matchups: '1200px',      // Updated to 1200px as requested
+        batterClearances: '1200px',     
         batterClearancesAlt: '1200px',  
         pitcherClearances: '1200px',    
         pitcherClearancesAlt: '1200px', 
@@ -71,7 +71,7 @@ export function injectStyles() {
             z-index: 10;
             position: sticky !important;
             top: 0 !important;
-            background: transparent !important; /* Changed from white */
+            background: transparent !important; /* Transparent to show website background */
             padding: 10px 0 !important;
             width: fit-content !important; /* Only as wide as needed */
             max-width: 100% !important;
@@ -109,9 +109,9 @@ export function injectStyles() {
             border-color: #007bff;
         }
         
-        /* Table container styling - FIT CONTENT WIDTH */
+        /* Table container styling - FIT CONTENT WIDTH, NO BACKGROUND */
         .tables-container {
-            width: fit-content !important; /* Changed from 100% */
+            width: fit-content !important; /* Only as wide as content */
             max-width: 100% !important; /* Prevent overflow */
             position: relative !important;
             display: flex !important;
@@ -120,19 +120,16 @@ export function injectStyles() {
             overflow-x: visible !important;
         }
         
-        /* All table containers - fit content approach */
+        /* All table containers - fit content, no background image */
         .table-container {
-            width: fit-content !important; /* Changed from 100% */
-            background-image: url('https://cdn.prod.website-files.com/6853385d00d0191723429bab/68535f3f476035eec0c40452_unnamed%20(1).jpg');
-            background-repeat: repeat;
-            background-position: center center;
-            background-size: auto;
-            background-attachment: fixed;
-            padding: 20px !important; /* Added padding for visual space */
+            width: fit-content !important; /* Only as wide as table */
+            /* REMOVED background-image property */
+            background: transparent !important; /* Transparent to show website background */
+            padding: 20px !important; /* Padding for visual space */
             position: relative !important;
-            overflow-x: visible !important; /* Changed from auto */
+            overflow-x: visible !important;
             overflow-y: visible !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; /* Add shadow for definition */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; /* Shadow for definition */
             border-radius: 8px !important; /* Rounded corners */
         }
         
@@ -164,32 +161,32 @@ export function injectStyles() {
         .subrow-container {
             position: relative !important;
             z-index: 1 !important;
-            overflow: hidden !important; /* Changed from visible to prevent gaps */
+            overflow: hidden !important; /* Prevent gaps */
             margin: 10px -10px !important; /* Negative margin to extend to edges */
             min-height: 0 !important;
             max-height: none !important;
             width: calc(100% + 20px) !important; /* Compensate for negative margins */
             display: block !important;
             background: #f8f9fa !important;
-            padding: 15px !important; /* Increased padding */
-            box-shadow: inset 0 0 4px rgba(0,0,0,0.1) !important; /* Inner shadow */
+            padding: 15px !important;
+            box-shadow: inset 0 0 4px rgba(0,0,0,0.1) !important;
         }
         
         /* Ensure subtables fill their container properly */
         .subrow-container .tabulator {
-            overflow: hidden !important; /* Changed from visible */
+            overflow: hidden !important;
             height: auto !important;
             max-height: none !important;
-            margin: 0 !important; /* Remove margins */
+            margin: 0 !important;
             width: 100% !important;
             display: block !important;
             min-width: 100% !important;
-            box-sizing: border-box !important; /* Include padding in width */
+            box-sizing: border-box !important;
         }
         
         /* Fix subtable table holders */
         .subrow-container .tabulator .tabulator-tableHolder {
-            overflow: hidden !important; /* Prevent scrollbars */
+            overflow: hidden !important;
             max-height: none !important;
             height: auto !important;
             width: 100% !important;
@@ -201,10 +198,10 @@ export function injectStyles() {
             z-index: auto !important;
         }
         
-        /* Table-specific widths with proper constraints */
+        /* Table-specific widths - Matchups now 1200px */
         #matchups-table {
             width: ${TABLE_WIDTHS.matchups} !important;
-            max-width: 100% !important; /* Prevent overflow on small screens */
+            max-width: 100% !important;
             margin: 0 !important;
             background: white !important;
             position: relative !important;
@@ -263,7 +260,7 @@ export function injectStyles() {
         .tabulator {
             width: 100% !important; /* Fill parent container */
             max-width: 100% !important;
-            overflow: visible !important; /* Allow content to determine height */
+            overflow: visible !important;
         }
         
         /* Fix active/inactive table visibility */
@@ -339,7 +336,7 @@ export function injectStyles() {
         #pitcher-props-table .tabulator-tableHolder,
         #game-props-table .tabulator-tableHolder {
             overflow-y: auto !important;
-            overflow-x: hidden !important; /* Prevent horizontal scroll in table holder */
+            overflow-x: hidden !important;
             max-height: calc(600px - 50px) !important;
             -webkit-overflow-scrolling: touch !important;
         }
@@ -354,9 +351,9 @@ export function injectStyles() {
         /* Ensure proper table display */
         .tabulator-table {
             display: table !important;
-            width: 100% !important; /* Fill container */
+            width: 100% !important;
             min-width: 100% !important;
-            table-layout: fixed !important; /* Fixed layout for predictable widths */
+            table-layout: fixed !important;
         }
 
         /* Force table rows to be visible */
@@ -372,7 +369,7 @@ export function injectStyles() {
         
         /* Critical: Subtable specific width fixes */
         .subrow-container .tabulator-table {
-            table-layout: fixed !important; /* Force fixed layout */
+            table-layout: fixed !important;
             width: 100% !important;
             min-width: 100% !important;
         }
@@ -380,7 +377,7 @@ export function injectStyles() {
         /* Ensure subtable cells respect their defined widths */
         .subrow-container .tabulator-cell {
             box-sizing: border-box !important;
-            padding: 4px 8px !important; /* Consistent padding */
+            padding: 4px 8px !important;
         }
         
         /* Remove any default margins on subtables that might cause gaps */
@@ -403,22 +400,188 @@ export function injectStyles() {
             z-index: 10 !important;
         }
         
-        /* ... rest of existing styles ... */
+        .tabulator .tabulator-header .tabulator-col {
+            overflow: visible !important;
+            position: relative !important;
+            z-index: 11 !important;
+        }
+        
+        .tabulator .tabulator-header .tabulator-col .tabulator-header-filter {
+            overflow: visible !important;
+            position: relative !important;
+            z-index: 12 !important;
+        }
+        
+        /* Table body MUST have lower z-index */
+        .tabulator .tabulator-tableHolder {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
+        /* Make sure rows don't overflow and cover dropdowns */
+        .tabulator .tabulator-table {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
+        /* Custom multiselect styling with high z-index */
+        .custom-multiselect {
+            position: relative !important;
+            width: 100% !important;
+            z-index: 13 !important;
+        }
+        
+        .custom-multiselect-button {
+            width: 100% !important;
+            padding: 4px 8px !important;
+            border: 1px solid #ccc !important;
+            background: white !important;
+            cursor: pointer !important;
+            font-size: 11px !important;
+            user-select: none !important;
+            pointer-events: auto !important;
+            position: relative !important;
+            z-index: 14 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+        
+        .custom-multiselect-button:hover {
+            background: #f8f9fa !important;
+            border-color: #007bff !important;
+        }
+        
+        /* CRITICAL: Dropdown must be at highest z-index */
+        .custom-multiselect-dropdown {
+            position: fixed !important;
+            min-width: 200px !important;
+            background: white !important;
+            border: 2px solid #007bff !important;
+            max-height: 250px !important;
+            overflow-y: auto !important;
+            z-index: 9999 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+            border-radius: 4px !important;
+        }
+        
+        /* ... rest of dropdown styles ... */
+        
+        /* Alternating row colors */
+        .tabulator .tabulator-tableHolder .tabulator-table .tabulator-row:nth-child(even) {
+            background-color: #f8f9fa !important;
+        }
+        
+        .tabulator .tabulator-tableHolder .tabulator-table .tabulator-row:nth-child(odd) {
+            background-color: #ffffff !important;
+        }
+        
+        .tabulator .tabulator-tableHolder .tabulator-table .tabulator-row:nth-child(even):hover {
+            background-color: #e9ecef !important;
+        }
+        
+        .tabulator .tabulator-tableHolder .tabulator-table .tabulator-row:nth-child(odd):hover {
+            background-color: #f8f9fa !important;
+        }
+        
+        /* Center header text */
+        .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+            text-align: center !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 50px !important;
+        }
+        
+        .tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title {
+            text-align: center !important;
+            line-height: 1.2 !important;
+        }
+        
+        /* Center cell content */
+        .tabulator .tabulator-cell {
+            text-align: center !important;
+        }
+        
+        .tabulator .tabulator-cell .tabulator-cell-value {
+            text-align: center !important;
+            width: 100% !important;
+        }
+        
+        /* Left align name/team columns */
+        .tabulator .tabulator-cell[tabulator-field="Batter Name"],
+        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"],
+        .tabulator .tabulator-cell[tabulator-field="Matchup Team"] {
+            text-align: left !important;
+        }
+        
+        .tabulator .tabulator-cell[tabulator-field="Batter Name"] .tabulator-cell-value,
+        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"] .tabulator-cell-value,
+        .tabulator .tabulator-cell[tabulator-field="Matchup Team"] .tabulator-cell-value {
+            text-align: left !important;
+        }
+        
+        /* Matchups subtables - unified scroll approach */
+        #matchups-table .subrow-container {
+            width: 100% !important;
+            overflow: visible !important;
+        }
+        
+        /* Remove sticky headers from subtables */
+        .subrow-container .tabulator .tabulator-header {
+            position: relative !important;
+            top: auto !important;
+            z-index: 1 !important;
+            background: #f8f9fa !important;
+            border-bottom: 1px solid #ddd !important;
+        }
+        
+        /* Subtable tables should size naturally */
+        .subrow-container .tabulator .tabulator-table {
+            table-layout: auto !important;
+            width: max-content !important;
+            min-width: 100% !important;
+        }
+        
+        /* Frozen columns styling */
+        .tabulator .tabulator-frozen {
+            position: sticky !important;
+            left: 0 !important;
+            z-index: 10 !important;
+            background: white !important;
+            border-right: 2px solid #ddd !important;
+        }
+        
+        .tabulator .tabulator-frozen-left {
+            box-shadow: 3px 0 5px rgba(0,0,0,0.1) !important;
+        }
         
         /* Mobile responsive adjustments */
         @media (max-width: 768px) {
             .table-container {
                 padding: 10px !important;
-                border-radius: 0 !important; /* Remove rounded corners on mobile */
+                border-radius: 0 !important;
             }
             
             .tabs-container {
-                width: 100% !important; /* Full width on mobile */
+                width: 100% !important;
             }
             
-            /* Allow horizontal scroll on mobile */
             .table-wrapper {
                 overflow-x: auto !important;
+            }
+            
+            #matchups-table .tabulator-tableHolder,
+            #batter-table .tabulator-tableHolder,
+            #batter-table-alt .tabulator-tableHolder,
+            #pitcher-table .tabulator-tableHolder,
+            #pitcher-table-alt .tabulator-tableHolder,
+            #mod-batter-stats-table .tabulator-tableHolder,
+            #mod-pitcher-stats-table .tabulator-tableHolder,
+            #batter-props-table .tabulator-tableHolder,
+            #pitcher-props-table .tabulator-tableHolder,
+            #game-props-table .tabulator-tableHolder {
+                max-height: calc(400px - 50px) !important;
             }
         }
     `;
