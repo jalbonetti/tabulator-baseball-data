@@ -27,7 +27,7 @@ export class BaseTable {
             persistence: false,
             paginationSize: false,
             height: "600px",
-            minWidth: 1900,
+            minWidth: 1500,
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
