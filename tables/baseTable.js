@@ -133,7 +133,7 @@ export class BaseTable {
             responsiveLayout: false,
             persistence: false,
             paginationSize: false,
-            height: "600px",
+            height: "1000px",
             minWidth: 1000,
             resizableColumns: false,
             resizableRows: false,
