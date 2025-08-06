@@ -1,4 +1,4 @@
-// tables/batterClearancesAltTable.js - ENHANCED VERSION FOR LARGE DATASETS
+// tables/batterClearancesAltTable.js - FIXED VERSION (NO REFRESH BUTTON, WORKING SUBTABLES)
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -54,13 +54,6 @@ export class BatterClearancesAltTable extends BaseTable {
                         loadingDiv.remove();
                     }
                 }
-                
-                // Trigger initial render optimization
-                setTimeout(() => {
-                    if (this.table) {
-                        this.table.redraw(true);
-                    }
-                }, 100);
             },
             // Add data loading error handler
             ajaxError: (error) => {
@@ -97,9 +90,7 @@ export class BatterClearancesAltTable extends BaseTable {
         
         this.table.on("tableBuilt", () => {
             console.log("Batter Clearances Alt table built successfully");
-            
-            // Add refresh button for manual cache refresh
-            this.addRefreshButton();
+            // REMOVED: addRefreshButton call
         });
         
         // Optimize scroll performance for large datasets
@@ -118,35 +109,7 @@ export class BatterClearancesAltTable extends BaseTable {
         });
     }
 
-    // Add refresh button to manually clear cache and reload data
-    addRefreshButton() {
-        const headerElement = document.querySelector(`${this.elementId} .tabulator-header`);
-        if (headerElement && !headerElement.querySelector('.refresh-button')) {
-            const refreshButton = document.createElement('button');
-            refreshButton.className = 'refresh-button';
-            refreshButton.style.cssText = 'position: absolute; right: 10px; top: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; z-index: 100;';
-            refreshButton.textContent = 'Refresh Data';
-            refreshButton.title = 'Clear cache and reload data from server';
-            
-            refreshButton.addEventListener('click', async () => {
-                refreshButton.disabled = true;
-                refreshButton.textContent = 'Refreshing...';
-                
-                try {
-                    await this.refreshData();
-                    refreshButton.textContent = 'Refresh Data';
-                } catch (error) {
-                    console.error('Error refreshing data:', error);
-                    refreshButton.textContent = 'Error - Try Again';
-                } finally {
-                    refreshButton.disabled = false;
-                }
-            });
-            
-            headerElement.style.position = 'relative';
-            headerElement.appendChild(refreshButton);
-        }
-    }
+    // REMOVED: addRefreshButton method entirely
 
     getPlayerLocation(matchup, playerTeam) {
         if (!matchup || !playerTeam) return "Home/Away";
@@ -287,6 +250,188 @@ export class BatterClearancesAltTable extends BaseTable {
         ];
     }
 
+    // Override setupRowExpansion to properly handle click events
+    setupRowExpansion() {
+        if (!this.table) return;
+        
+        this.table.on("cellClick", (e, cell) => {
+            const field = cell.getField();
+            
+            if (field === "Batter Name") {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                var row = cell.getRow();
+                var data = row.getData();
+                var rowElement = row.getElement();
+                
+                // Initialize if undefined
+                if (data._expanded === undefined) {
+                    data._expanded = false;
+                }
+                
+                // Toggle expansion
+                data._expanded = !data._expanded;
+                
+                // Update the row data
+                row.update(data);
+                
+                // Use requestAnimationFrame for smooth updates
+                requestAnimationFrame(() => {
+                    // Reformat the row to trigger the rowFormatter
+                    row.reformat();
+                    
+                    // Update expander icon
+                    requestAnimationFrame(() => {
+                        try {
+                            var cellElement = cell.getElement();
+                            if (cellElement) {
+                                var expanderIcon = cellElement.querySelector('.row-expander');
+                                if (expanderIcon) {
+                                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                }
+                            }
+                        } catch (error) {
+                            console.error("Error updating expander icon:", error);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    // Override the createRowFormatter to ensure subtables work
+    createRowFormatter() {
+        const self = this;
+        
+        return (row) => {
+            var data = row.getData();
+            var rowElement = row.getElement();
+            
+            // Initialize _expanded if undefined
+            if (data._expanded === undefined) {
+                data._expanded = false;
+            }
+            
+            // Add/remove expanded class
+            if (data._expanded) {
+                rowElement.classList.add('row-expanded');
+            } else {
+                rowElement.classList.remove('row-expanded');
+            }
+            
+            // Handle expansion
+            if (data._expanded) {
+                // Check if subtables already exist
+                let existingSubrow = rowElement.querySelector('.subrow-container');
+                
+                if (!existingSubrow) {
+                    // Create container for subtables
+                    var holderEl = document.createElement("div");
+                    holderEl.classList.add('subrow-container');
+                    holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%;';
+                    
+                    var subtable1 = document.createElement("div");
+                    subtable1.style.marginBottom = "15px";
+                    var subtable2 = document.createElement("div");
+                    
+                    holderEl.appendChild(subtable1);
+                    holderEl.appendChild(subtable2);
+                    rowElement.appendChild(holderEl);
+                    
+                    // Create subtables with error handling
+                    try {
+                        self.createSubtable1(subtable1, data);
+                    } catch (error) {
+                        console.error("Error creating subtable1:", error);
+                        subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                    }
+                    
+                    try {
+                        self.createSubtable2(subtable2, data);
+                    } catch (error) {
+                        console.error("Error creating subtable2:", error);
+                        subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                    }
+                    
+                    // Force row height recalculation
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                    }, 100);
+                }
+            } else {
+                // Handle contraction
+                var existingSubrow = rowElement.querySelector('.subrow-container');
+                if (existingSubrow) {
+                    existingSubrow.remove();
+                    rowElement.classList.remove('row-expanded');
+                    
+                    // Force row height recalculation
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                    }, 50);
+                }
+            }
+        };
+    }
+
+    // Override createSubtable1 for proper data display
+    createSubtable1(container, data) {
+        const matchup = data["Matchup"] || "";
+        const batterTeam = data["Batter Team"];
+        
+        let location = "Unknown";
+        if (matchup.includes(" @ ")) {
+            const teams = matchup.split(" @ ");
+            if (teams.length === 2) {
+                const awayTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
+                const homeTeam = teams[1].trim().match(/\b[A-Z]{2,4}\b/);
+                
+                if (awayTeam && awayTeam[0] === batterTeam) {
+                    location = "Away";
+                } else if (homeTeam && homeTeam[0] === batterTeam) {
+                    location = "Home";
+                }
+            }
+        } else if (matchup.includes(" vs ")) {
+            const teams = matchup.split(" vs ");
+            if (teams.length === 2) {
+                const homeTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
+                const awayTeam = teams[1].trim().match(/\b[A-Z]{2,4}\b/);
+                
+                if (homeTeam && homeTeam[0] === batterTeam) {
+                    location = "Home";
+                } else if (awayTeam && awayTeam[0] === batterTeam) {
+                    location = "Away";
+                }
+            }
+        }
+        
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            height: false,
+            virtualDom: false,
+            data: [{
+                propFactor: data["Batter Prop Park Factor"] || "-",
+                lineupStatus: (data["Lineup Status"] || "-") + ": " + (data["Batting Position"] || "-"),
+                location: location,
+                matchup: data["Matchup"] || "-",
+                opposingPitcher: data["SP"] || "-"
+            }],
+            columns: [
+                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 200},
+                {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 180},
+                {title: "Location", field: "location", headerSort: false, width: 100},
+                {title: "Matchup", field: "matchup", headerSort: false, width: 250},
+                {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 200}
+            ]
+        });
+    }
+
     createSubtable2(container, data) {
         try {
             var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
@@ -320,15 +465,15 @@ export class BatterClearancesAltTable extends BaseTable {
             
             var tableData = [
                 {
-                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                    player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Righties",
                     propData: data["Batter Prop Total R"] || "-"
                 },
                 {
-                    player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                    player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Lefties",
                     propData: data["Batter Prop Total L"] || "-"
                 },
                 {
-                    player: data["SP"] + " Versus " + spVersusText,
+                    player: (data["SP"] || "Unknown SP") + " Versus " + spVersusText,
                     propData: data["SP Prop Total"] || "-"
                 },
                 {
@@ -347,6 +492,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 resizableColumns: false,
                 resizableRows: false,
                 movableColumns: false,
+                virtualDom: false,
+                height: false,
                 data: tableData,
                 columns: [
                     {title: "Players", field: "player", headerSort: false, resizable: false, width: 350},
