@@ -117,6 +117,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         table9: table9
     });
 
+    // Export for debugging - MOVED INSIDE THE FUNCTION WHERE tabManager IS DEFINED
+    window.tabManager = tabManager;
+
     // Create tab structure
     tabManager.createTabStructure(tableElement);
 
@@ -283,16 +286,5 @@ window.addEventListener('mouseover', function(e) {
                 table.getBaseConfig();
             }
         }
-    }
-});
-
-// Export for debugging
-window.tabManager = tabManager;
-// Add this to main.js after initializing the TabManager for debugging
-window.addEventListener('click', (e) => {
-    if (e.target.classList.contains('tab-button')) {
-        console.log('=== Tab Switch Debug Info ===');
-        console.log('Current tab expanded rows:', window.tabManager?.expandedRowsStates);
-        console.log('Current tab scroll positions:', window.tabManager?.scrollPositions);
     }
 });
