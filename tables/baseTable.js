@@ -520,7 +520,7 @@ export class BaseTable {
         }
     }
 
-    // Save table state before switching away
+  // Save table state before switching away
     saveState() {
         if (!this.table) return;
         
@@ -535,6 +535,11 @@ export class BaseTable {
         this.expandedRowsSet.clear();
         const rows = this.table.getRows();
         
+        // Initialize metadata map if it doesn't exist
+        if (!this.expandedRowsMetadata) {
+            this.expandedRowsMetadata = new Map();
+        }
+        
         rows.forEach(row => {
             const data = row.getData();
             if (data._expanded) {
@@ -547,9 +552,6 @@ export class BaseTable {
                 const hasSubrow = rowElement.querySelector('.subrow-container') !== null;
                 
                 // Store additional metadata
-                if (!this.expandedRowsMetadata) {
-                    this.expandedRowsMetadata = new Map();
-                }
                 this.expandedRowsMetadata.set(id, {
                     hasSubrow: hasSubrow,
                     data: data
@@ -560,7 +562,7 @@ export class BaseTable {
         console.log(`Saved ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
     }
 
- // Restore table state when switching back
+    // Restore table state when switching back
     restoreState() {
         if (!this.table) return;
         
@@ -642,7 +644,7 @@ export class BaseTable {
                         // Now reformat to recreate the subrow
                         row.reformat();
                         
-                        // If the row didn't have a subrow before, try again
+                        // If the row should have had a subrow, try again if it's not there
                         if (hadSubrow) {
                             setTimeout(() => {
                                 const newSubrow = rowElement.querySelector('.subrow-container');
@@ -673,6 +675,8 @@ export class BaseTable {
                     tableHolder.scrollTop = this.lastScrollPosition;
                 }
             }, 400);
+        });
+    }
 
     // Cleanup method to free memory
     destroy() {
