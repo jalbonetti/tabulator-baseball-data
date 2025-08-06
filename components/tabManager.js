@@ -1,4 +1,4 @@
-// components/tabManager.js - FIXED VERSION WITH PROPER STATE RESTORATION FOR ALL TABLES
+// components/tabManager.js - FIXED VERSION WITH PROPER STATE PRESERVATION FOR ALL TABLES
 export class TabManager {
     constructor(tables) {
         this.tables = tables; // { table0: tableInstance, table1: tableInstance, ..., table9: tableInstance }
@@ -117,8 +117,10 @@ export class TabManager {
         const tableWrapper = this.tables[this.currentActiveTab];
         
         if (tableWrapper && tableWrapper.isInitialized) {
-            // Use the table's built-in save state method if available
-            if (tableWrapper.saveState) {
+            console.log(`Saving state for ${this.currentActiveTab}`);
+            
+            // Call the table's saveState method if it exists
+            if (typeof tableWrapper.saveState === 'function') {
                 tableWrapper.saveState();
             }
             
@@ -199,13 +201,28 @@ export class TabManager {
         if (tableWrapper && tableWrapper.isInitialized) {
             console.log(`Restoring state for ${tabId}`);
             
-            // Use the table's built-in restore method if available
-            if (tableWrapper.restoreState) {
+            // Call the table's restoreState method if it exists
+            if (typeof tableWrapper.restoreState === 'function') {
                 tableWrapper.restoreState();
-                return;
+                
+                // Also restore scroll position after table's own restoration
+                setTimeout(() => {
+                    const scrollPos = this.scrollPositions[tabId];
+                    if (scrollPos !== undefined) {
+                        const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+                        if (table) {
+                            const tableHolder = table.element.querySelector('.tabulator-tableHolder');
+                            if (tableHolder) {
+                                tableHolder.scrollTop = scrollPos;
+                            }
+                        }
+                    }
+                }, 500);
+                
+                return; // Let the table handle its own restoration
             }
             
-            // Get the actual Tabulator instance
+            // Fallback restoration if table doesn't have its own method
             const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
             if (!table) return;
             
