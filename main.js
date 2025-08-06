@@ -288,3 +288,11 @@ window.addEventListener('mouseover', function(e) {
 
 // Export for debugging
 window.tabManager = tabManager;
+// Add this to main.js after initializing the TabManager for debugging
+window.addEventListener('click', (e) => {
+    if (e.target.classList.contains('tab-button')) {
+        console.log('=== Tab Switch Debug Info ===');
+        console.log('Current tab expanded rows:', window.tabManager?.expandedRowsStates);
+        console.log('Current tab scroll positions:', window.tabManager?.scrollPositions);
+    }
+});
