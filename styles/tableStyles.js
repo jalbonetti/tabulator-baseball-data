@@ -3,15 +3,15 @@ export function injectStyles() {
     // EASILY CONFIGURABLE TABLE WIDTHS - Adjust these values as needed
     const TABLE_WIDTHS = {
         matchups: '1200px',      // Updated to 1200px as requested
-        batterClearances: '1200px',     
-        batterClearancesAlt: '1200px',  
-        pitcherClearances: '1200px',    
-        pitcherClearancesAlt: '1200px', 
-        batterStats: '1900px',          
-        pitcherStats: '1900px',         
-        batterProps: '1900px',          
-        pitcherProps: '1900px',         
-        gameProps: '1900px'             
+        batterClearances: '1500px',     
+        batterClearancesAlt: '1000px',  
+        pitcherClearances: '1500px',    
+        pitcherClearancesAlt: '1000px', 
+        batterStats: '1720px',          
+        pitcherStats: '1720px',         
+        batterProps: '1720px',          
+        pitcherProps: '1720px',         
+        gameProps: '1720px'             
     };
 
     var style = document.createElement('style');
