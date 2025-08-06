@@ -848,7 +848,7 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
-            height: "600px", // Reduced from 1080px
+            height: "1000px", // Reduced from 1080px
             layout: "fitColumns",
             placeholder: "Loading matchups data...",
             headerVisible: true,
