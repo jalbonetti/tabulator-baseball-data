@@ -1,4 +1,4 @@
-// main.js - ENHANCED VERSION WITH SERVICE WORKER
+// main.js - COMPLETE FIXED VERSION WITH STATE PRESERVATION
 import { MatchupsTable } from './tables/combinedMatchupsTable.js';
 import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
@@ -117,8 +117,20 @@ document.addEventListener('DOMContentLoaded', async function() {
         table9: table9
     });
 
-    // Export for debugging - MOVED INSIDE THE FUNCTION WHERE tabManager IS DEFINED
+    // Export for debugging - MUST BE INSIDE DOMContentLoaded
     window.tabManager = tabManager;
+
+    // Ensure all tables have the required state preservation methods
+    ensureStateMethods(table0);
+    ensureStateMethods(table1);
+    ensureStateMethods(table2);
+    ensureStateMethods(table3);
+    ensureStateMethods(table4);
+    ensureStateMethods(table5);
+    ensureStateMethods(table6);
+    ensureStateMethods(table7);
+    ensureStateMethods(table8);
+    ensureStateMethods(table9);
 
     // Create tab structure
     tabManager.createTabStructure(tableElement);
@@ -160,6 +172,199 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     console.log('Enhanced lazy loading setup complete - tables will load on demand with advanced caching');
 });
+
+// Ensure all tables have the required state preservation methods
+function ensureStateMethods(tableInstance) {
+    // If the table doesn't have saveState, add it
+    if (!tableInstance.saveState || typeof tableInstance.saveState !== 'function') {
+        console.log(`Adding saveState to ${tableInstance.elementId}`);
+        
+        tableInstance.saveState = function() {
+            if (!this.table) return;
+            
+            console.log(`Saving state for ${this.elementId}`);
+            
+            // Save scroll position
+            const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+            if (tableHolder) {
+                this.lastScrollPosition = tableHolder.scrollTop;
+            }
+            
+            // Initialize caches if they don't exist
+            if (!this.expandedRowsCache) this.expandedRowsCache = new Set();
+            if (!this.expandedRowsSet) this.expandedRowsSet = new Set();
+            if (!this.expandedRowsMetadata) this.expandedRowsMetadata = new Map();
+            
+            // Clear and rebuild expanded rows cache
+            this.expandedRowsCache.clear();
+            this.expandedRowsSet.clear();
+            
+            const rows = this.table.getRows();
+            rows.forEach(row => {
+                const data = row.getData();
+                if (data._expanded) {
+                    const id = this.generateRowId ? this.generateRowId(data) : JSON.stringify(data);
+                    this.expandedRowsCache.add(id);
+                    this.expandedRowsSet.add(id);
+                    
+                    const rowElement = row.getElement();
+                    const hasSubrow = rowElement.querySelector('.subrow-container') !== null;
+                    
+                    this.expandedRowsMetadata.set(id, {
+                        hasSubrow: hasSubrow,
+                        data: data
+                    });
+                }
+            });
+            
+            console.log(`Saved ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
+        };
+    }
+    
+    // If the table doesn't have restoreState, add it
+    if (!tableInstance.restoreState || typeof tableInstance.restoreState !== 'function') {
+        console.log(`Adding restoreState to ${tableInstance.elementId}`);
+        
+        tableInstance.restoreState = function() {
+            if (!this.table) return;
+            if (!this.expandedRowsCache || this.expandedRowsCache.size === 0) return;
+            
+            console.log(`Restoring ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
+            
+            requestAnimationFrame(() => {
+                const rows = this.table.getRows();
+                const rowsToReformat = [];
+                
+                rows.forEach(row => {
+                    const data = row.getData();
+                    const id = this.generateRowId ? this.generateRowId(data) : JSON.stringify(data);
+                    
+                    if (this.expandedRowsCache.has(id)) {
+                        const metadata = this.expandedRowsMetadata ? this.expandedRowsMetadata.get(id) : null;
+                        
+                        console.log(`Restoring expanded row: ${id}`);
+                        
+                        data._expanded = true;
+                        row.update(data);
+                        
+                        rowsToReformat.push({
+                            row: row,
+                            hadSubrow: metadata ? metadata.hasSubrow : true
+                        });
+                        
+                        // Update expander icon
+                        const cells = row.getCells();
+                        const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                        for (let field of nameFields) {
+                            const nameCell = cells.find(cell => cell.getField() === field);
+                            if (nameCell) {
+                                const cellElement = nameCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "−";
+                                }
+                                break;
+                            }
+                        }
+                    } else if (data._expanded) {
+                        data._expanded = false;
+                        row.update(data);
+                        
+                        // Update expander icon
+                        const cells = row.getCells();
+                        const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                        for (let field of nameFields) {
+                            const nameCell = cells.find(cell => cell.getField() === field);
+                            if (nameCell) {
+                                const cellElement = nameCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "+";
+                                }
+                                break;
+                            }
+                        }
+                    }
+                });
+                
+                // Reformat expanded rows
+                setTimeout(() => {
+                    rowsToReformat.forEach(({row, hadSubrow}) => {
+                        const rowElement = row.getElement();
+                        const existingSubrow = rowElement.querySelector('.subrow-container');
+                        if (existingSubrow) {
+                            existingSubrow.remove();
+                        }
+                        
+                        row.reformat();
+                        
+                        if (hadSubrow) {
+                            setTimeout(() => {
+                                const newSubrow = rowElement.querySelector('.subrow-container');
+                                if (!newSubrow) {
+                                    console.log('Forcing second reformat');
+                                    row.reformat();
+                                }
+                            }, 100);
+                        }
+                    });
+                    
+                    setTimeout(() => {
+                        rowsToReformat.forEach(({row}) => {
+                            row.normalizeHeight();
+                        });
+                        this.table.redraw(false);
+                    }, 200);
+                }, 100);
+                
+                // Restore scroll position
+                setTimeout(() => {
+                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                    if (tableHolder && this.lastScrollPosition > 0) {
+                        tableHolder.scrollTop = this.lastScrollPosition;
+                    }
+                }, 400);
+            });
+        };
+    }
+    
+    // Ensure generateRowId exists
+    if (!tableInstance.generateRowId || typeof tableInstance.generateRowId !== 'function') {
+        tableInstance.generateRowId = function(data) {
+            // For Matchups table
+            if (data["Matchup Game ID"]) {
+                return `matchup_${data["Matchup Game ID"]}`;
+            } 
+            // For Batter tables
+            else if (data["Batter Name"]) {
+                let id = `batter_${data["Batter Name"]}_${data["Batter Team"]}`;
+                if (data["Batter Prop Type"]) id += `_${data["Batter Prop Type"]}`;
+                if (data["Batter Prop Value"]) id += `_${data["Batter Prop Value"]}`;
+                if (data["Batter Prop Split ID"]) id += `_${data["Batter Prop Split ID"]}`;
+                if (data["Batter Stat Type"]) id += `_${data["Batter Stat Type"]}`;
+                return id;
+            }
+            // For Pitcher tables
+            else if (data["Pitcher Name"]) {
+                let id = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"]}`;
+                if (data["Pitcher Prop Type"]) id += `_${data["Pitcher Prop Type"]}`;
+                if (data["Pitcher Prop Value"]) id += `_${data["Pitcher Prop Value"]}`;
+                if (data["Pitcher Prop Split ID"]) id += `_${data["Pitcher Prop Split ID"]}`;
+                if (data["Pitcher Stat Type"]) id += `_${data["Pitcher Stat Type"]}`;
+                return id;
+            }
+            // Fallback
+            return JSON.stringify(Object.keys(data).slice(0, 5).map(k => data[k]));
+        };
+    }
+    
+    // Ensure getTabulator exists
+    if (!tableInstance.getTabulator || typeof tableInstance.getTabulator !== 'function') {
+        tableInstance.getTabulator = function() {
+            return this.table;
+        };
+    }
+}
 
 function createTableElements() {
     // Create matchups table element
