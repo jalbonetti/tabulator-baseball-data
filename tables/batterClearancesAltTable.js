@@ -375,7 +375,6 @@ export class BatterClearancesAltTable extends BaseTable {
         };
     }
 
-    // Override createSubtable1 for proper data display
     createSubtable1(container, data) {
         const matchup = data["Matchup"] || "";
         const batterTeam = data["Batter Team"];
