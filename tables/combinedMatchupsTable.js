@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - UPDATED VERSION WITH PROPER SIZING
+// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION WITH WIDTH AND OVERFLOW CORRECTIONS
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -13,41 +13,40 @@ export class MatchupsTable extends BaseTable {
         this.bullpenMatchupsCache = new Map();
         this.expandedRows = new Set();
         
-        // UPDATED CONFIGURATION FOR 1200px TABLE WIDTH
+        // FIXED CONFIGURATION - Properly sized to prevent overflow
         this.subtableConfig = {
-            // Container widths adjusted to fill available space better
-            parkFactorsContainerWidth: 570,  // Increased to fill space
-            weatherContainerWidth: 570,       // Increased to fill space
+            // Main container configuration - total should be less than 1200px
+            parkFactorsContainerWidth: 550,  // Reduced to prevent overflow
+            weatherContainerWidth: 550,      // Reduced to prevent overflow
             containerGap: 20,                 // Gap between containers
+            maxTotalWidth: 1120,             // Max width for subtable content (1200px - padding)
             
-            // Park Factors table column widths - exact pixel widths
+            // Park Factors table - exact column widths that sum correctly
             parkFactorsColumns: {
-                split: 100,    // "Split" column
-                H: 55,         // "H" column
-                "1B": 55,      // "1B" column
-                "2B": 55,      // "2B" column
-                "3B": 55,      // "3B" column
-                HR: 55,        // "HR" column
-                R: 55,         // "R" column
-                BB: 55,        // "BB" column
-                SO: 55         // "SO" column
+                split: 90,     // "Split" column
+                H: 50,         // "H" column
+                "1B": 50,      // "1B" column
+                "2B": 50,      // "2B" column
+                "3B": 50,      // "3B" column
+                HR: 50,        // "HR" column
+                R: 50,         // "R" column
+                BB: 50,        // "BB" column
+                SO: 50         // "SO" column
             },
+            // Total park factors columns: 490px (fits within 550px container)
             
-            // Weather table configuration
+            // Weather configuration
             weatherAsTable: false,
-            weatherColumns: {
-                description: 550    // Weather description column width
-            },
             
-            // Standardized column widths for all stat tables
+            // Standardized column widths for stat tables
             statTableColumns: {
-                name: 250,      // Name/Type column width
-                split: 150,     // Split column width
-                tbf_pa: 60,     // TBF/PA column width
-                ratio: 70,      // H/TBF, H/PA column width
-                stat: 50,       // H, 1B, 2B, 3B, HR, R, BB column width
-                era_rbi: 60,    // ERA/RBI column width
-                so: 60          // SO column width
+                name: 200,      // Name column
+                split: 140,     // Split column
+                tbf_pa: 60,     // TBF/PA column
+                ratio: 70,      // H/TBF, H/PA column
+                stat: 50,       // H, 1B, 2B, 3B, HR, R, BB column
+                era_rbi: 60,    // ERA/RBI column
+                so: 60          // SO column
             }
         };
     }
@@ -63,7 +62,7 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Team", 
                 field: "Matchup Team",
-                width: 350,
+                width: 340,  // Slightly reduced
                 headerFilter: true,
                 headerFilterPlaceholder: "Search teams...",
                 sorter: "string",
@@ -114,28 +113,28 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Game", 
                 field: "Matchup Game",
-                width: 350,
+                width: 340,  // Slightly reduced
                 headerFilter: createCustomMultiSelect,
                 headerSort: false
             },
             {
                 title: "Spread", 
                 field: "Matchup Spread",
-                width: 120,
+                width: 110,  // Slightly reduced
                 hozAlign: "center",
                 headerSort: false
             },
             {
                 title: "Total", 
                 field: "Matchup Total",
-                width: 120,
+                width: 110,  // Slightly reduced
                 hozAlign: "center",
                 headerSort: false
             },
             {
                 title: "Lineup Status",
                 field: "Matchup Lineup Status",
-                width: 260,
+                width: 250,  // Slightly reduced
                 hozAlign: "center",
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
@@ -160,77 +159,69 @@ export class MatchupsTable extends BaseTable {
 
         const isTeamAway = this.isTeamAway(data["Matchup Game"]);
         const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
-
         const ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
         
-        // Calculate total width for proper containment
-        const totalWidth = this.subtableConfig.parkFactorsContainerWidth + 
-                          this.subtableConfig.weatherContainerWidth + 
-                          this.subtableConfig.containerGap; // Should equal 1060px
+        // Use the configured max width
+        const totalWidth = this.subtableConfig.maxTotalWidth;
 
-        // Create the two-column layout
+        // Create the two-column layout with fixed widths
         let tableHTML = `
-            <div style="display: flex; justify-content: flex-start; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; max-width: ${totalWidth}px;">
+            <div style="display: flex; justify-content: flex-start; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
                 <!-- Park Factors Section -->
                 <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex-shrink: 0;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
-                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
+                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
 
                 <!-- Weather Section -->
                 <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; flex-shrink: 0;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Weather</h5>
-                    ${this.subtableConfig.weatherAsTable ? 
-                        `<div id="weather-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>` :
-                        `<div style="font-size: 12px; color: #333; text-align: center;">
-                            <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
-                            <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[1]}</div>
-                            <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[2]}</div>
-                            <div style="padding: 8px 0;">${weatherData[3]}</div>
-                        </div>`
-                    }
+                    <div style="font-size: 12px; color: #333; text-align: center;">
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[1]}</div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[2]}</div>
+                        <div style="padding: 8px 0;">${weatherData[3]}</div>
+                    </div>
                 </div>
             </div>
         `;
 
-        // Add sections for the other data
+        // Add sections for the other data with controlled widths
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; max-width: ${totalWidth}px;">
+                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Starting Pitcher</h4>
-                    <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
+                    <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
             `;
         }
 
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; max-width: ${totalWidth}px;">
+                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
-                    <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: visible;"></div>
+                    <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
             `;
         }
 
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; max-width: ${totalWidth}px;">
+                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Bullpen</h4>
-                    <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
+                    <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
             `;
         }
 
         container.innerHTML = tableHTML;
 
-        // Use setTimeout to ensure DOM is ready before creating subtables
+        // Create subtables with proper configurations
         setTimeout(() => {
             this.createParkFactorsTable(data);
-            
             if (this.subtableConfig.weatherAsTable) {
                 this.createWeatherTable(data, weatherData);
             }
-            
             this.createPitcherStatsTable(data, opposingPitcherLocation);
             this.createBatterMatchupsTable(data);
             this.createBullpenMatchupsTable(data, opposingPitcherLocation);
@@ -250,7 +241,10 @@ export class MatchupsTable extends BaseTable {
                 return order[a["Park Factor Split ID"]] - order[b["Park Factor Split ID"]];
             });
 
-            // Use configurable column widths
+            // Calculate total width needed
+            const totalColumnsWidth = Object.values(this.subtableConfig.parkFactorsColumns)
+                .reduce((sum, width) => sum + width, 0);
+
             const columns = [
                 {
                     title: "Split", 
@@ -318,8 +312,8 @@ export class MatchupsTable extends BaseTable {
             ];
 
             new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitData", // Changed from fitDataStretch
-                width: "100%",
+                layout: "fitDataFixed",  // Changed to prevent column stretching
+                width: totalColumnsWidth,  // Set exact width
                 data: sortedParkFactors.map(pf => ({
                     split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
                     H: pf["Park Factor H"],
@@ -335,6 +329,30 @@ export class MatchupsTable extends BaseTable {
                 height: false,
                 headerHeight: 30,
                 rowHeight: 26,
+                resizableColumns: false
+            });
+        }
+    }
+
+    createWeatherTable(data, weatherData) {
+        // Only create if weatherAsTable is true (currently false)
+        if (this.subtableConfig.weatherAsTable) {
+            new Tabulator(`#weather-subtable-${data["Matchup Game ID"]}`, {
+                layout: "fitData",
+                data: weatherData.map((weather, index) => ({
+                    description: weather
+                })),
+                columns: [
+                    {
+                        title: "Weather Description", 
+                        field: "description", 
+                        width: this.subtableConfig.weatherColumns.description, 
+                        headerSort: false
+                    }
+                ],
+                height: false,
+                headerHeight: 30,
+                rowHeight: 30,
                 resizableColumns: false
             });
         }
@@ -385,13 +403,13 @@ export class MatchupsTable extends BaseTable {
                 }];
 
                 const pitcherTable = new Tabulator(`#pitcher-stats-subtable-${data["Matchup Game ID"]}`, {
-                    layout: "fitData", // Changed from fitDataStretch
+                    layout: "fitDataFixed",  // Changed to prevent stretching
                     data: tableData,
                     columns: [
                         {
                             title: "Name", 
                             field: "name", 
-                            width: 200, // Fixed width
+                            width: this.subtableConfig.statTableColumns.name, 
                             headerSort: false,
                             formatter: function(cell) {
                                 const rowData = cell.getRow().getData();
@@ -407,25 +425,25 @@ export class MatchupsTable extends BaseTable {
                                 return `<div style="margin-left: 30px;">${value}</div>`;
                             }
                         },
-                        {title: "Split", field: "split", width: 140, headerSort: false},
-                        {title: "TBF", field: "TBF", width: 60, hozAlign: "center", headerSort: false},
-                        {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
-                        {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "ERA", field: "ERA", width: 60, hozAlign: "center", headerSort: false},
-                        {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
-                        {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
+                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
+                        {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
+                        {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
+                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
+                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
                     ],
                     height: false,
                     headerHeight: 30,
                     rowHeight: 28
                 });
 
-                // Add click handler for expansion (keeping existing logic)
+                // Add click handler for expansion
                 pitcherTable.on("cellClick", function(e, cell) {
                     if (cell.getField() === "name") {
                         e.preventDefault();
@@ -568,13 +586,13 @@ export class MatchupsTable extends BaseTable {
                 });
 
             const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitData", // Changed from fitDataStretch
+                layout: "fitDataFixed",  // Changed to prevent stretching
                 data: tableData,
                 columns: [
                     {
                         title: "Name", 
                         field: "name", 
-                        width: 200, // Fixed width
+                        width: this.subtableConfig.statTableColumns.name, 
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
@@ -590,7 +608,7 @@ export class MatchupsTable extends BaseTable {
                             return `<div style="margin-left: 30px;">${value}</div>`;
                         }
                     },
-                    {title: "Split", field: "split", width: 140, headerSort: false},
+                    {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
                     {title: "PA", field: "PA", width: 50, hozAlign: "center", headerSort: false},
                     {title: "H/PA", field: "H/PA", width: 60, hozAlign: "center", headerSort: false},
                     {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
@@ -608,7 +626,7 @@ export class MatchupsTable extends BaseTable {
                 rowHeight: 28
             });
 
-            // Add click handler (keeping existing expansion logic)
+            // Add click handler
             batterTable.on("cellClick", function(e, cell) {
                 if (cell.getField() === "name") {
                     e.preventDefault();
@@ -736,13 +754,13 @@ export class MatchupsTable extends BaseTable {
             });
 
             const bullpenTable = new Tabulator(`#bullpen-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitData", // Changed from fitDataStretch
+                layout: "fitDataFixed",  // Changed to prevent stretching
                 data: tableData,
                 columns: [
                     {
                         title: "Type", 
                         field: "name", 
-                        width: 200, // Fixed width
+                        width: this.subtableConfig.statTableColumns.name, 
                         headerSort: false,
                         formatter: function(cell) {
                             const rowData = cell.getRow().getData();
@@ -758,25 +776,25 @@ export class MatchupsTable extends BaseTable {
                             return `<div style="margin-left: 30px;">${value}</div>`;
                         }
                     },
-                    {title: "Split", field: "split", width: 140, headerSort: false},
-                    {title: "TBF", field: "TBF", width: 60, hozAlign: "center", headerSort: false},
-                    {title: "H/TBF", field: "H/TBF", width: 70, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "ERA", field: "ERA", width: 60, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
+                    {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
+                    {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
+                    {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
+                    {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
+                    {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
                 ],
                 height: false,
                 headerHeight: 30,
                 rowHeight: 28
             });
 
-            // Add click handler (keeping existing expansion logic)
+            // Add click handler
             bullpenTable.on("cellClick", function(e, cell) {
                 if (cell.getField() === "name") {
                     e.preventDefault();
@@ -841,15 +859,17 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // Other methods remain the same...
+    // Initialize method with overflow fixes
     initialize() {
-        console.log('Initializing enhanced matchups table...');
+        console.log('Initializing enhanced matchups table with overflow fixes...');
         
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
-            height: "1000px", // Reduced from 1080px
-            layout: "fitColumns",
+            width: "1200px",  // Fixed width
+            maxWidth: "1200px",  // Prevent expansion
+            height: "600px",  // Fixed height
+            layout: "fitDataFixed",  // Prevent column stretching
             placeholder: "Loading matchups data...",
             headerVisible: true,
             headerHozAlign: "center",
@@ -880,10 +900,24 @@ export class MatchupsTable extends BaseTable {
         
         this.table.on("tableBuilt", () => {
             console.log("Enhanced matchups table built successfully");
+            
+            // Apply overflow fix to the table element
+            const tableElement = document.querySelector(this.elementId);
+            if (tableElement) {
+                tableElement.style.overflow = "hidden";
+                tableElement.style.maxWidth = "1200px";
+                
+                // Fix the table holder overflow
+                const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.style.overflowX = "hidden";
+                    tableHolder.style.maxWidth = "100%";
+                }
+            }
         });
     }
 
-    // Keep all other existing methods unchanged...
+    // Helper methods
     isTeamAway(matchupGame) {
         return matchupGame.includes(" @ ");
     }
@@ -1076,22 +1110,33 @@ export class MatchupsTable extends BaseTable {
         });
     }
 
+    // Create row formatter with overflow control
     createRowFormatter() {
         return (row) => {
             const data = row.getData();
-            if (data._expanded && !row.getElement().querySelector('.subrow-container')) {
+            const rowElement = row.getElement();
+            
+            // Ensure row doesn't exceed table width
+            rowElement.style.maxWidth = "100%";
+            rowElement.style.overflow = "hidden";
+            
+            if (data._expanded && !rowElement.querySelector('.subrow-container')) {
                 const holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
                 holderEl.style.padding = "10px";
                 holderEl.style.background = "#f8f9fa";
+                holderEl.style.maxWidth = "100%";
+                holderEl.style.overflow = "hidden";  // Prevent horizontal scroll
                 
                 const subtableEl = document.createElement("div");
+                subtableEl.style.maxWidth = "100%";
+                subtableEl.style.overflow = "hidden";
                 holderEl.appendChild(subtableEl);
-                row.getElement().appendChild(holderEl);
+                rowElement.appendChild(holderEl);
                 
                 this.createMatchupsSubtable(subtableEl, data);
             } else if (!data._expanded) {
-                const existingSubrow = row.getElement().querySelector('.subrow-container');
+                const existingSubrow = rowElement.querySelector('.subrow-container');
                 if (existingSubrow) {
                     existingSubrow.remove();
                 }
