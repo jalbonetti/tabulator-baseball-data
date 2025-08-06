@@ -530,24 +530,37 @@ export class BaseTable {
             this.lastScrollPosition = tableHolder.scrollTop;
         }
         
-        // Save expanded rows
+        // Clear and rebuild expanded rows cache
         this.expandedRowsCache.clear();
         this.expandedRowsSet.clear();
         const rows = this.table.getRows();
+        
         rows.forEach(row => {
             const data = row.getData();
             if (data._expanded) {
                 const id = this.generateRowId(data);
                 this.expandedRowsCache.add(id);
                 this.expandedRowsSet.add(id);
-                console.log(`Saving expanded row: ${id}`);
+                
+                // Store whether this row has a visible subrow
+                const rowElement = row.getElement();
+                const hasSubrow = rowElement.querySelector('.subrow-container') !== null;
+                
+                // Store additional metadata
+                if (!this.expandedRowsMetadata) {
+                    this.expandedRowsMetadata = new Map();
+                }
+                this.expandedRowsMetadata.set(id, {
+                    hasSubrow: hasSubrow,
+                    data: data
+                });
             }
         });
         
         console.log(`Saved ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
     }
 
-    // Restore table state when switching back
+ // Restore table state when switching back
     restoreState() {
         if (!this.table) return;
         
@@ -565,12 +578,20 @@ export class BaseTable {
                     const id = this.generateRowId(data);
                     
                     if (this.expandedRowsCache.has(id)) {
+                        // Get metadata for this row
+                        const metadata = this.expandedRowsMetadata ? this.expandedRowsMetadata.get(id) : null;
+                        
                         console.log(`Restoring expanded row: ${id}`);
                         
-                        // Always set expanded state, even if already true
+                        // Set expanded state
                         data._expanded = true;
                         row.update(data);
-                        rowsToReformat.push(row);
+                        
+                        // Store row for reformatting
+                        rowsToReformat.push({
+                            row: row,
+                            hadSubrow: metadata ? metadata.hasSubrow : true
+                        });
                         
                         // Update the expander icon immediately
                         const cells = row.getCells();
@@ -586,12 +607,31 @@ export class BaseTable {
                                 expander.innerHTML = "−";
                             }
                         }
+                    } else if (data._expanded) {
+                        // If marked as expanded but not in saved list, collapse it
+                        data._expanded = false;
+                        row.update(data);
+                        
+                        // Update the expander icon
+                        const cells = row.getCells();
+                        const nameField = data["Batter Name"] ? "Batter Name" : 
+                                        data["Pitcher Name"] ? "Pitcher Name" : 
+                                        "Matchup Team";
+                        const nameCell = cells.find(cell => cell.getField() === nameField);
+                        
+                        if (nameCell) {
+                            const cellElement = nameCell.getElement();
+                            const expander = cellElement.querySelector('.row-expander');
+                            if (expander) {
+                                expander.innerHTML = "+";
+                            }
+                        }
                     }
                 });
                 
                 // Reformat all expanded rows to recreate their subrows
                 setTimeout(() => {
-                    rowsToReformat.forEach(row => {
+                    rowsToReformat.forEach(({row, hadSubrow}) => {
                         // Force remove any existing subrow to ensure clean recreation
                         const rowElement = row.getElement();
                         const existingSubrow = rowElement.querySelector('.subrow-container');
@@ -601,26 +641,38 @@ export class BaseTable {
                         
                         // Now reformat to recreate the subrow
                         row.reformat();
+                        
+                        // If the row didn't have a subrow before, try again
+                        if (hadSubrow) {
+                            setTimeout(() => {
+                                const newSubrow = rowElement.querySelector('.subrow-container');
+                                if (!newSubrow) {
+                                    console.log('Forcing second reformat for row');
+                                    row.reformat();
+                                }
+                            }, 100);
+                        }
                     });
                     
                     // After all rows are reformatted, normalize their heights
                     setTimeout(() => {
-                        rowsToReformat.forEach(row => {
+                        rowsToReformat.forEach(({row}) => {
                             row.normalizeHeight();
                         });
-                    }, 100);
-                }, 50);
+                        
+                        // Force a partial redraw to ensure everything is visible
+                        this.table.redraw(false);
+                    }, 200);
+                }, 100);
             }
             
-            // Restore scroll position
-            requestAnimationFrame(() => {
+            // Restore scroll position after everything is rendered
+            setTimeout(() => {
                 const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
                 if (tableHolder && this.lastScrollPosition > 0) {
                     tableHolder.scrollTop = this.lastScrollPosition;
                 }
-            });
-        });
-    }
+            }, 400);
 
     // Cleanup method to free memory
     destroy() {
