@@ -1,4 +1,4 @@
-// components/tabManager.js - COMPLETE FIXED VERSION WITH WORKING STATE PRESERVATION
+// components/tabManager.js - FINAL FIXED VERSION
 export class TabManager {
     constructor(tables) {
         this.tables = tables;
@@ -27,6 +27,7 @@ export class TabManager {
                 
                 if (tableWrapper && !tableWrapper.isInitialized) {
                     tableWrapper.initialize();
+                    tableWrapper.isInitialized = true; // ENSURE this is set
                     this.tabInitialized[tabId] = true;
                     setTimeout(resolve, 100);
                 } else {
@@ -60,7 +61,7 @@ export class TabManager {
                     clearTimeout(switchTimeout);
                 }
                 
-                // CRITICAL: Save state BEFORE the timeout
+                // Save state BEFORE the timeout
                 console.log(`About to switch from ${this.currentActiveTab} to ${targetTab}`);
                 this.saveCurrentTabState();
                 
@@ -103,34 +104,33 @@ export class TabManager {
     saveCurrentTabState() {
         const tableWrapper = this.tables[this.currentActiveTab];
         
-        if (!tableWrapper || !tableWrapper.isInitialized) {
-            console.log(`Cannot save state for ${this.currentActiveTab} - not initialized`);
+        if (!tableWrapper) {
+            console.log(`No table wrapper found for ${this.currentActiveTab}`);
+            return;
+        }
+        
+        // Check if table has been initialized by checking for the table property
+        const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+        if (!table) {
+            console.log(`Table not yet initialized for ${this.currentActiveTab}`);
             return;
         }
         
         console.log(`Saving state for ${this.currentActiveTab}`);
         
-        // ALWAYS call the table's saveState method if it exists
+        // Try to use the table's saveState method if it exists
         if (tableWrapper.saveState && typeof tableWrapper.saveState === 'function') {
             console.log(`Calling saveState on ${this.currentActiveTab}`);
             tableWrapper.saveState();
         } else {
-            console.log(`No saveState method found on ${this.currentActiveTab}, using fallback`);
+            console.log(`Using fallback save for ${this.currentActiveTab}`);
             
             // Fallback: manually save state
-            const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
-            if (!table) {
-                console.log(`No table instance found for ${this.currentActiveTab}`);
-                return;
-            }
-            
-            // Save scroll position
             const tableHolder = table.element.querySelector('.tabulator-tableHolder');
             if (tableHolder) {
                 this.scrollPositions[this.currentActiveTab] = tableHolder.scrollTop;
             }
             
-            // Save expanded rows
             const expandedRows = [];
             const rows = table.getRows();
             
@@ -189,14 +189,21 @@ export class TabManager {
     restoreTabState(tabId) {
         const tableWrapper = this.tables[tabId];
         
-        if (!tableWrapper || !tableWrapper.isInitialized) {
-            console.log(`Cannot restore state for ${tabId} - not initialized`);
+        if (!tableWrapper) {
+            console.log(`No table wrapper found for ${tabId}`);
+            return;
+        }
+        
+        // Check if table has been initialized by checking for the table property
+        const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
+        if (!table) {
+            console.log(`Table not yet initialized for ${tabId}`);
             return;
         }
         
         console.log(`Restoring state for ${tabId}`);
         
-        // ALWAYS try to use the table's restoreState method first
+        // Try to use the table's restoreState method first
         if (tableWrapper.restoreState && typeof tableWrapper.restoreState === 'function') {
             console.log(`Calling restoreState on ${tabId}`);
             tableWrapper.restoreState();
@@ -205,25 +212,16 @@ export class TabManager {
             setTimeout(() => {
                 const scrollPos = this.scrollPositions[tabId];
                 if (scrollPos !== undefined) {
-                    const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
-                    if (table) {
-                        const tableHolder = table.element.querySelector('.tabulator-tableHolder');
-                        if (tableHolder) {
-                            tableHolder.scrollTop = scrollPos;
-                        }
+                    const tableHolder = table.element.querySelector('.tabulator-tableHolder');
+                    if (tableHolder) {
+                        tableHolder.scrollTop = scrollPos;
                     }
                 }
             }, 500);
         } else {
-            console.log(`No restoreState method found on ${tabId}, using fallback`);
+            console.log(`Using fallback restore for ${tabId}`);
             
             // Fallback restoration
-            const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
-            if (!table) {
-                console.log(`No table instance found for ${tabId}`);
-                return;
-            }
-            
             const savedExpandedRows = this.expandedRowsStates[tabId];
             if (savedExpandedRows && savedExpandedRows.length > 0) {
                 console.log(`Fallback restoring ${savedExpandedRows.length} expanded rows for ${tabId}`);
