@@ -2,6 +2,7 @@
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
+import { removeLeadingZero, formatDecimal } from '../shared/utils.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
@@ -390,7 +391,7 @@ export class MatchupsTable extends BaseTable {
                     name: pitcherName,
                     split: "Full Season",
                     TBF: mainRowData["Starter TBF"],
-                    "H/TBF": parseFloat(mainRowData["Starter H/TBF"]).toFixed(3),
+                    "H/TBF": formatDecimal(mainRowData["Starter H/TBF"], 3),
                     H: mainRowData["Starter H"],
                     "1B": mainRowData["Starter 1B"],
                     "2B": mainRowData["Starter 2B"],
@@ -477,7 +478,7 @@ export class MatchupsTable extends BaseTable {
                                             name: pitcherName,
                                             split: splitMap[splitId],
                                             TBF: statData["Starter TBF"],
-                                            "H/TBF": parseFloat(statData["Starter H/TBF"]).toFixed(3),
+                                            "H/TBF": formatDecimal(statData["Starter H/TBF"], 3),
                                             H: statData["Starter H"],
                                             "1B": statData["Starter 1B"],
                                             "2B": statData["Starter 2B"],
@@ -570,7 +571,7 @@ export class MatchupsTable extends BaseTable {
                             name: `${batterData.name} ${order}`,
                             split: "Full Season",
                             PA: fullSeasonData["Batter PA"],
-                            "H/PA": parseFloat(fullSeasonData["Batter H/PA"]).toFixed(3),
+                            "H/PA": formatDecimal(fullSeasonData["Batter H/PA"], 3),
                             H: fullSeasonData["Batter H"],
                             "1B": fullSeasonData["Batter 1B"],
                             "2B": fullSeasonData["Batter 2B"],
@@ -660,7 +661,7 @@ export class MatchupsTable extends BaseTable {
                                         name: `${rowData.name.replace(/ \d+$/, '')} ${rowData._batterOrder}`,
                                         split: splitMap[splitId],
                                         PA: statData["Batter PA"],
-                                        "H/PA": parseFloat(statData["Batter H/PA"]).toFixed(3),
+                                        "H/PA": formatDecimal(statData["Batter H/PA"], 3),
                                         H: statData["Batter H"],
                                         "1B": statData["Batter 1B"],
                                         "2B": statData["Batter 2B"],
@@ -737,7 +738,7 @@ export class MatchupsTable extends BaseTable {
                             name: fullSeasonData["Bullpen Hand & Number"],
                             split: "Full Season",
                             TBF: fullSeasonData["Bullpen TBF"],
-                            "H/TBF": parseFloat(fullSeasonData["Bullpen H/TBF"]).toFixed(3),
+                            "H/TBF": formatDecimal(fullSeasonData["Bullpen H/TBF"], 3),
                             H: fullSeasonData["Bullpen H"],
                             "1B": fullSeasonData["Bullpen 1B"],
                             "2B": fullSeasonData["Bullpen 2B"],
@@ -828,7 +829,8 @@ export class MatchupsTable extends BaseTable {
                                         name: statData["Bullpen Hand & Number"],
                                         split: splitMap[splitId],
                                         TBF: statData["Bullpen TBF"],
-                                        "H/TBF": parseFloat(statData["Bullpen H/TBF"]).toFixed(3),
+                                        // And in child rows:
+                                        "H/TBF": formatDecimal(statData["Bullpen H/TBF"], 3),
                                         H: statData["Bullpen H"],
                                         "1B": statData["Bullpen 1B"],
                                         "2B": statData["Bullpen 2B"],
