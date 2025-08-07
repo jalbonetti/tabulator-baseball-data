@@ -1,6 +1,6 @@
-// tables/batterClearancesTable.js - UPDATED VERSION WITH NO LEADING ZEROS
+// tables/batterClearancesTable.js - COMPLETE VERSION WITH CORRECT FORMATTERS
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, getSwitchHitterVersus, formatPercentage, removeLeadingZero, formatDecimal } from '../shared/utils.js';
+import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class BatterClearancesTable extends BaseTable {
@@ -82,17 +82,7 @@ export class BatterClearancesTable extends BaseTable {
                             dropdownWidth: 100
                         });
                     },
-                    resizable: false,
-                    // Add formatter if prop values are decimals
-                    formatter: function(cell) {
-                        var value = cell.getValue();
-                        if (value === null || value === undefined || value === "") return "-";
-                        // Check if it's a decimal value
-                        if (value < 10 && value.toString().includes('.')) {
-                            return formatDecimal(value, 1);
-                        }
-                        return value;
-                    }
+                    resizable: false
                 }
             ]},
             {title: "Full Season", columns: [
@@ -104,7 +94,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number", 
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())  // Uses updated formatPercentage
+                    formatter: (cell) => formatPercentage(cell.getValue())  // KEEPS leading zero
                 },
                 {
                     title: "Games", 
@@ -125,7 +115,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())  // Uses updated formatPercentage
+                    formatter: (cell) => formatPercentage(cell.getValue())  // KEEPS leading zero
                 },
                 {
                     title: "Games", 
@@ -146,7 +136,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())  // Uses updated formatPercentage
+                    formatter: (cell) => formatPercentage(cell.getValue())  // KEEPS leading zero
                 },
                 {
                     title: "Games", 
@@ -167,7 +157,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())  // Uses updated formatPercentage
+                    formatter: (cell) => formatPercentage(cell.getValue())  // KEEPS leading zero
                 },
                 {
                     title: "Games", 
@@ -181,9 +171,6 @@ export class BatterClearancesTable extends BaseTable {
             ]}
         ];
     }
-
-    // ... rest of the methods remain the same ...
-}
 
     createSubtable1(container, data) {
         const matchup = data["Matchup"] || "";
