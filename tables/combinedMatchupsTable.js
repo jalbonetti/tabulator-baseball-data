@@ -1,8 +1,8 @@
-// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION WITH WIDTH AND OVERFLOW CORRECTIONS
+// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH CORRECT FORMATTERS
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
-import { removeLeadingZero, formatDecimal } from '../shared/utils.js';
+import { formatRatio, formatDecimal } from '../shared/utils.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
@@ -14,40 +14,35 @@ export class MatchupsTable extends BaseTable {
         this.bullpenMatchupsCache = new Map();
         this.expandedRows = new Set();
         
-        // FIXED CONFIGURATION - Properly sized to prevent overflow
+        // Fixed configuration
         this.subtableConfig = {
-            // Main container configuration - total should be less than 1200px
-            parkFactorsContainerWidth: 550,  // Reduced to prevent overflow
-            weatherContainerWidth: 550,      // Reduced to prevent overflow
-            containerGap: 20,                 // Gap between containers
-            maxTotalWidth: 1120,             // Max width for subtable content (1200px - padding)
+            parkFactorsContainerWidth: 550,
+            weatherContainerWidth: 550,
+            containerGap: 20,
+            maxTotalWidth: 1120,
             
-            // Park Factors table - exact column widths that sum correctly
             parkFactorsColumns: {
-                split: 90,     // "Split" column
-                H: 50,         // "H" column
-                "1B": 50,      // "1B" column
-                "2B": 50,      // "2B" column
-                "3B": 50,      // "3B" column
-                HR: 50,        // "HR" column
-                R: 50,         // "R" column
-                BB: 50,        // "BB" column
-                SO: 50         // "SO" column
+                split: 90,
+                H: 50,
+                "1B": 50,
+                "2B": 50,
+                "3B": 50,
+                HR: 50,
+                R: 50,
+                BB: 50,
+                SO: 50
             },
-            // Total park factors columns: 490px (fits within 550px container)
             
-            // Weather configuration
             weatherAsTable: false,
             
-            // Standardized column widths for stat tables
             statTableColumns: {
-                name: 200,      // Name column
-                split: 140,     // Split column
-                tbf_pa: 60,     // TBF/PA column
-                ratio: 70,      // H/TBF, H/PA column
-                stat: 50,       // H, 1B, 2B, 3B, HR, R, BB column
-                era_rbi: 60,    // ERA/RBI column
-                so: 60          // SO column
+                name: 200,
+                split: 140,
+                tbf_pa: 60,
+                ratio: 70,
+                stat: 50,
+                era_rbi: 60,
+                so: 60
             }
         };
     }
@@ -63,7 +58,7 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Team", 
                 field: "Matchup Team",
-                width: 340,  // Slightly reduced
+                width: 340,
                 headerFilter: true,
                 headerFilterPlaceholder: "Search teams...",
                 sorter: "string",
@@ -114,28 +109,28 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Game", 
                 field: "Matchup Game",
-                width: 340,  // Slightly reduced
+                width: 340,
                 headerFilter: createCustomMultiSelect,
                 headerSort: false
             },
             {
                 title: "Spread", 
                 field: "Matchup Spread",
-                width: 110,  // Slightly reduced
+                width: 110,
                 hozAlign: "center",
                 headerSort: false
             },
             {
                 title: "Total", 
                 field: "Matchup Total",
-                width: 110,  // Slightly reduced
+                width: 110,
                 hozAlign: "center",
                 headerSort: false
             },
             {
                 title: "Lineup Status",
                 field: "Matchup Lineup Status",
-                width: 250,  // Slightly reduced
+                width: 250,
                 hozAlign: "center",
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
@@ -162,10 +157,8 @@ export class MatchupsTable extends BaseTable {
         const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
         const ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
         
-        // Use the configured max width
         const totalWidth = this.subtableConfig.maxTotalWidth;
 
-        // Create the two-column layout with fixed widths
         let tableHTML = `
             <div style="display: flex; justify-content: flex-start; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
                 <!-- Park Factors Section -->
@@ -187,7 +180,6 @@ export class MatchupsTable extends BaseTable {
             </div>
         `;
 
-        // Add sections for the other data with controlled widths
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             tableHTML += `
                 <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
@@ -217,12 +209,8 @@ export class MatchupsTable extends BaseTable {
 
         container.innerHTML = tableHTML;
 
-        // Create subtables with proper configurations
         setTimeout(() => {
             this.createParkFactorsTable(data);
-            if (this.subtableConfig.weatherAsTable) {
-                this.createWeatherTable(data, weatherData);
-            }
             this.createPitcherStatsTable(data, opposingPitcherLocation);
             this.createBatterMatchupsTable(data);
             this.createBullpenMatchupsTable(data, opposingPitcherLocation);
@@ -242,79 +230,24 @@ export class MatchupsTable extends BaseTable {
                 return order[a["Park Factor Split ID"]] - order[b["Park Factor Split ID"]];
             });
 
-            // Calculate total width needed
             const totalColumnsWidth = Object.values(this.subtableConfig.parkFactorsColumns)
                 .reduce((sum, width) => sum + width, 0);
 
             const columns = [
-                {
-                    title: "Split", 
-                    field: "split", 
-                    width: this.subtableConfig.parkFactorsColumns.split, 
-                    headerSort: false, 
-                    hozAlign: "center"
-                },
-                {
-                    title: "H", 
-                    field: "H", 
-                    width: this.subtableConfig.parkFactorsColumns.H, 
-                    hozAlign: "center", 
-                    headerSort: false
-                },
-                {
-                    title: "1B", 
-                    field: "1B", 
-                    width: this.subtableConfig.parkFactorsColumns["1B"], 
-                    hozAlign: "center", 
-                    headerSort: false
-                },
-                {
-                    title: "2B", 
-                    field: "2B", 
-                    width: this.subtableConfig.parkFactorsColumns["2B"], 
-                    hozAlign: "center", 
-                    headerSort: false
-                },
-                {
-                    title: "3B", 
-                    field: "3B", 
-                    width: this.subtableConfig.parkFactorsColumns["3B"], 
-                    hozAlign: "center", 
-                    headerSort: false
-                },
-                {
-                    title: "HR", 
-                    field: "HR", 
-                    width: this.subtableConfig.parkFactorsColumns.HR, 
-                    hozAlign: "center", 
-                    headerSort: false
-                },
-                {
-                    title: "R", 
-                    field: "R", 
-                    width: this.subtableConfig.parkFactorsColumns.R, 
-                    hozAlign: "center", 
-                    headerSort: false
-                },
-                {
-                    title: "BB", 
-                    field: "BB", 
-                    width: this.subtableConfig.parkFactorsColumns.BB, 
-                    hozAlign: "center", 
-                    headerSort: false
-                },
-                {
-                    title: "SO", 
-                    field: "SO", 
-                    width: this.subtableConfig.parkFactorsColumns.SO, 
-                    hozAlign: "center", 
-                    headerSort: false
-                }
+                {title: "Split", field: "split", width: this.subtableConfig.parkFactorsColumns.split, headerSort: false, hozAlign: "center"},
+                {title: "H", field: "H", width: this.subtableConfig.parkFactorsColumns.H, hozAlign: "center", headerSort: false},
+                {title: "1B", field: "1B", width: this.subtableConfig.parkFactorsColumns["1B"], hozAlign: "center", headerSort: false},
+                {title: "2B", field: "2B", width: this.subtableConfig.parkFactorsColumns["2B"], hozAlign: "center", headerSort: false},
+                {title: "3B", field: "3B", width: this.subtableConfig.parkFactorsColumns["3B"], hozAlign: "center", headerSort: false},
+                {title: "HR", field: "HR", width: this.subtableConfig.parkFactorsColumns.HR, hozAlign: "center", headerSort: false},
+                {title: "R", field: "R", width: this.subtableConfig.parkFactorsColumns.R, hozAlign: "center", headerSort: false},
+                {title: "BB", field: "BB", width: this.subtableConfig.parkFactorsColumns.BB, hozAlign: "center", headerSort: false},
+                {title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, hozAlign: "center", headerSort: false}
             ];
 
             new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataFixed",  // Changed to prevent column stretching
-                width: totalColumnsWidth,  // Set exact width
+                layout: "fitDataFixed",
+                width: totalColumnsWidth,
                 data: sortedParkFactors.map(pf => ({
                     split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
                     H: pf["Park Factor H"],
@@ -330,30 +263,6 @@ export class MatchupsTable extends BaseTable {
                 height: false,
                 headerHeight: 30,
                 rowHeight: 26,
-                resizableColumns: false
-            });
-        }
-    }
-
-    createWeatherTable(data, weatherData) {
-        // Only create if weatherAsTable is true (currently false)
-        if (this.subtableConfig.weatherAsTable) {
-            new Tabulator(`#weather-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitData",
-                data: weatherData.map((weather, index) => ({
-                    description: weather
-                })),
-                columns: [
-                    {
-                        title: "Weather Description", 
-                        field: "description", 
-                        width: this.subtableConfig.weatherColumns.description, 
-                        headerSort: false
-                    }
-                ],
-                height: false,
-                headerHeight: 30,
-                rowHeight: 30,
                 resizableColumns: false
             });
         }
@@ -391,20 +300,20 @@ export class MatchupsTable extends BaseTable {
                     name: pitcherName,
                     split: "Full Season",
                     TBF: mainRowData["Starter TBF"],
-                    "H/TBF": formatDecimal(mainRowData["Starter H/TBF"], 3),
+                    "H/TBF": formatRatio(mainRowData["Starter H/TBF"], 3),  // REMOVES leading zero
                     H: mainRowData["Starter H"],
                     "1B": mainRowData["Starter 1B"],
                     "2B": mainRowData["Starter 2B"],
                     "3B": mainRowData["Starter 3B"],
                     HR: mainRowData["Starter HR"],
                     R: mainRowData["Starter R"],
-                    ERA: parseFloat(mainRowData["Starter ERA"]).toFixed(2),
+                    ERA: formatDecimal(mainRowData["Starter ERA"], 2),  // KEEPS leading zero
                     BB: mainRowData["Starter BB"],
                     SO: mainRowData["Starter SO"]
                 }];
 
                 const pitcherTable = new Tabulator(`#pitcher-stats-subtable-${data["Matchup Game ID"]}`, {
-                    layout: "fitDataFixed",  // Changed to prevent stretching
+                    layout: "fitDataFixed",
                     data: tableData,
                     columns: [
                         {
@@ -444,7 +353,6 @@ export class MatchupsTable extends BaseTable {
                     rowHeight: 28
                 });
 
-                // Add click handler for expansion
                 pitcherTable.on("cellClick", function(e, cell) {
                     if (cell.getField() === "name") {
                         e.preventDefault();
@@ -478,14 +386,14 @@ export class MatchupsTable extends BaseTable {
                                             name: pitcherName,
                                             split: splitMap[splitId],
                                             TBF: statData["Starter TBF"],
-                                            "H/TBF": formatDecimal(statData["Starter H/TBF"], 3),
+                                            "H/TBF": formatRatio(statData["Starter H/TBF"], 3),  // REMOVES leading zero
                                             H: statData["Starter H"],
                                             "1B": statData["Starter 1B"],
                                             "2B": statData["Starter 2B"],
                                             "3B": statData["Starter 3B"],
                                             HR: statData["Starter HR"],
                                             R: statData["Starter R"],
-                                            ERA: parseFloat(statData["Starter ERA"]).toFixed(2),
+                                            ERA: formatDecimal(statData["Starter ERA"], 2),  // KEEPS leading zero
                                             BB: statData["Starter BB"],
                                             SO: statData["Starter SO"]
                                         });
@@ -533,7 +441,6 @@ export class MatchupsTable extends BaseTable {
                 "vs L @": `vs Lefties ${batterLocationText}`
             };
             
-            // Group batters by batting order
             const battersByOrder = {};
             data._batterMatchups.forEach(batter => {
                 const nameHandSpot = batter["Batter Name & Hand & Spot"];
@@ -553,7 +460,6 @@ export class MatchupsTable extends BaseTable {
                 }
             });
             
-            // Create table data with main rows (Full Season) for each batter
             const tableData = [];
             Object.keys(battersByOrder)
                 .sort((a, b) => parseInt(a) - parseInt(b))
@@ -571,7 +477,7 @@ export class MatchupsTable extends BaseTable {
                             name: `${batterData.name} ${order}`,
                             split: "Full Season",
                             PA: fullSeasonData["Batter PA"],
-                            "H/PA": formatDecimal(fullSeasonData["Batter H/PA"], 3),
+                            "H/PA": formatRatio(fullSeasonData["Batter H/PA"], 3),  // REMOVES leading zero
                             H: fullSeasonData["Batter H"],
                             "1B": fullSeasonData["Batter 1B"],
                             "2B": fullSeasonData["Batter 2B"],
@@ -587,7 +493,7 @@ export class MatchupsTable extends BaseTable {
                 });
 
             const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataFixed",  // Changed to prevent stretching
+                layout: "fitDataFixed",
                 data: tableData,
                 columns: [
                     {
@@ -627,7 +533,6 @@ export class MatchupsTable extends BaseTable {
                 rowHeight: 28
             });
 
-            // Add click handler
             batterTable.on("cellClick", function(e, cell) {
                 if (cell.getField() === "name") {
                     e.preventDefault();
@@ -661,7 +566,7 @@ export class MatchupsTable extends BaseTable {
                                         name: `${rowData.name.replace(/ \d+$/, '')} ${rowData._batterOrder}`,
                                         split: splitMap[splitId],
                                         PA: statData["Batter PA"],
-                                        "H/PA": formatDecimal(statData["Batter H/PA"], 3),
+                                        "H/PA": formatRatio(statData["Batter H/PA"], 3),  // REMOVES leading zero
                                         H: statData["Batter H"],
                                         "1B": statData["Batter 1B"],
                                         "2B": statData["Batter 2B"],
@@ -704,7 +609,6 @@ export class MatchupsTable extends BaseTable {
                 "vs L @": `vs Lefties ${opposingLocationText}`
             };
             
-            // Group by hand type (Righties/Lefties)
             const groupedData = {
                 "Righties": [],
                 "Lefties": []
@@ -719,7 +623,6 @@ export class MatchupsTable extends BaseTable {
                 }
             });
 
-            // Create table data with Full Season as main rows
             const tableData = [];
             const handOrder = ["Righties", "Lefties"];
             
@@ -738,14 +641,14 @@ export class MatchupsTable extends BaseTable {
                             name: fullSeasonData["Bullpen Hand & Number"],
                             split: "Full Season",
                             TBF: fullSeasonData["Bullpen TBF"],
-                            "H/TBF": formatDecimal(fullSeasonData["Bullpen H/TBF"], 3),
+                            "H/TBF": formatRatio(fullSeasonData["Bullpen H/TBF"], 3),  // REMOVES leading zero
                             H: fullSeasonData["Bullpen H"],
                             "1B": fullSeasonData["Bullpen 1B"],
                             "2B": fullSeasonData["Bullpen 2B"],
                             "3B": fullSeasonData["Bullpen 3B"],
                             HR: fullSeasonData["Bullpen HR"],
                             R: fullSeasonData["Bullpen R"],
-                            ERA: parseFloat(fullSeasonData["Bullpen ERA"]).toFixed(2),
+                            ERA: formatDecimal(fullSeasonData["Bullpen ERA"], 2),  // KEEPS leading zero
                             BB: fullSeasonData["Bullpen BB"],
                             SO: fullSeasonData["Bullpen SO"],
                             _childData: handData
@@ -755,7 +658,7 @@ export class MatchupsTable extends BaseTable {
             });
 
             const bullpenTable = new Tabulator(`#bullpen-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataFixed",  // Changed to prevent stretching
+                layout: "fitDataFixed",
                 data: tableData,
                 columns: [
                     {
@@ -795,7 +698,6 @@ export class MatchupsTable extends BaseTable {
                 rowHeight: 28
             });
 
-            // Add click handler
             bullpenTable.on("cellClick", function(e, cell) {
                 if (cell.getField() === "name") {
                     e.preventDefault();
@@ -829,15 +731,14 @@ export class MatchupsTable extends BaseTable {
                                         name: statData["Bullpen Hand & Number"],
                                         split: splitMap[splitId],
                                         TBF: statData["Bullpen TBF"],
-                                        // And in child rows:
-                                        "H/TBF": formatDecimal(statData["Bullpen H/TBF"], 3),
+                                        "H/TBF": formatRatio(statData["Bullpen H/TBF"], 3),  // REMOVES leading zero
                                         H: statData["Bullpen H"],
                                         "1B": statData["Bullpen 1B"],
                                         "2B": statData["Bullpen 2B"],
                                         "3B": statData["Bullpen 3B"],
                                         HR: statData["Bullpen HR"],
                                         R: statData["Bullpen R"],
-                                        ERA: parseFloat(statData["Bullpen ERA"]).toFixed(2),
+                                        ERA: formatDecimal(statData["Bullpen ERA"], 2),  // KEEPS leading zero
                                         BB: statData["Bullpen BB"],
                                         SO: statData["Bullpen SO"]
                                     });
@@ -861,17 +762,17 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // Initialize method with overflow fixes
+    // Rest of methods remain the same...
     initialize() {
-        console.log('Initializing enhanced matchups table with overflow fixes...');
+        console.log('Initializing enhanced matchups table with correct formatters...');
         
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
-            width: "1200px",  // Fixed width
-            maxWidth: "1200px",  // Prevent expansion
-            height: "600px",  // Fixed height
-            layout: "fitDataFixed",  // Prevent column stretching
+            width: "1200px",
+            maxWidth: "1200px",
+            height: "600px",
+            layout: "fitDataFixed",
             placeholder: "Loading matchups data...",
             headerVisible: true,
             headerHozAlign: "center",
@@ -903,13 +804,11 @@ export class MatchupsTable extends BaseTable {
         this.table.on("tableBuilt", () => {
             console.log("Enhanced matchups table built successfully");
             
-            // Apply overflow fix to the table element
             const tableElement = document.querySelector(this.elementId);
             if (tableElement) {
                 tableElement.style.overflow = "hidden";
                 tableElement.style.maxWidth = "1200px";
                 
-                // Fix the table holder overflow
                 const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
                 if (tableHolder) {
                     tableHolder.style.overflowX = "hidden";
@@ -1112,13 +1011,11 @@ export class MatchupsTable extends BaseTable {
         });
     }
 
-    // Create row formatter with overflow control
     createRowFormatter() {
         return (row) => {
             const data = row.getData();
             const rowElement = row.getElement();
             
-            // Ensure row doesn't exceed table width
             rowElement.style.maxWidth = "100%";
             rowElement.style.overflow = "hidden";
             
@@ -1128,7 +1025,7 @@ export class MatchupsTable extends BaseTable {
                 holderEl.style.padding = "10px";
                 holderEl.style.background = "#f8f9fa";
                 holderEl.style.maxWidth = "100%";
-                holderEl.style.overflow = "hidden";  // Prevent horizontal scroll
+                holderEl.style.overflow = "hidden";
                 
                 const subtableEl = document.createElement("div");
                 subtableEl.style.maxWidth = "100%";
