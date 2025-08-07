@@ -1,9 +1,8 @@
-// tables/modBatterStats.js - COMPLETE FIXED VERSION
+// tables/modBatterStats.js - COMPLETE VERSION WITH CORRECT FORMATTERS
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, formatPercentage } from '../shared/utils.js';
+import { getOpponentTeam, formatPercentage, formatRatio, formatDecimal } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { TEAM_NAME_MAP } from '../shared/config.js';
-import { removeLeadingZero, formatDecimal } from '../shared/utils.js';
 
 export class ModBatterStatsTable extends BaseTable {
     constructor(elementId) {
@@ -21,80 +20,77 @@ export class ModBatterStatsTable extends BaseTable {
                 {column: "Batter Stat Type", dir: "asc"},
                 {column: "Batter Prop Split ID", dir: "asc"}
             ],
-// Updated rowFormatter for both modBatterStats.js and modPitcherStats.js
-// Replace the rowFormatter in the initialize() method with this version:
-
-rowFormatter: ((self) => {
-    return (row) => {
-        var data = row.getData();
-        var rowElement = row.getElement();
-        
-        // Initialize _expanded if undefined
-        if (data._expanded === undefined) {
-            data._expanded = false;
-        }
-        
-        // Add/remove expanded class
-        if (data._expanded) {
-            rowElement.classList.add('row-expanded');
-        } else {
-            rowElement.classList.remove('row-expanded');
-        }
-        
-        // Handle expansion
-        if (data._expanded) {
-            // Check if subtables already exist
-            let existingSubrow = rowElement.querySelector('.subrow-container');
-            
-            if (!existingSubrow) {
-                var holderEl = document.createElement("div");
-                holderEl.classList.add('subrow-container');
-                holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%;';
-                
-                var subtable1 = document.createElement("div");
-                subtable1.style.cssText = 'margin-bottom: 15px; width: 100%;';
-                var subtable2 = document.createElement("div");
-                subtable2.style.cssText = 'width: 100%;';
-                
-                holderEl.appendChild(subtable1);
-                holderEl.appendChild(subtable2);
-                rowElement.appendChild(holderEl);
-                
-                // Create subtables immediately with proper context
-                try {
-                    self.createSubtable1(subtable1, data);
-                } catch (error) {
-                    console.error("Error creating stats subtable1:", error);
-                    subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
-                }
-                
-                try {
-                    self.createSubtable2(subtable2, data);
-                } catch (error) {
-                    console.error("Error creating stats subtable2:", error);
-                    subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
-                }
-                
-                // Force height recalculation WITHOUT table redraw
-                setTimeout(() => {
-                    row.normalizeHeight();
-                }, 100);
-            }
-        } else {
-            // Handle contraction
-            var existingSubrow = rowElement.querySelector('.subrow-container');
-            if (existingSubrow) {
-                existingSubrow.remove();
-                rowElement.classList.remove('row-expanded');
-                
-                // Force height recalculation
-                setTimeout(() => {
-                    row.normalizeHeight();
-                }, 50);
-            }
-        }
-    };
-})(this)
+            rowFormatter: ((self) => {
+                return (row) => {
+                    var data = row.getData();
+                    var rowElement = row.getElement();
+                    
+                    // Initialize _expanded if undefined
+                    if (data._expanded === undefined) {
+                        data._expanded = false;
+                    }
+                    
+                    // Add/remove expanded class
+                    if (data._expanded) {
+                        rowElement.classList.add('row-expanded');
+                    } else {
+                        rowElement.classList.remove('row-expanded');
+                    }
+                    
+                    // Handle expansion
+                    if (data._expanded) {
+                        // Check if subtables already exist
+                        let existingSubrow = rowElement.querySelector('.subrow-container');
+                        
+                        if (!existingSubrow) {
+                            var holderEl = document.createElement("div");
+                            holderEl.classList.add('subrow-container');
+                            holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%;';
+                            
+                            var subtable1 = document.createElement("div");
+                            subtable1.style.cssText = 'margin-bottom: 15px; width: 100%;';
+                            var subtable2 = document.createElement("div");
+                            subtable2.style.cssText = 'width: 100%;';
+                            
+                            holderEl.appendChild(subtable1);
+                            holderEl.appendChild(subtable2);
+                            rowElement.appendChild(holderEl);
+                            
+                            // Create subtables immediately with proper context
+                            try {
+                                self.createSubtable1(subtable1, data);
+                            } catch (error) {
+                                console.error("Error creating stats subtable1:", error);
+                                subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                            }
+                            
+                            try {
+                                self.createSubtable2(subtable2, data);
+                            } catch (error) {
+                                console.error("Error creating stats subtable2:", error);
+                                subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                            }
+                            
+                            // Force height recalculation WITHOUT table redraw
+                            setTimeout(() => {
+                                row.normalizeHeight();
+                            }, 100);
+                        }
+                    } else {
+                        // Handle contraction
+                        var existingSubrow = rowElement.querySelector('.subrow-container');
+                        if (existingSubrow) {
+                            existingSubrow.remove();
+                            rowElement.classList.remove('row-expanded');
+                            
+                            // Force height recalculation
+                            setTimeout(() => {
+                                row.normalizeHeight();
+                            }, 50);
+                        }
+                    }
+                };
+            })(this)
         };
 
         this.table = new Tabulator(this.elementId, config);
@@ -140,17 +136,16 @@ rowFormatter: ((self) => {
     }
 
     getColumns() {
-const simpleNumberFormatter = function(cell) {
-    var value = cell.getValue();
-    if (value === null || value === undefined || value === "") return "-";
-    return parseFloat(value).toFixed(0);
-};
+        const simpleNumberFormatter = function(cell) {
+            var value = cell.getValue();
+            if (value === null || value === undefined || value === "") return "-";
+            return parseFloat(value).toFixed(0);
+        };
 
-const ratioFormatter = function(cell) {
-    var value = cell.getValue();
-    if (value === null || value === undefined || value === "") return "-";
-    return formatDecimal(value, 3);  // Uses the new utility function
-};
+        const ratioFormatter = function(cell) {
+            var value = cell.getValue();
+            return formatRatio(value, 3);  // REMOVES leading zero
+        };
 
         return [
             {title: "Player Info", columns: [
@@ -282,7 +277,7 @@ const ratioFormatter = function(cell) {
                     minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: ratioFormatter
+                    formatter: ratioFormatter  // REMOVES leading zero
                 }
             ]},
             {title: "Starter", columns: [
@@ -302,7 +297,7 @@ const ratioFormatter = function(cell) {
                     minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: ratioFormatter
+                    formatter: ratioFormatter  // REMOVES leading zero
                 }
             ]},
             {title: "Batter + SP", columns: [
@@ -322,7 +317,7 @@ const ratioFormatter = function(cell) {
                     minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: ratioFormatter
+                    formatter: ratioFormatter  // REMOVES leading zero
                 }
             ]},
             {title: "Relievers", columns: [
@@ -362,7 +357,7 @@ const ratioFormatter = function(cell) {
                     minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: ratioFormatter
+                    formatter: ratioFormatter  // REMOVES leading zero
                 }
             ]},
             {title: "Opposing Pitching", columns: [
@@ -382,7 +377,7 @@ const ratioFormatter = function(cell) {
                     minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: ratioFormatter
+                    formatter: ratioFormatter  // REMOVES leading zero
                 }
             ]},
             {title: "Matchup", columns: [
@@ -402,7 +397,7 @@ const ratioFormatter = function(cell) {
                     minWidth: 55,
                     sorter: "number",
                     resizable: false,
-                    formatter: ratioFormatter
+                    formatter: ratioFormatter  // REMOVES leading zero
                 }
             ]}
         ];
@@ -495,17 +490,17 @@ const ratioFormatter = function(cell) {
                 lrVersusText = batterHand === "L" ? "Lefties" : "Righties";
             }
             
-const formatRatio = (value) => {
-    if (value === null || value === undefined || value === "") return "-";
-    return formatDecimal(value, 3);
-};
-
-const calculateRatio = (total, pa) => {
-    const totalNum = parseFloat(total);
-    const paNum = parseFloat(pa);
-    if (isNaN(totalNum) || isNaN(paNum) || paNum === 0) return "-";
-    return formatDecimal(totalNum / paNum, 3);
-};
+            const formatRatioValue = (value) => {
+                if (value === null || value === undefined || value === "") return "-";
+                return formatRatio(value, 3);  // REMOVES leading zero
+            };
+            
+            const calculateRatio = (total, pa) => {
+                const totalNum = parseFloat(total);
+                const paNum = parseFloat(pa);
+                if (isNaN(totalNum) || isNaN(paNum) || paNum === 0) return "-";
+                return formatRatio(totalNum / paNum, 3);  // REMOVES leading zero
+            };
             
             const safeNum = (value, fallback = "0") => {
                 if (value === null || value === undefined || value === "") return fallback;
@@ -529,19 +524,19 @@ const calculateRatio = (total, pa) => {
                     player: data["Batter Name"] + " (" + batterHand + ") Total",
                     stat: safeNum(data["Batter Total"]) + " " + statType,
                     pa: safeNum(data["Batter PA"]) + " PA",
-                    ratio: formatRatio(data["Batter Ratio"])
+                    ratio: formatRatioValue(data["Batter Ratio"])
                 },
                 {
                     player: spName + " (" + (spHand || "?") + ") Versus " + spVersusText,
                     stat: safeNum(data["SP Stat Total"]) + " " + statType,
                     pa: safeNum(data["SP TBF"]) + " TBF",
-                    ratio: formatRatio(data["SP Ratio"])
+                    ratio: formatRatioValue(data["SP Ratio"])
                 },
                 {
                     player: "Batter + SP Total",
                     stat: safeNum(data["Batter + SP Stat Total"]) + " " + statType,
                     pa: safeNum(data["Batter PA"]) + " PA / " + safeNum(data["SP TBF"]) + " TBF",
-                    ratio: formatRatio(data["Batter + SP Ratio"])
+                    ratio: formatRatioValue(data["Batter + SP Ratio"])
                 },
                 {
                     player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + safeNum(data["R Relievers"], "0") + ") Versus " + rrVersusText,
@@ -559,19 +554,19 @@ const calculateRatio = (total, pa) => {
                     player: "Bullpen Total",
                     stat: safeNum(data["Bullpen Stat Total"]) + " " + statType,
                     pa: (parseFloat(safeNum(data["RR TBF"], "0")) + parseFloat(safeNum(data["LR TBF"], "0"))) + " TBF",
-                    ratio: formatRatio(data["Bullpen Ratio"])
+                    ratio: formatRatioValue(data["Bullpen Ratio"])
                 },
                 {
                     player: "Opposing Pitching Total",
                     stat: safeNum(data["Opposing Pitching Stat Total"]) + " " + statType,
                     pa: safeNum(data["Opposing Pitching TBF"]) + " TBF",
-                    ratio: formatRatio(data["Opposing Pitching Ratio"])
+                    ratio: formatRatioValue(data["Opposing Pitching Ratio"])
                 },
                 {
                     player: "Matchup Total",
                     stat: safeNum(data["Matchup Stat Total"]) + " " + statType,
                     pa: safeNum(data["Batter PA"]) + " PA / " + safeNum(data["Opposing Pitching TBF"]) + " TBF",
-                    ratio: formatRatio(data["Matchup Rate"])
+                    ratio: formatRatioValue(data["Matchup Rate"])
                 }
             ];
             
