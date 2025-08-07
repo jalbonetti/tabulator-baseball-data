@@ -159,33 +159,30 @@ export function getSwitchHitterVersus(batterHandedness, pitcherHandedness) {
 
 export function formatPercentage(value) {
     if (value === null || value === undefined) return "0%";
-    const formatted = (parseFloat(value) * 100).toFixed(1);
-    return removeLeadingZero(formatted) + "%";
+    return (parseFloat(value) * 100).toFixed(1) + "%";
 }
 
 export function formatClearancePercentage(value) {
     if (value === null || value === undefined) return "0%";
     // Check if the value appears to be a decimal (less than 1) that should be a percentage
     const numValue = parseFloat(value);
-    let formatted;
     if (numValue >= 0 && numValue <= 1) {
         // Value is stored as decimal, multiply by 100
-        formatted = (numValue * 100).toFixed(1);
+        return (numValue * 100).toFixed(1) + "%";
     } else {
         // Value is already a percentage
-        formatted = numValue.toFixed(1);
+        return numValue.toFixed(1) + "%";
     }
-    return removeLeadingZero(formatted) + "%";
 }
 
-// New utility function to remove leading zeros from decimal numbers
+// Utility function to remove leading zeros from ratio/average values
 export function removeLeadingZero(value) {
     if (value === null || value === undefined || value === "") return value;
     
     // Convert to string if it's a number
     const str = String(value);
     
-    // Check if it starts with "0." - remove the leading 0 for ALL cases
+    // Check if it starts with "0." - remove the leading 0
     if (str.startsWith("0.")) {
         return str.substring(1);
     }
@@ -193,9 +190,15 @@ export function removeLeadingZero(value) {
     return str;
 }
 
-// Format decimal values with specified decimal places and remove leading zero
-export function formatDecimal(value, decimalPlaces = 3) {
+// Format ratio values (like batting averages, H/TBF) with no leading zero
+export function formatRatio(value, decimalPlaces = 3) {
     if (value === null || value === undefined || value === "") return "-";
     const formatted = parseFloat(value).toFixed(decimalPlaces);
     return removeLeadingZero(formatted);
+}
+
+// Format regular decimal values (like ERA) - keeps leading zero
+export function formatDecimal(value, decimalPlaces = 2) {
+    if (value === null || value === undefined || value === "") return "-";
+    return parseFloat(value).toFixed(decimalPlaces);
 }
