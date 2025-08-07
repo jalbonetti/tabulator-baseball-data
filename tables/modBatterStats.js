@@ -3,6 +3,7 @@ import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { TEAM_NAME_MAP } from '../shared/config.js';
+import { removeLeadingZero, formatDecimal } from '../shared/utils.js';
 
 export class ModBatterStatsTable extends BaseTable {
     constructor(elementId) {
@@ -139,23 +140,17 @@ rowFormatter: ((self) => {
     }
 
     getColumns() {
-        const simpleNumberFormatter = function(cell) {
-            var value = cell.getValue();
-            if (value === null || value === undefined || value === "") return "-";
-            return parseFloat(value).toFixed(0);
-        };
+const simpleNumberFormatter = function(cell) {
+    var value = cell.getValue();
+    if (value === null || value === undefined || value === "") return "-";
+    return parseFloat(value).toFixed(0);
+};
 
-        const ratioFormatter = function(cell) {
-            var value = cell.getValue();
-            if (value === null || value === undefined || value === "") return "-";
-            var formatted = parseFloat(value).toFixed(3);
-            
-            if (formatted.startsWith("0.") && formatted !== "0.000") {
-                return formatted.substring(1);
-            }
-            
-            return formatted;
-        };
+const ratioFormatter = function(cell) {
+    var value = cell.getValue();
+    if (value === null || value === undefined || value === "") return "-";
+    return formatDecimal(value, 3);  // Uses the new utility function
+};
 
         return [
             {title: "Player Info", columns: [
@@ -500,19 +495,17 @@ rowFormatter: ((self) => {
                 lrVersusText = batterHand === "L" ? "Lefties" : "Righties";
             }
             
-            const formatRatio = (value) => {
-                if (value === null || value === undefined || value === "") return "-";
-                var num = parseFloat(value);
-                if (isNaN(num)) return "-";
-                return num.toFixed(3);
-            };
-            
-            const calculateRatio = (total, pa) => {
-                const totalNum = parseFloat(total);
-                const paNum = parseFloat(pa);
-                if (isNaN(totalNum) || isNaN(paNum) || paNum === 0) return "-";
-                return formatRatio(totalNum / paNum);
-            };
+const formatRatio = (value) => {
+    if (value === null || value === undefined || value === "") return "-";
+    return formatDecimal(value, 3);
+};
+
+const calculateRatio = (total, pa) => {
+    const totalNum = parseFloat(total);
+    const paNum = parseFloat(pa);
+    if (isNaN(totalNum) || isNaN(paNum) || paNum === 0) return "-";
+    return formatDecimal(totalNum / paNum, 3);
+};
             
             const safeNum = (value, fallback = "0") => {
                 if (value === null || value === undefined || value === "") return fallback;
