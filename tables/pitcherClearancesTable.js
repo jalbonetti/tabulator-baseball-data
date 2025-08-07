@@ -1,4 +1,4 @@
-// tables/pitcherClearancesTable.js - FIXED VERSION
+// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH CORRECT FORMATTERS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -38,7 +38,7 @@ export class PitcherClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: true,  // Keep text filter for name
+                    headerFilter: true,
                     resizable: false,
                     formatter: this.createNameFormatter()
                 },
@@ -48,7 +48,7 @@ export class PitcherClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: createCustomMultiSelect,
                     resizable: false,
                     formatter: this.createTeamFormatter()
                 }
@@ -60,7 +60,7 @@ export class PitcherClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: createCustomMultiSelect,
                     resizable: false
                 },
                 {
@@ -69,7 +69,7 @@ export class PitcherClearancesTable extends BaseTable {
                     width: 200, 
                     minWidth: 150,
                     sorter: "number", 
-                    headerFilter: createCustomMultiSelect,  // Use multiselect
+                    headerFilter: createCustomMultiSelect,
                     resizable: false
                 }
             ]},
@@ -82,7 +82,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatClearancePercentage(cell.getValue())
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())  // KEEPS leading zero
                 },
                 {
                     title: "Games", 
@@ -103,7 +103,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatClearancePercentage(cell.getValue())
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())  // KEEPS leading zero
                 },
                 {
                     title: "Games", 
@@ -124,7 +124,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number", 
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatClearancePercentage(cell.getValue())
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())  // KEEPS leading zero
                 },
                 {
                     title: "Games", 
@@ -145,7 +145,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatClearancePercentage(cell.getValue())
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())  // KEEPS leading zero
                 },
                 {
                     title: "Games", 
