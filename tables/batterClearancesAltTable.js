@@ -1,6 +1,6 @@
 // tables/batterClearancesAltTable.js - FIXED VERSION (NO REFRESH BUTTON, WORKING SUBTABLES)
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage, formatRatio, formatDecimal } from '../shared/utils.js';
+import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage, formatRatio, formatDecimal, formatRatio } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class BatterClearancesAltTable extends BaseTable {
@@ -473,28 +473,28 @@ createSubtable2(container, data) {
             return value;
         };
         
-        var tableData = [
-            {
-                player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Righties",
-                propData: formatValue(data["Batter Prop Total R"])
-            },
-            {
-                player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Lefties",
-                propData: formatValue(data["Batter Prop Total L"])
-            },
-            {
-                player: (data["SP"] || "Unknown SP") + " Versus " + spVersusText,
-                propData: formatValue(data["SP Prop Total"])
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
-                propData: formatValue(data["RR Prop Total"])
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
-                propData: formatValue(data["LR Prop Total"])
-            }
-        ];
+var tableData = [
+    {
+        player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Righties",
+        propData: removeLeadingZeroFromValue(data["Batter Prop Total R"]) || "-"
+    },
+    {
+        player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Lefties",
+        propData: removeLeadingZeroFromValue(data["Batter Prop Total L"]) || "-"
+    },
+    {
+        player: (data["SP"] || "Unknown SP") + " Versus " + spVersusText,
+        propData: removeLeadingZeroFromValue(data["SP Prop Total"]) || "-"
+    },
+    {
+        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
+        propData: removeLeadingZeroFromValue(data["RR Prop Total"]) || "-"
+    },
+    {
+        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
+        propData: removeLeadingZeroFromValue(data["LR Prop Total"]) || "-"
+    }
+];
         
         new Tabulator(container, {
             layout: "fitColumns",
