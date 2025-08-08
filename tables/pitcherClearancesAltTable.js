@@ -1,6 +1,6 @@
 // tables/pitcherClearancesAltTable.js - FIXED VERSION
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, formatClearancePercentage, formatRatio, formatDecimal } from '../shared/utils.js';
+import { getOpponentTeam, formatClearancePercentage, formatRatio, formatDecimal, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class PitcherClearancesAltTable extends BaseTable {
@@ -298,28 +298,24 @@ createSubtable2(container, data) {
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-            data: [
-                {
-                    player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
-                    propData: formatValue(data["Pitcher Prop Total R"])
-                },
-                {
-                    player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-                    propData: formatValue(data["Pitcher Prop Total L"])
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
-                    propData: formatValue(data["RB Prop Total"])
-                },
-                {
-                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
-                    propData: formatValue(data["LB Prop Total"])
-                }
-            ],
-            columns: [
-                {title: "Players", field: "player", headerSort: false, resizable: false, width: 400},
-                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 200}
-            ]
+data: [
+    {
+        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
+        propData: removeLeadingZeroFromValue(data["Pitcher Prop Total R"]) || "-"
+    },
+    {
+        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+        propData: removeLeadingZeroFromValue(data["Pitcher Prop Total L"]) || "-"
+    },
+    {
+        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
+        propData: removeLeadingZeroFromValue(data["RB Prop Total"]) || "-"
+    },
+    {
+        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
+        propData: removeLeadingZeroFromValue(data["LB Prop Total"]) || "-"
+    }
+]
         });
     } catch (error) {
         console.error("Error creating pitcher clearances alt subtable2:", error, data);
