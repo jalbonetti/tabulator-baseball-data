@@ -121,7 +121,13 @@ export function removeLeadingZeroFromValue(value) {
     // Convert to string
     const str = String(value);
     
-    // If it starts with "0." remove the leading 0
+    // Check if the value contains parentheses with a decimal value
+    if (str.includes('(') && str.includes(')')) {
+        // Extract the part in parentheses
+        return str.replace(/\(0\./g, '(.');
+    }
+    
+    // If no parentheses, check if the entire value starts with "0."
     if (str.startsWith("0.")) {
         return str.substring(1);
     }
