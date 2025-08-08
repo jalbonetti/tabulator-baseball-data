@@ -1,6 +1,6 @@
 // tables/pitcherClearancesTable.js - COMPLETE VERSION WITH CORRECT FORMATTERS
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, formatClearancePercentage } from '../shared/utils.js';
+import { getOpponentTeam, formatClearancePercentage, formatRatio } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class PitcherClearancesTable extends BaseTable {
