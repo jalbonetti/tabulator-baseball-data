@@ -1,6 +1,6 @@
 // tables/batterClearancesTable.js - COMPLETE VERSION WITH CORRECT FORMATTERS
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
+import { getOpponentTeam, getSwitchHitterVersus, formatPercentage, formatRatio } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class BatterClearancesTable extends BaseTable {
