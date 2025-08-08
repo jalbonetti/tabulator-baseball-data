@@ -114,3 +114,17 @@ export function formatDecimal(value, decimalPlaces = 2) {
     if (value === null || value === undefined || value === "") return "-";
     return parseFloat(value).toFixed(decimalPlaces);
 }
+
+function removeLeadingZeroFromValue(value) {
+    if (value === null || value === undefined || value === "" || value === "-") return value || "-";
+    
+    // Convert to string
+    const str = String(value);
+    
+    // If it starts with "0." remove the leading 0
+    if (str.startsWith("0.")) {
+        return str.substring(1);
+    }
+    
+    return str;
+}
