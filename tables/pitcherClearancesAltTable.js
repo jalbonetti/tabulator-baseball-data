@@ -277,42 +277,53 @@ export class PitcherClearancesAltTable extends BaseTable {
         });
     }
 
-    createSubtable2(container, data) {
-        try {
-            var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
-            
-            new Tabulator(container, {
-                layout: "fitColumns",
-                columnHeaderSortMulti: false,
-                resizableColumns: false,
-                resizableRows: false,
-                movableColumns: false,
-                data: [
-                    {
-                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
-                        propData: data["Pitcher Prop Total R"] || "-"
-                    },
-                    {
-                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-                        propData: data["Pitcher Prop Total L"] || "-"
-                    },
-                    {
-                        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
-                        propData: data["RB Prop Total"] || "-"
-                    },
-                    {
-                        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
-                        propData: data["LB Prop Total"] || "-"
-                    }
-                ],
-                columns: [
-                    {title: "Players", field: "player", headerSort: false, resizable: false, width: 400},
-                    {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 200}
-                ]
-            });
-        } catch (error) {
-            console.error("Error creating pitcher clearances alt subtable2:", error, data);
-            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
-        }
+createSubtable2(container, data) {
+    try {
+        var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
+        
+        // Format values to remove leading zeros from ratios
+        const formatValue = (value) => {
+            if (value === null || value === undefined || value === "" || value === "-") return "-";
+            // Check if it's a decimal ratio value (e.g., 0.xxx)
+            const numValue = parseFloat(value);
+            if (!isNaN(numValue) && value.toString().includes('.')) {
+                return formatRatio(value, 3);
+            }
+            return value;
+        };
+        
+        new Tabulator(container, {
+            layout: "fitColumns",
+            columnHeaderSortMulti: false,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            data: [
+                {
+                    player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                    propData: formatValue(data["Pitcher Prop Total R"])
+                },
+                {
+                    player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                    propData: formatValue(data["Pitcher Prop Total L"])
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
+                    propData: formatValue(data["RB Prop Total"])
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
+                    propData: formatValue(data["LB Prop Total"])
+                }
+            ],
+            columns: [
+                {title: "Players", field: "player", headerSort: false, resizable: false, width: 400},
+                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 200}
+            ]
+        });
+    } catch (error) {
+        console.error("Error creating pitcher clearances alt subtable2:", error, data);
+        container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
     }
+}
 }
