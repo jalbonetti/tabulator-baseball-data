@@ -271,43 +271,43 @@ export class BatterClearancesTable extends BaseTable {
         };
         
         // Prepare table data with formatted values
-        var tableData = [
-            {
-                player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
-                fullSeason: formatValue(data["Batter Prop Total R Season"]),
-                fullSeasonHA: formatValue(data["Batter Prop Total R Season At"]),
-                last30: formatValue(data["Batter Prop Total R 30"]),
-                last30HA: formatValue(data["Batter Prop Total R 30 At"])
-            },
-            {
-                player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-                fullSeason: formatValue(data["Batter Prop Total L Season"]),
-                fullSeasonHA: formatValue(data["Batter Prop Total L Season At"]),
-                last30: formatValue(data["Batter Prop Total L 30"]),
-                last30HA: formatValue(data["Batter Prop Total L 30 At"])
-            },
-            {
-                player: data["SP"] + " Versus " + spVersusText,
-                fullSeason: formatValue(data["SP Prop Total Vs Season"]),
-                fullSeasonHA: formatValue(data["SP Prop Total Vs Season At"]),
-                last30: formatValue(data["SP Prop Total Vs 30"]),
-                last30HA: formatValue(data["SP Prop Total Vs 30 At"])
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
-                fullSeason: formatValue(data["RR Prop Total Vs Season"]),
-                fullSeasonHA: formatValue(data["RR Prop Total Vs Season At"]),
-                last30: formatValue(data["RR Prop Total Vs 30"]),
-                last30HA: formatValue(data["RR Prop Total Vs 30 At"])
-            },
-            {
-                player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
-                fullSeason: formatValue(data["LR Prop Total Vs Season"]),
-                fullSeasonHA: formatValue(data["LR Prop Total Vs Season At"]),
-                last30: formatValue(data["LR Prop Total Vs 30"]),
-                last30HA: formatValue(data["LR Prop Total Vs 30 At"])
-            }
-        ];
+var tableData = [
+    {
+        player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Righties",
+        fullSeason: removeLeadingZeroFromValue(data["Batter Prop Total R Season"]) || "-",
+        fullSeasonHA: removeLeadingZeroFromValue(data["Batter Prop Total R Season At"]) || "-",
+        last30: removeLeadingZeroFromValue(data["Batter Prop Total R 30"]) || "-",
+        last30HA: removeLeadingZeroFromValue(data["Batter Prop Total R 30 At"]) || "-"
+    },
+    {
+        player: data["Batter Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+        fullSeason: removeLeadingZeroFromValue(data["Batter Prop Total L Season"]) || "-",
+        fullSeasonHA: removeLeadingZeroFromValue(data["Batter Prop Total L Season At"]) || "-",
+        last30: removeLeadingZeroFromValue(data["Batter Prop Total L 30"]) || "-",
+        last30HA: removeLeadingZeroFromValue(data["Batter Prop Total L 30 At"]) || "-"
+    },
+    {
+        player: data["SP"] + " Versus " + spVersusText,
+        fullSeason: removeLeadingZeroFromValue(data["SP Prop Total Vs Season"]) || "-",
+        fullSeasonHA: removeLeadingZeroFromValue(data["SP Prop Total Vs Season At"]) || "-",
+        last30: removeLeadingZeroFromValue(data["SP Prop Total Vs 30"]) || "-",
+        last30HA: removeLeadingZeroFromValue(data["SP Prop Total Vs 30 At"]) || "-"
+    },
+    {
+        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
+        fullSeason: removeLeadingZeroFromValue(data["RR Prop Total Vs Season"]) || "-",
+        fullSeasonHA: removeLeadingZeroFromValue(data["RR Prop Total Vs Season At"]) || "-",
+        last30: removeLeadingZeroFromValue(data["RR Prop Total Vs 30"]) || "-",
+        last30HA: removeLeadingZeroFromValue(data["RR Prop Total Vs 30 At"]) || "-"
+    },
+    {
+        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
+        fullSeason: removeLeadingZeroFromValue(data["LR Prop Total Vs Season"]) || "-",
+        fullSeasonHA: removeLeadingZeroFromValue(data["LR Prop Total Vs Season At"]) || "-",
+        last30: removeLeadingZeroFromValue(data["LR Prop Total Vs 30"]) || "-",
+        last30HA: removeLeadingZeroFromValue(data["LR Prop Total Vs 30 At"]) || "-"
+    }
+];
         
         new Tabulator(container, {
             layout: "fitColumns",
