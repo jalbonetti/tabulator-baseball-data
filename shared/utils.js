@@ -115,7 +115,7 @@ export function formatDecimal(value, decimalPlaces = 2) {
     return parseFloat(value).toFixed(decimalPlaces);
 }
 
-function removeLeadingZeroFromValue(value) {
+export function removeLeadingZeroFromValue(value) {
     if (value === null || value === undefined || value === "" || value === "-") return value || "-";
     
     // Convert to string
