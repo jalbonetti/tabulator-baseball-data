@@ -1,6 +1,6 @@
 // tables/batterClearancesAltTable.js - FIXED VERSION (NO REFRESH BUTTON, WORKING SUBTABLES)
 import { BaseTable } from './baseTable.js';
-import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage, formatRatio, formatDecimal, formatRatio } from '../shared/utils.js';
+import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage, formatRatio, formatDecimal, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
 export class BatterClearancesAltTable extends BaseTable {
