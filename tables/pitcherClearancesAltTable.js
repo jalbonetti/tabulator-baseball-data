@@ -1,4 +1,4 @@
-// tables/pitcherClearancesAltTable.js - FIXED VERSION
+// tables/pitcherClearancesAltTable.js - FIXED VERSION WITH WORKING SUBTABLES
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage, formatRatio, formatDecimal, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -253,6 +253,81 @@ export class PitcherClearancesAltTable extends BaseTable {
         });
     }
 
+    // Override the createRowFormatter to ensure subtables work
+    createRowFormatter() {
+        const self = this;
+        
+        return (row) => {
+            var data = row.getData();
+            var rowElement = row.getElement();
+            
+            // Initialize _expanded if undefined
+            if (data._expanded === undefined) {
+                data._expanded = false;
+            }
+            
+            // Add/remove expanded class
+            if (data._expanded) {
+                rowElement.classList.add('row-expanded');
+            } else {
+                rowElement.classList.remove('row-expanded');
+            }
+            
+            // Handle expansion
+            if (data._expanded) {
+                // Check if subtables already exist
+                let existingSubrow = rowElement.querySelector('.subrow-container');
+                
+                if (!existingSubrow) {
+                    // Create container for subtables
+                    var holderEl = document.createElement("div");
+                    holderEl.classList.add('subrow-container');
+                    holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%;';
+                    
+                    var subtable1 = document.createElement("div");
+                    subtable1.style.marginBottom = "15px";
+                    var subtable2 = document.createElement("div");
+                    
+                    holderEl.appendChild(subtable1);
+                    holderEl.appendChild(subtable2);
+                    rowElement.appendChild(holderEl);
+                    
+                    // Create subtables with error handling
+                    try {
+                        self.createSubtable1(subtable1, data);
+                    } catch (error) {
+                        console.error("Error creating subtable1:", error);
+                        subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                    }
+                    
+                    try {
+                        self.createSubtable2(subtable2, data);
+                    } catch (error) {
+                        console.error("Error creating subtable2:", error);
+                        subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                    }
+                    
+                    // Force row height recalculation
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                    }, 100);
+                }
+            } else {
+                // Handle contraction
+                var existingSubrow = rowElement.querySelector('.subrow-container');
+                if (existingSubrow) {
+                    existingSubrow.remove();
+                    rowElement.classList.remove('row-expanded');
+                    
+                    // Force row height recalculation
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                    }, 50);
+                }
+            }
+        };
+    }
+
     // Override createSubtable1 for pitcher data
     createSubtable1(container, data) {
         // Combine park factors for display (R/L order)
@@ -277,49 +352,53 @@ export class PitcherClearancesAltTable extends BaseTable {
         });
     }
 
-createSubtable2(container, data) {
-    try {
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
-        
-        // Format values to remove leading zeros from ratios
-        const formatValue = (value) => {
-            if (value === null || value === undefined || value === "" || value === "-") return "-";
-            // Check if it's a decimal ratio value (e.g., 0.xxx)
-            const numValue = parseFloat(value);
-            if (!isNaN(numValue) && value.toString().includes('.')) {
-                return formatRatio(value, 3);
-            }
-            return value;
-        };
-        
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-data: [
-    {
-        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
-        propData: removeLeadingZeroFromValue(data["Pitcher Prop Total R"]) || "-"
-    },
-    {
-        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-        propData: removeLeadingZeroFromValue(data["Pitcher Prop Total L"]) || "-"
-    },
-    {
-        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
-        propData: removeLeadingZeroFromValue(data["RB Prop Total"]) || "-"
-    },
-    {
-        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
-        propData: removeLeadingZeroFromValue(data["LB Prop Total"]) || "-"
+    createSubtable2(container, data) {
+        try {
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
+            
+            // Format values to remove leading zeros from ratios
+            const formatValue = (value) => {
+                if (value === null || value === undefined || value === "" || value === "-") return "-";
+                // Check if it's a decimal ratio value (e.g., 0.xxx)
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue) && value.toString().includes('.')) {
+                    return formatRatio(value, 3);
+                }
+                return value;
+            };
+            
+            new Tabulator(container, {
+                layout: "fitColumns",
+                columnHeaderSortMulti: false,
+                resizableColumns: false,
+                resizableRows: false,
+                movableColumns: false,
+                data: [
+                    {
+                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                        propData: removeLeadingZeroFromValue(data["Pitcher Prop Total R"]) || "-"
+                    },
+                    {
+                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                        propData: removeLeadingZeroFromValue(data["Pitcher Prop Total L"]) || "-"
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
+                        propData: removeLeadingZeroFromValue(data["RB Prop Total"]) || "-"
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
+                        propData: removeLeadingZeroFromValue(data["LB Prop Total"]) || "-"
+                    }
+                ],
+                columns: [
+                    {title: "Players", field: "player", headerSort: false, width: 350},
+                    {title: "Prop Data", field: "propData", headerSort: false, width: 220}
+                ]
+            });
+        } catch (error) {
+            console.error("Error creating pitcher clearances alt subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
+        }
     }
-]
-        });
-    } catch (error) {
-        console.error("Error creating pitcher clearances alt subtable2:", error, data);
-        container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
-    }
-}
 }
