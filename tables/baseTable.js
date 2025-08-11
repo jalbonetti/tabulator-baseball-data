@@ -945,5 +945,3 @@ export class BaseTable {
         };
     }
 }
-    }
-}
