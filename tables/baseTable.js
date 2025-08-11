@@ -171,16 +171,23 @@ export class BaseTable {
                     }
                 });
                 
-                // Apply global expanded state after data loads
-                setTimeout(() => {
-                    self.applyGlobalExpandedState();
-                }, 100);
+                // Only apply global expanded state if we're in restoration mode
+                if (self.isRestoringState) {
+                    setTimeout(() => {
+                        if (self.isRestoringState) {
+                            self.applyGlobalExpandedState();
+                        }
+                    }, 100);
+                }
             },
             renderComplete: function() {
                 // Only apply expanded state if we're restoring, not during normal renders
                 if (self.isRestoringState) {
                     setTimeout(() => {
-                        self.applyGlobalExpandedState();
+                        // Only apply if still in restoring state
+                        if (self.isRestoringState) {
+                            self.applyGlobalExpandedState();
+                        }
                     }, 50);
                 }
             }
@@ -449,7 +456,7 @@ export class BaseTable {
         const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId);
         if (!globalState || globalState.size === 0) return;
         
-        console.log(`Applying ${globalState.size} globally stored expanded rows to ${this.elementId}`);
+        console.log(`Applying ${globalState.size} globally stored expanded rows to ${this.elementId} during restoration`);
         
         const rows = this.table.getRows();
         let expandedCount = 0;
@@ -466,32 +473,35 @@ export class BaseTable {
                     
                     // Force reformat after a delay to ensure subtables are created
                     setTimeout(() => {
-                        row.reformat();
-                        
-                        // Update expander icon
-                        setTimeout(() => {
-                            const cells = row.getCells();
-                            const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                        // Check we're still in restoration mode
+                        if (this.isRestoringState) {
+                            row.reformat();
                             
-                            for (let field of nameFields) {
-                                const nameCell = cells.find(cell => cell.getField() === field);
-                                if (nameCell) {
-                                    const cellElement = nameCell.getElement();
-                                    const expander = cellElement.querySelector('.row-expander');
-                                    if (expander) {
-                                        expander.innerHTML = "−";
+                            // Update expander icon
+                            setTimeout(() => {
+                                const cells = row.getCells();
+                                const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                                
+                                for (let field of nameFields) {
+                                    const nameCell = cells.find(cell => cell.getField() === field);
+                                    if (nameCell) {
+                                        const cellElement = nameCell.getElement();
+                                        const expander = cellElement.querySelector('.row-expander');
+                                        if (expander) {
+                                            expander.innerHTML = "−";
+                                        }
+                                        break;
                                     }
-                                    break;
                                 }
-                            }
-                        }, 50);
+                            }, 50);
+                        }
                     }, 100);
                 }
             }
         });
         
         if (expandedCount > 0) {
-            console.log(`Successfully expanded ${expandedCount} rows`);
+            console.log(`Successfully expanded ${expandedCount} rows during restoration`);
         }
     }
 
@@ -553,68 +563,88 @@ export class BaseTable {
         
         console.log(`Restoring ${globalState.size} expanded rows for ${this.elementId}`);
         
-        // Set flag to indicate we're restoring
+        // Set flag to indicate we're restoring - this prevents click handlers from interfering
         this.isRestoringState = true;
         
-        // Apply the global state
+        // Apply the global state with multiple attempts
         const applyStateAttempt = (attemptNum) => {
-            if (attemptNum > 3) {
-                // Clear restoration flag after final attempt
-                this.isRestoringState = false;
+            if (attemptNum > 5) {
+                // Clear restoration flag only after ALL attempts are complete
+                setTimeout(() => {
+                    this.isRestoringState = false;
+                    console.log(`Restoration complete for ${this.elementId}, clearing flag`);
+                }, 500);
                 return;
             }
             
             const rows = this.table.getRows();
             let restoredCount = 0;
+            let needsRestoration = 0;
             
             rows.forEach(row => {
                 const data = row.getData();
                 const rowId = this.generateRowId(data);
                 
                 if (globalState.has(rowId)) {
+                    needsRestoration++;
                     if (!data._expanded) {
+                        // Force the expanded state
                         data._expanded = true;
                         row.update(data);
                         restoredCount++;
                         
-                        // Delay reformat to ensure it happens after data update
+                        // Schedule reformat for this specific row
                         setTimeout(() => {
-                            row.reformat();
-                            
-                            // Update icon
-                            const cells = row.getCells();
-                            const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
-                            
-                            for (let field of nameFields) {
-                                const nameCell = cells.find(cell => cell.getField() === field);
-                                if (nameCell) {
-                                    const cellElement = nameCell.getElement();
-                                    const expander = cellElement.querySelector('.row-expander');
-                                    if (expander) {
-                                        expander.innerHTML = "−";
+                            // Double-check the state hasn't been changed
+                            const currentData = row.getData();
+                            if (currentData._expanded) {
+                                row.reformat();
+                                
+                                // Update icon after reformat
+                                setTimeout(() => {
+                                    const cells = row.getCells();
+                                    const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                                    
+                                    for (let field of nameFields) {
+                                        const nameCell = cells.find(cell => cell.getField() === field);
+                                        if (nameCell) {
+                                            const cellElement = nameCell.getElement();
+                                            const expander = cellElement.querySelector('.row-expander');
+                                            if (expander && expander.innerHTML !== "−") {
+                                                expander.innerHTML = "−";
+                                            }
+                                            break;
+                                        }
                                     }
-                                    break;
-                                }
+                                }, 20);
                             }
-                        }, 50 * attemptNum); // Increase delay with each attempt
+                        }, 100 + (50 * attemptNum));
                     }
                 }
             });
             
             if (restoredCount > 0) {
-                console.log(`Restoration attempt ${attemptNum}: restored ${restoredCount} rows`);
+                console.log(`Restoration attempt ${attemptNum}: restored ${restoredCount} of ${needsRestoration} rows`);
             }
             
-            // Try again after a delay
-            setTimeout(() => {
-                applyStateAttempt(attemptNum + 1);
-            }, 300 * attemptNum);
+            // Continue attempts if not all rows are restored
+            if (restoredCount > 0 || attemptNum < 3) {
+                setTimeout(() => {
+                    applyStateAttempt(attemptNum + 1);
+                }, 200 + (100 * attemptNum));
+            } else {
+                // All done, clear flag after a delay
+                setTimeout(() => {
+                    this.isRestoringState = false;
+                    console.log(`Restoration complete for ${this.elementId}, clearing flag`);
+                }, 500);
+            }
         };
         
-        // Start restoration attempts
+        // Start restoration attempts after a brief delay to let the table settle
         setTimeout(() => {
             applyStateAttempt(1);
-        }, 100);
+        }, 150);
         
         // Restore scroll position
         if (this.lastScrollPosition > 0) {
@@ -623,7 +653,7 @@ export class BaseTable {
                 if (tableHolder) {
                     tableHolder.scrollTop = this.lastScrollPosition;
                 }
-            }, 400);
+            }, 600);
         }
     }
 
@@ -723,6 +753,12 @@ export class BaseTable {
                 }
                 
                 expansionTimeout = setTimeout(() => {
+                    // Double-check restoration flag hasn't been set
+                    if (self.isRestoringState) {
+                        console.log("Ignoring delayed click during state restoration");
+                        return;
+                    }
+                    
                     var row = cell.getRow();
                     var data = row.getData();
                     
@@ -829,6 +865,11 @@ export class BaseTable {
                 rowElement.classList.add('row-expanded');
             } else {
                 rowElement.classList.remove('row-expanded');
+            }
+            
+            // Don't modify subtables during restoration - let the restoration process handle it
+            if (self.isRestoringState) {
+                return;
             }
             
             if (data._expanded) {
