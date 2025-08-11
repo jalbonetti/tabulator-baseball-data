@@ -1,4 +1,4 @@
-// components/tabManager.js - FINAL FIXED VERSION
+// components/tabManager.js - COMPLETE VERSION WITH ENHANCED STATE HANDLING
 export class TabManager {
     constructor(tables) {
         this.tables = tables;
@@ -27,7 +27,7 @@ export class TabManager {
                 
                 if (tableWrapper && !tableWrapper.isInitialized) {
                     tableWrapper.initialize();
-                    tableWrapper.isInitialized = true; // ENSURE this is set
+                    tableWrapper.isInitialized = true;
                     this.tabInitialized[tabId] = true;
                     setTimeout(resolve, 100);
                 } else {
@@ -38,6 +38,7 @@ export class TabManager {
         });
     }
 
+    // ENHANCED setupTabSwitching with immediate state saving
     setupTabSwitching() {
         let switchTimeout;
         
@@ -61,9 +62,12 @@ export class TabManager {
                     clearTimeout(switchTimeout);
                 }
                 
-                // Save state BEFORE the timeout
-                console.log(`About to switch from ${this.currentActiveTab} to ${targetTab}`);
+                // CRITICAL: Save state immediately before any delay
+                console.log(`Saving state for ${this.currentActiveTab} before switching to ${targetTab}`);
                 this.saveCurrentTabState();
+                
+                // Small delay to ensure state is saved
+                await new Promise(resolve => setTimeout(resolve, 50));
                 
                 switchTimeout = setTimeout(async () => {
                     console.log('Switching to tab:', targetTab);
@@ -84,15 +88,51 @@ export class TabManager {
                     if (targetContainer) {
                         targetContainer.className = 'table-container active-table';
                         targetContainer.style.display = 'block';
+                        
+                        // Update current active tab BEFORE restoration
+                        const previousTab = this.currentActiveTab;
                         this.currentActiveTab = targetTab;
                         
-                        requestAnimationFrame(() => {
-                            this.restoreTabState(targetTab);
+                        // Wait a frame for DOM updates
+                        await new Promise(resolve => requestAnimationFrame(resolve));
+                        
+                        // Now restore the state
+                        console.log(`Restoring state for ${targetTab}`);
+                        this.restoreTabState(targetTab);
+                        
+                        // Give extra time for state restoration
+                        setTimeout(() => {
+                            this.isTransitioning = false;
                             
-                            setTimeout(() => {
-                                this.isTransitioning = false;
-                            }, 300);
-                        });
+                            // Force a final check on expanded rows
+                            const tableWrapper = this.tables[targetTab];
+                            if (tableWrapper && tableWrapper.table) {
+                                const table = tableWrapper.table;
+                                const rows = table.getRows();
+                                
+                                rows.forEach(row => {
+                                    const data = row.getData();
+                                    if (data._expanded) {
+                                        // Ensure visual state matches data state
+                                        const cells = row.getCells();
+                                        const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                                        
+                                        for (let field of nameFields) {
+                                            const nameCell = cells.find(cell => cell.getField() === field);
+                                            if (nameCell) {
+                                                const cellElement = nameCell.getElement();
+                                                const expander = cellElement.querySelector('.row-expander');
+                                                if (expander && expander.innerHTML !== "−") {
+                                                    console.log('Fixing expander icon mismatch');
+                                                    expander.innerHTML = "−";
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        }, 500);
                     } else {
                         this.isTransitioning = false;
                     }
@@ -101,6 +141,7 @@ export class TabManager {
         });
     }
 
+    // ENHANCED saveCurrentTabState with complete metadata
     saveCurrentTabState() {
         const tableWrapper = this.tables[this.currentActiveTab];
         
@@ -109,7 +150,7 @@ export class TabManager {
             return;
         }
         
-        // Check if table has been initialized by checking for the table property
+        // Check if table has been initialized
         const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
         if (!table) {
             console.log(`Table not yet initialized for ${this.currentActiveTab}`);
@@ -118,7 +159,7 @@ export class TabManager {
         
         console.log(`Saving state for ${this.currentActiveTab}`);
         
-        // Try to use the table's saveState method if it exists
+        // Use the table's saveState method if it exists
         if (tableWrapper.saveState && typeof tableWrapper.saveState === 'function') {
             console.log(`Calling saveState on ${this.currentActiveTab}`);
             tableWrapper.saveState();
@@ -141,10 +182,28 @@ export class TabManager {
                     const rowElement = row.getElement();
                     const hasVisibleSubrow = rowElement.querySelector('.subrow-container') !== null;
                     
+                    // Get the visual state of the expander
+                    let expanderState = "−";
+                    const cells = row.getCells();
+                    const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                    
+                    for (let field of nameFields) {
+                        const nameCell = cells.find(cell => cell.getField() === field);
+                        if (nameCell) {
+                            const cellElement = nameCell.getElement();
+                            const expander = cellElement.querySelector('.row-expander');
+                            if (expander) {
+                                expanderState = expander.innerHTML;
+                            }
+                            break;
+                        }
+                    }
+                    
                     expandedRows.push({
                         id: id,
                         hasSubrow: hasVisibleSubrow,
-                        data: data
+                        data: data,
+                        expanderState: expanderState
                     });
                 }
             });
@@ -155,7 +214,7 @@ export class TabManager {
                 expandedCount: expandedRows.length
             };
             
-            console.log(`Fallback saved ${expandedRows.length} expanded rows for ${this.currentActiveTab}`);
+            console.log(`Saved ${expandedRows.length} expanded rows for ${this.currentActiveTab}`);
         }
     }
 
@@ -194,7 +253,7 @@ export class TabManager {
             return;
         }
         
-        // Check if table has been initialized by checking for the table property
+        // Check if table has been initialized
         const table = tableWrapper.getTabulator ? tableWrapper.getTabulator() : tableWrapper.table;
         if (!table) {
             console.log(`Table not yet initialized for ${tabId}`);
@@ -239,10 +298,11 @@ export class TabManager {
                         row.update(data);
                         rowsToReformat.push({
                             row: row,
-                            hadSubrow: savedRow.hasSubrow
+                            hadSubrow: savedRow.hasSubrow,
+                            expanderState: savedRow.expanderState
                         });
                         
-                        this.updateExpanderIcon(row, true);
+                        this.updateExpanderIcon(row, true, savedRow.expanderState);
                     } else if (data._expanded) {
                         data._expanded = false;
                         row.update(data);
@@ -251,7 +311,7 @@ export class TabManager {
                 });
                 
                 setTimeout(() => {
-                    rowsToReformat.forEach(({row, hadSubrow}) => {
+                    rowsToReformat.forEach(({row, hadSubrow, expanderState}) => {
                         const rowElement = row.getElement();
                         const existingSubrow = rowElement.querySelector('.subrow-container');
                         if (existingSubrow) {
@@ -259,6 +319,11 @@ export class TabManager {
                         }
                         
                         row.reformat();
+                        
+                        // Restore expander state after reformat
+                        setTimeout(() => {
+                            this.updateExpanderIcon(row, true, expanderState);
+                        }, 50);
                         
                         if (hadSubrow) {
                             setTimeout(() => {
@@ -292,7 +357,7 @@ export class TabManager {
         }
     }
 
-    updateExpanderIcon(row, isExpanded) {
+    updateExpanderIcon(row, isExpanded, forcedState = null) {
         const cells = row.getCells();
         const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
         
@@ -302,7 +367,11 @@ export class TabManager {
                 const cellElement = nameCell.getElement();
                 const expander = cellElement.querySelector('.row-expander');
                 if (expander) {
-                    expander.innerHTML = isExpanded ? "−" : "+";
+                    if (forcedState !== null) {
+                        expander.innerHTML = forcedState;
+                    } else {
+                        expander.innerHTML = isExpanded ? "−" : "+";
+                    }
                 }
                 break;
             }
