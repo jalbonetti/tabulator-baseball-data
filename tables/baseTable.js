@@ -1,4 +1,4 @@
-// tables/baseTable.js - COMPLETE FIX WITH ROBUST STATE RESTORATION
+// tables/baseTable.js - FIXED VERSION WITH PROPER STATE MANAGEMENT
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -115,6 +115,7 @@ class CacheManager {
 const cacheManager = new CacheManager();
 
 // Global storage for expanded rows that persists across all operations
+// FIXED: Changed to Map to track modification time
 const GLOBAL_EXPANDED_STATE = new Map();
 
 export class BaseTable {
@@ -130,10 +131,11 @@ export class BaseTable {
         this.temporaryExpandedRows = new Set();
         this.lastScrollPosition = 0;
         this.tableConfig = this.getBaseConfig();
+        this.isRestoringState = false; // Flag to prevent loops
         
         // Initialize global state for this table if not exists
         if (!GLOBAL_EXPANDED_STATE.has(elementId)) {
-            GLOBAL_EXPANDED_STATE.set(elementId, new Set());
+            GLOBAL_EXPANDED_STATE.set(elementId, new Map()); // Changed to Map
         }
     }
 
@@ -175,10 +177,12 @@ export class BaseTable {
                 }, 100);
             },
             renderComplete: function() {
-                // Apply expanded state after render completes
-                setTimeout(() => {
-                    self.applyGlobalExpandedState();
-                }, 50);
+                // Only apply expanded state if we're restoring, not during normal renders
+                if (self.isRestoringState) {
+                    setTimeout(() => {
+                        self.applyGlobalExpandedState();
+                    }, 50);
+                }
             }
         };
 
@@ -438,9 +442,9 @@ export class BaseTable {
         return keys.slice(0, 5).map(k => `${k}:${data[k]}`).join('|');
     }
 
-    // Apply global expanded state to current table
+    // FIXED: Apply global expanded state ONLY during restoration
     applyGlobalExpandedState() {
-        if (!this.table) return;
+        if (!this.table || !this.isRestoringState) return;
         
         const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId);
         if (!globalState || globalState.size === 0) return;
@@ -491,7 +495,7 @@ export class BaseTable {
         }
     }
 
-    // Save state to global storage
+    // FIXED: Save state to global storage with timestamp
     saveState() {
         if (!this.table) return;
         
@@ -503,8 +507,10 @@ export class BaseTable {
             this.lastScrollPosition = tableHolder.scrollTop;
         }
         
+        // Get or create global state for this table
+        const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId) || new Map();
+        
         // Clear and rebuild global expanded state
-        const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId);
         globalState.clear();
         
         const rows = this.table.getRows();
@@ -513,14 +519,20 @@ export class BaseTable {
             const data = row.getData();
             if (data._expanded) {
                 const id = this.generateRowId(data);
-                globalState.add(id);
+                globalState.set(id, { 
+                    timestamp: Date.now(),
+                    data: data 
+                });
             }
         });
+        
+        // Update global state
+        GLOBAL_EXPANDED_STATE.set(this.elementId, globalState);
         
         console.log(`Saved ${globalState.size} expanded rows for ${this.elementId}`);
     }
 
-    // Restore state from global storage
+    // FIXED: Restore state from global storage with flag
     restoreState() {
         if (!this.table) return;
         
@@ -541,9 +553,16 @@ export class BaseTable {
         
         console.log(`Restoring ${globalState.size} expanded rows for ${this.elementId}`);
         
-        // Apply the global state multiple times to ensure it sticks
+        // Set flag to indicate we're restoring
+        this.isRestoringState = true;
+        
+        // Apply the global state
         const applyStateAttempt = (attemptNum) => {
-            if (attemptNum > 5) return;
+            if (attemptNum > 3) {
+                // Clear restoration flag after final attempt
+                this.isRestoringState = false;
+                return;
+            }
             
             const rows = this.table.getRows();
             let restoredCount = 0;
@@ -589,7 +608,7 @@ export class BaseTable {
             // Try again after a delay
             setTimeout(() => {
                 applyStateAttempt(attemptNum + 1);
-            }, 500 * attemptNum);
+            }, 300 * attemptNum);
         };
         
         // Start restoration attempts
@@ -616,6 +635,7 @@ export class BaseTable {
         }
         this.isInitialized = false;
         this.dataLoaded = false;
+        this.isRestoringState = false;
     }
 
     getTable() {
@@ -672,7 +692,7 @@ export class BaseTable {
         };
     }
 
-    // ENHANCED setupRowExpansion to update global state
+    // FIXED: Enhanced setupRowExpansion to properly handle manual toggle
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -692,6 +712,12 @@ export class BaseTable {
                 e.preventDefault();
                 e.stopPropagation();
                 
+                // Don't process clicks during state restoration
+                if (self.isRestoringState) {
+                    console.log("Ignoring click during state restoration");
+                    return;
+                }
+                
                 if (expansionTimeout) {
                     clearTimeout(expansionTimeout);
                 }
@@ -709,13 +735,22 @@ export class BaseTable {
                     
                     // Update global state
                     const rowId = self.generateRowId(data);
-                    const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId);
+                    const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId) || new Map();
                     
                     if (data._expanded) {
-                        globalState.add(rowId);
+                        globalState.set(rowId, {
+                            timestamp: Date.now(),
+                            data: data
+                        });
                     } else {
+                        // IMPORTANT: Actually delete from global state when collapsing
                         globalState.delete(rowId);
                     }
+                    
+                    // Update the global state
+                    GLOBAL_EXPANDED_STATE.set(self.elementId, globalState);
+                    
+                    console.log(`Row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
                     
                     // Update row
                     row.update(data);
