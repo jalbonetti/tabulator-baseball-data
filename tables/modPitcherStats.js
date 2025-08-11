@@ -1,12 +1,46 @@
-// tables/modPitcherStats.js - COMPLETE VERSION WITH CORRECT FORMATTERS
+// tables/modPitcherStats.js - UPDATED VERSION WITH TEAM ABBREVIATIONS AND LOCATION-BASED SPLITS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage, formatRatio, formatDecimal } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
-import { TEAM_NAME_MAP } from '../shared/config.js';
 
 export class ModPitcherStatsTable extends BaseTable {
     constructor(elementId) {
         super(elementId, 'ModPitcherStats');
+    }
+
+    // Helper method to determine if team is home or away
+    getPlayerLocation(matchup, playerTeam) {
+        if (!matchup || !playerTeam) return "Home/Away";
+        
+        if (matchup.includes(" @ ")) {
+            // Format: Away @ Home
+            const teams = matchup.split(" @ ");
+            if (teams.length === 2) {
+                const awayTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
+                const homeTeam = teams[1].trim().match(/\b[A-Z]{2,4}\b/);
+                
+                if (awayTeam && awayTeam[0] === playerTeam) {
+                    return "Away";
+                } else if (homeTeam && homeTeam[0] === playerTeam) {
+                    return "Home";
+                }
+            }
+        } else if (matchup.includes(" vs ")) {
+            // Format: Home vs Away
+            const teams = matchup.split(" vs ");
+            if (teams.length === 2) {
+                const homeTeam = teams[0].trim().match(/\b[A-Z]{2,4}\b/);
+                const awayTeam = teams[1].trim().match(/\b[A-Z]{2,4}\b/);
+                
+                if (homeTeam && homeTeam[0] === playerTeam) {
+                    return "Home";
+                } else if (awayTeam && awayTeam[0] === playerTeam) {
+                    return "Away";
+                }
+            }
+        }
+        
+        return "Home/Away"; // Fallback if we can't determine
     }
 
     initialize() {
@@ -135,6 +169,7 @@ export class ModPitcherStatsTable extends BaseTable {
     }
 
     getColumns() {
+        const self = this; // Reference to use in formatter
         // Simple number formatter function
         const simpleNumberFormatter = function(cell) {
             var value = cell.getValue();
@@ -206,11 +241,8 @@ export class ModPitcherStatsTable extends BaseTable {
                     minWidth: 150,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
-                    resizable: false,
-                    formatter: function(cell) {
-                        var value = cell.getValue();
-                        return TEAM_NAME_MAP[value] || value;
-                    }
+                    resizable: false
+                    // REMOVED formatter - will now show abbreviations
                 }
             ]},
             {title: "Stat Info", columns: [
@@ -233,11 +265,14 @@ export class ModPitcherStatsTable extends BaseTable {
                     resizable: false,
                     formatter: function(cell) {
                         var value = cell.getValue();
+                        var rowData = cell.getRow().getData();
+                        var location = self.getPlayerLocation(rowData["Matchup"], rowData["Pitcher Team"]);
+                        
                         var mapping = {
                             "Season": "Full Season",
-                            "Season @": "Full Season (Home/Away)",
+                            "Season @": "Full Season (" + location + ")",
                             "Last 30 Days": "Last 30 Days",
-                            "Last 30 Days @": "Last 30 Days (Home/Away)"
+                            "Last 30 Days @": "Last 30 Days (" + location + ")"
                         };
                         return mapping[value] || value;
                     }
