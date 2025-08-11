@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH CORRECT FORMATTERS
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH PROPER TOGGLE SUPPORT
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -12,7 +12,7 @@ export class MatchupsTable extends BaseTable {
         this.pitcherStatsCache = new Map();
         this.batterMatchupsCache = new Map();
         this.bullpenMatchupsCache = new Map();
-        this.expandedRows = new Set();
+        // Removed local expandedRows set - using global state instead
         
         // Fixed configuration
         this.subtableConfig = {
@@ -45,6 +45,268 @@ export class MatchupsTable extends BaseTable {
                 so: 60
             }
         };
+    }
+
+    // Override setupRowExpansion to handle async data fetching and use base class state management
+    setupRowExpansion() {
+        const self = this;
+        
+        this.table.on("cellClick", async (e, cell) => {
+            if (cell.getField() === "Matchup Team") {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Don't process clicks during state restoration
+                if (self.isRestoringState) {
+                    console.log("Ignoring click during state restoration");
+                    return;
+                }
+                
+                const row = cell.getRow();
+                const data = row.getData();
+                const matchupId = data["Matchup Game ID"];
+                
+                const scrollPos = this.getTableScrollPosition();
+                
+                // Fetch data if not already fetched
+                if (!data._expanded && !data._dataFetched) {
+                    const cellElement = cell.getElement();
+                    const expanderIcon = cellElement.querySelector('.row-expander');
+                    if (expanderIcon) {
+                        expanderIcon.innerHTML = '⟳';
+                        expanderIcon.style.animation = 'spin 1s linear infinite';
+                    }
+                    
+                    const matchupData = await this.fetchMatchupData(matchupId);
+                    
+                    Object.assign(data, {
+                        _parkFactors: matchupData.parkFactors,
+                        _pitcherStats: matchupData.pitcherStats,
+                        _batterMatchups: matchupData.batterMatchups,
+                        _bullpenMatchups: matchupData.bullpenMatchups,
+                        _dataFetched: true
+                    });
+                    
+                    row.update(data);
+                    
+                    if (expanderIcon) {
+                        expanderIcon.style.animation = '';
+                    }
+                }
+                
+                // Toggle expansion using the new global state system
+                data._expanded = !data._expanded;
+                
+                // Update global state using base class method
+                const rowId = self.generateRowId(data);
+                const globalState = self.getGlobalState();
+                
+                if (data._expanded) {
+                    globalState.set(rowId, {
+                        timestamp: Date.now(),
+                        data: data
+                    });
+                } else {
+                    // IMPORTANT: Remove from global state when collapsing
+                    globalState.delete(rowId);
+                }
+                
+                // Update the global state
+                self.setGlobalState(globalState);
+                
+                console.log(`Matchup row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
+                
+                row.update(data);
+                
+                requestAnimationFrame(() => {
+                    row.reformat();
+                    
+                    requestAnimationFrame(() => {
+                        this.setTableScrollPosition(scrollPos);
+                        
+                        setTimeout(() => {
+                            try {
+                                const cellElement = cell.getElement();
+                                if (cellElement) {
+                                    const expanderIcon = cellElement.querySelector('.row-expander');
+                                    if (expanderIcon) {
+                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
+                            }
+                        }, 50);
+                    });
+                });
+            }
+        });
+    }
+
+    // Add helper methods to access global state
+    getGlobalState() {
+        // Access the global state map
+        if (typeof GLOBAL_EXPANDED_STATE !== 'undefined' && GLOBAL_EXPANDED_STATE.has(this.elementId)) {
+            return GLOBAL_EXPANDED_STATE.get(this.elementId);
+        }
+        const newState = new Map();
+        if (typeof GLOBAL_EXPANDED_STATE !== 'undefined') {
+            GLOBAL_EXPANDED_STATE.set(this.elementId, newState);
+        }
+        return newState;
+    }
+    
+    setGlobalState(state) {
+        if (typeof GLOBAL_EXPANDED_STATE !== 'undefined') {
+            GLOBAL_EXPANDED_STATE.set(this.elementId, state);
+        }
+    }
+
+    // Override saveState to handle matchup-specific data
+    saveState() {
+        if (!this.table) return;
+        
+        console.log(`Saving state for ${this.elementId}`);
+        
+        // Save scroll position
+        const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+        if (tableHolder) {
+            this.lastScrollPosition = tableHolder.scrollTop;
+        }
+        
+        // Get or create global state for this table
+        const globalState = this.getGlobalState();
+        
+        // Clear and rebuild global expanded state
+        globalState.clear();
+        
+        const rows = this.table.getRows();
+        
+        rows.forEach(row => {
+            const data = row.getData();
+            if (data._expanded) {
+                const id = this.generateRowId(data);
+                globalState.set(id, {
+                    timestamp: Date.now(),
+                    data: data,
+                    dataFetched: data._dataFetched || false
+                });
+            }
+        });
+        
+        // Update global state
+        this.setGlobalState(globalState);
+        
+        console.log(`Saved ${globalState.size} expanded matchup rows`);
+    }
+
+    // Override restoreState to handle async data fetching
+    restoreState() {
+        if (!this.table) return;
+        
+        const globalState = this.getGlobalState();
+        
+        if (!globalState || globalState.size === 0) {
+            // Just restore scroll position
+            if (this.lastScrollPosition > 0) {
+                setTimeout(() => {
+                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                    if (tableHolder) {
+                        tableHolder.scrollTop = this.lastScrollPosition;
+                    }
+                }, 500);
+            }
+            return;
+        }
+        
+        console.log(`Restoring ${globalState.size} expanded matchup rows`);
+        
+        // Set flag to indicate we're restoring
+        this.isRestoringState = true;
+        
+        // Apply the global state with async data fetching
+        const applyStateAttempt = async (attemptNum) => {
+            if (attemptNum > 3) {
+                // Clear restoration flag after final attempt
+                this.isRestoringState = false;
+                return;
+            }
+            
+            const rows = this.table.getRows();
+            let restoredCount = 0;
+            
+            for (const row of rows) {
+                const data = row.getData();
+                const rowId = this.generateRowId(data);
+                
+                if (globalState.has(rowId)) {
+                    const savedState = globalState.get(rowId);
+                    
+                    // Fetch data if needed
+                    if (!data._dataFetched && savedState.dataFetched) {
+                        const matchupData = await this.fetchMatchupData(data["Matchup Game ID"]);
+                        Object.assign(data, {
+                            _parkFactors: matchupData.parkFactors,
+                            _pitcherStats: matchupData.pitcherStats,
+                            _batterMatchups: matchupData.batterMatchups,
+                            _bullpenMatchups: matchupData.bullpenMatchups,
+                            _dataFetched: true
+                        });
+                    }
+                    
+                    if (!data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        restoredCount++;
+                        
+                        // Delay reformat to ensure it happens after data update
+                        setTimeout(() => {
+                            row.reformat();
+                            
+                            // Update icon
+                            const cells = row.getCells();
+                            const teamCell = cells.find(cell => cell.getField() === "Matchup Team");
+                            if (teamCell) {
+                                const cellElement = teamCell.getElement();
+                                const expander = cellElement.querySelector('.row-expander');
+                                if (expander) {
+                                    expander.innerHTML = "−";
+                                }
+                            }
+                        }, 50 * attemptNum);
+                    }
+                }
+            }
+            
+            if (restoredCount > 0) {
+                console.log(`Restoration attempt ${attemptNum}: restored ${restoredCount} matchup rows`);
+            }
+            
+            // Try again after a delay if needed
+            if (restoredCount < globalState.size && attemptNum < 3) {
+                setTimeout(() => {
+                    applyStateAttempt(attemptNum + 1);
+                }, 300 * attemptNum);
+            } else {
+                // Clear restoration flag
+                this.isRestoringState = false;
+            }
+        };
+        
+        // Start restoration attempts
+        setTimeout(() => {
+            applyStateAttempt(1);
+        }, 100);
+        
+        // Restore scroll position
+        if (this.lastScrollPosition > 0) {
+            setTimeout(() => {
+                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.scrollTop = this.lastScrollPosition;
+                }
+            }, 400);
+        }
     }
 
     getColumns() {
@@ -145,6 +407,9 @@ export class MatchupsTable extends BaseTable {
         ];
     }
 
+    // Keep all other methods the same (createMatchupsSubtable, createParkFactorsTable, etc.)
+    // ... [Rest of the methods remain unchanged] ...
+
     createMatchupsSubtable(container, data) {
         const weatherData = [
             data["Matchup Weather 1"] || "No weather data",
@@ -216,6 +481,8 @@ export class MatchupsTable extends BaseTable {
             this.createBullpenMatchupsTable(data, opposingPitcherLocation);
         }, 50);
     }
+
+    // ... [Keep all other methods unchanged - createParkFactorsTable, createPitcherStatsTable, etc.]
 
     createParkFactorsTable(data) {
         if (data._parkFactors && data._parkFactors.length > 0) {
@@ -300,14 +567,14 @@ export class MatchupsTable extends BaseTable {
                     name: pitcherName,
                     split: "Full Season",
                     TBF: mainRowData["Starter TBF"],
-                    "H/TBF": formatRatio(mainRowData["Starter H/TBF"], 3),  // REMOVES leading zero
+                    "H/TBF": formatRatio(mainRowData["Starter H/TBF"], 3),
                     H: mainRowData["Starter H"],
                     "1B": mainRowData["Starter 1B"],
                     "2B": mainRowData["Starter 2B"],
                     "3B": mainRowData["Starter 3B"],
                     HR: mainRowData["Starter HR"],
                     R: mainRowData["Starter R"],
-                    ERA: formatDecimal(mainRowData["Starter ERA"], 2),  // KEEPS leading zero
+                    ERA: formatDecimal(mainRowData["Starter ERA"], 2),
                     BB: mainRowData["Starter BB"],
                     SO: mainRowData["Starter SO"]
                 }];
@@ -386,14 +653,14 @@ export class MatchupsTable extends BaseTable {
                                             name: pitcherName,
                                             split: splitMap[splitId],
                                             TBF: statData["Starter TBF"],
-                                            "H/TBF": formatRatio(statData["Starter H/TBF"], 3),  // REMOVES leading zero
+                                            "H/TBF": formatRatio(statData["Starter H/TBF"], 3),
                                             H: statData["Starter H"],
                                             "1B": statData["Starter 1B"],
                                             "2B": statData["Starter 2B"],
                                             "3B": statData["Starter 3B"],
                                             HR: statData["Starter HR"],
                                             R: statData["Starter R"],
-                                            ERA: formatDecimal(statData["Starter ERA"], 2),  // KEEPS leading zero
+                                            ERA: formatDecimal(statData["Starter ERA"], 2),
                                             BB: statData["Starter BB"],
                                             SO: statData["Starter SO"]
                                         });
@@ -418,7 +685,10 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
+    // ... [Keep all other methods unchanged]
+
     createBatterMatchupsTable(data) {
+        // ... [Keep existing implementation]
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
             const containerElement = document.getElementById(containerId);
@@ -477,7 +747,7 @@ export class MatchupsTable extends BaseTable {
                             name: `${batterData.name} ${order}`,
                             split: "Full Season",
                             PA: fullSeasonData["Batter PA"],
-                            "H/PA": formatRatio(fullSeasonData["Batter H/PA"], 3),  // REMOVES leading zero
+                            "H/PA": formatRatio(fullSeasonData["Batter H/PA"], 3),
                             H: fullSeasonData["Batter H"],
                             "1B": fullSeasonData["Batter 1B"],
                             "2B": fullSeasonData["Batter 2B"],
@@ -566,7 +836,7 @@ export class MatchupsTable extends BaseTable {
                                         name: `${rowData.name.replace(/ \d+$/, '')} ${rowData._batterOrder}`,
                                         split: splitMap[splitId],
                                         PA: statData["Batter PA"],
-                                        "H/PA": formatRatio(statData["Batter H/PA"], 3),  // REMOVES leading zero
+                                        "H/PA": formatRatio(statData["Batter H/PA"], 3),
                                         H: statData["Batter H"],
                                         "1B": statData["Batter 1B"],
                                         "2B": statData["Batter 2B"],
@@ -598,6 +868,7 @@ export class MatchupsTable extends BaseTable {
     }
 
     createBullpenMatchupsTable(data, opposingLocationText) {
+        // ... [Keep existing implementation]
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
@@ -641,14 +912,14 @@ export class MatchupsTable extends BaseTable {
                             name: fullSeasonData["Bullpen Hand & Number"],
                             split: "Full Season",
                             TBF: fullSeasonData["Bullpen TBF"],
-                            "H/TBF": formatRatio(fullSeasonData["Bullpen H/TBF"], 3),  // REMOVES leading zero
+                            "H/TBF": formatRatio(fullSeasonData["Bullpen H/TBF"], 3),
                             H: fullSeasonData["Bullpen H"],
                             "1B": fullSeasonData["Bullpen 1B"],
                             "2B": fullSeasonData["Bullpen 2B"],
                             "3B": fullSeasonData["Bullpen 3B"],
                             HR: fullSeasonData["Bullpen HR"],
                             R: fullSeasonData["Bullpen R"],
-                            ERA: formatDecimal(fullSeasonData["Bullpen ERA"], 2),  // KEEPS leading zero
+                            ERA: formatDecimal(fullSeasonData["Bullpen ERA"], 2),
                             BB: fullSeasonData["Bullpen BB"],
                             SO: fullSeasonData["Bullpen SO"],
                             _childData: handData
@@ -731,14 +1002,14 @@ export class MatchupsTable extends BaseTable {
                                         name: statData["Bullpen Hand & Number"],
                                         split: splitMap[splitId],
                                         TBF: statData["Bullpen TBF"],
-                                        "H/TBF": formatRatio(statData["Bullpen H/TBF"], 3),  // REMOVES leading zero
+                                        "H/TBF": formatRatio(statData["Bullpen H/TBF"], 3),
                                         H: statData["Bullpen H"],
                                         "1B": statData["Bullpen 1B"],
                                         "2B": statData["Bullpen 2B"],
                                         "3B": statData["Bullpen 3B"],
                                         HR: statData["Bullpen HR"],
                                         R: statData["Bullpen R"],
-                                        ERA: formatDecimal(statData["Bullpen ERA"], 2),  // KEEPS leading zero
+                                        ERA: formatDecimal(statData["Bullpen ERA"], 2),
                                         BB: statData["Bullpen BB"],
                                         SO: statData["Bullpen SO"]
                                     });
@@ -789,10 +1060,6 @@ export class MatchupsTable extends BaseTable {
                 data.forEach(row => {
                     row._expanded = false;
                     row._dataFetched = false;
-                    
-                    if (this.expandedRows.has(row["Matchup Game ID"])) {
-                        row._expanded = true;
-                    }
                 });
                 this.matchupsData = data;
             }
@@ -939,76 +1206,20 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    setupRowExpansion() {
-        this.table.on("cellClick", async (e, cell) => {
-            if (cell.getField() === "Matchup Team") {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const row = cell.getRow();
-                const data = row.getData();
-                const matchupId = data["Matchup Game ID"];
-                
-                const scrollPos = this.getTableScrollPosition();
-                
-                if (!data._expanded && !data._dataFetched) {
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = '⟳';
-                        expanderIcon.style.animation = 'spin 1s linear infinite';
-                    }
-                    
-                    const matchupData = await this.fetchMatchupData(matchupId);
-                    
-                    Object.assign(data, {
-                        _parkFactors: matchupData.parkFactors,
-                        _pitcherStats: matchupData.pitcherStats,
-                        _batterMatchups: matchupData.batterMatchups,
-                        _bullpenMatchups: matchupData.bullpenMatchups,
-                        _dataFetched: true
-                    });
-                    
-                    row.update(data);
-                    
-                    if (expanderIcon) {
-                        expanderIcon.style.animation = '';
-                    }
-                }
-                
-                data._expanded = !data._expanded;
-                
-                if (data._expanded) {
-                    this.expandedRows.add(matchupId);
-                } else {
-                    this.expandedRows.delete(matchupId);
-                }
-                
-                row.update(data);
-                
-                requestAnimationFrame(() => {
-                    row.reformat();
-                    
-                    requestAnimationFrame(() => {
-                        this.setTableScrollPosition(scrollPos);
-                        
-                        setTimeout(() => {
-                            try {
-                                const cellElement = cell.getElement();
-                                if (cellElement) {
-                                    const expanderIcon = cellElement.querySelector('.row-expander');
-                                    if (expanderIcon) {
-                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                                    }
-                                }
-                            } catch (error) {
-                                console.error("Error updating expander icon:", error);
-                            }
-                        }, 50);
-                    });
-                });
-            }
-        });
+    getTableScrollPosition() {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        return tableHolder ? tableHolder.scrollTop : 0;
+    }
+    
+    setTableScrollPosition(position) {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        if (tableHolder) {
+            tableHolder.scrollTop = position;
+        }
+    }
+    
+    getTabulator() {
+        return this.table;
     }
 
     createRowFormatter() {
@@ -1049,103 +1260,5 @@ export class MatchupsTable extends BaseTable {
 
     createSubtable2(container, data) {
         // Not used for matchups table
-    }
-
-    redraw() {
-        if (this.table) {
-            const scrollPos = this.getTableScrollPosition();
-            
-            const rows = this.table.getRows();
-            rows.forEach(row => {
-                const data = row.getData();
-                if (data._expanded) {
-                    this.expandedRows.add(data["Matchup Game ID"]);
-                } else {
-                    this.expandedRows.delete(data["Matchup Game ID"]);
-                }
-            });
-            
-            this.table.redraw(true);
-            
-            setTimeout(() => {
-                const rows = this.table.getRows();
-                rows.forEach(async (row) => {
-                    const data = row.getData();
-                    const matchupId = data["Matchup Game ID"];
-                    const shouldBeExpanded = this.expandedRows.has(matchupId);
-                    
-                    if (shouldBeExpanded && !data._expanded) {
-                        if (!data._dataFetched) {
-                            const matchupData = await this.fetchMatchupData(matchupId);
-                            Object.assign(data, {
-                                _parkFactors: matchupData.parkFactors,
-                                _pitcherStats: matchupData.pitcherStats,
-                                _batterMatchups: matchupData.batterMatchups,
-                                _bullpenMatchups: matchupData.bullpenMatchups,
-                                _dataFetched: true
-                            });
-                        }
-                        
-                        data._expanded = true;
-                        row.update(data);
-                        row.reformat();
-                        
-                        setTimeout(() => {
-                            const cells = row.getCells();
-                            const teamCell = cells.find(cell => cell.getField() === "Matchup Team");
-                            if (teamCell) {
-                                const cellElement = teamCell.getElement();
-                                const expander = cellElement.querySelector('.row-expander');
-                                if (expander) {
-                                    expander.innerHTML = "−";
-                                }
-                            }
-                        }, 50);
-                    } else if (!shouldBeExpanded && data._expanded) {
-                        data._expanded = false;
-                        row.update(data);
-                        row.reformat();
-                        
-                        setTimeout(() => {
-                            const cells = row.getCells();
-                            const teamCell = cells.find(cell => cell.getField() === "Matchup Team");
-                            if (teamCell) {
-                                const cellElement = teamCell.getElement();
-                                const expander = cellElement.querySelector('.row-expander');
-                                if (expander) {
-                                    expander.innerHTML = "+";
-                                }
-                            }
-                        }, 50);
-                    }
-                });
-                
-                this.setTableScrollPosition(scrollPos);
-            }, 100);
-        }
-    }
-
-    getTableScrollPosition() {
-        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
-        return tableHolder ? tableHolder.scrollTop : 0;
-    }
-    
-    setTableScrollPosition(position) {
-        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
-        if (tableHolder) {
-            tableHolder.scrollTop = position;
-        }
-    }
-    
-    getTabulator() {
-        return this.table;
-    }
-    
-    getExpandedRows() {
-        return Array.from(this.expandedRows);
-    }
-    
-    setExpandedRows(expandedRowIds) {
-        this.expandedRows = new Set(expandedRowIds);
     }
 }
