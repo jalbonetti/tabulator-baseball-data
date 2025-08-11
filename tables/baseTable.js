@@ -1,4 +1,4 @@
-// tables/baseTable.js - COMPLETE VERSION WITH ENHANCED STATE MANAGEMENT
+// tables/baseTable.js - FIXED VERSION WITH PERSISTENT STATE RESTORATION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -125,8 +125,10 @@ export class BaseTable {
         this.expandedRowsSet = new Set();
         this.expandedRowsMetadata = new Map();
         this.temporaryExpandedRows = new Set();
+        this.persistentExpandedRows = new Set();
         this.lastScrollPosition = 0;
         this.tableConfig = this.getBaseConfig();
+        this.stateListeners = [];
     }
 
     getBaseConfig() {
@@ -160,19 +162,22 @@ export class BaseTable {
                         row._expanded = false;
                     }
                 });
+                // Restore persistent expanded rows after data load
+                this.restorePersistentExpandedRows();
             },
-            // Preserve expanded state through data operations
+            // CRITICAL: Preserve expanded state through ALL data operations
             dataProcessing: function() {
                 if (!self.table) return;
                 
                 const rows = self.table.getRows();
-                self.temporaryExpandedRows = new Set();
+                self.temporaryExpandedRows.clear();
                 
                 rows.forEach(row => {
                     const data = row.getData();
                     if (data._expanded) {
                         const id = self.generateRowId(data);
                         self.temporaryExpandedRows.add(id);
+                        self.persistentExpandedRows.add(id); // Also add to persistent set
                     }
                 });
                 
@@ -181,32 +186,42 @@ export class BaseTable {
                 }
             },
             dataProcessed: function() {
-                if (!self.table || !self.temporaryExpandedRows || self.temporaryExpandedRows.size === 0) {
-                    return;
-                }
+                if (!self.table) return;
                 
-                setTimeout(() => {
-                    self.restoreTemporaryExpandedState();
-                }, 100);
+                // Use both temporary and persistent sets
+                const combinedSet = new Set([...self.temporaryExpandedRows, ...self.persistentExpandedRows]);
+                if (combinedSet.size > 0) {
+                    setTimeout(() => {
+                        self.restoreExpandedStateFromSet(combinedSet);
+                    }, 100);
+                }
             },
             dataFiltered: function(filters, rows) {
-                if (!self.table || !self.temporaryExpandedRows || self.temporaryExpandedRows.size === 0) {
-                    return;
-                }
+                if (!self.table) return;
                 
                 console.log(`Filter complete, restoring expanded state`);
-                setTimeout(() => {
-                    self.restoreTemporaryExpandedState();
-                }, 150);
+                const combinedSet = new Set([...self.temporaryExpandedRows, ...self.persistentExpandedRows]);
+                if (combinedSet.size > 0) {
+                    setTimeout(() => {
+                        self.restoreExpandedStateFromSet(combinedSet);
+                    }, 150);
+                }
             },
             dataSorted: function(sorters, rows) {
-                if (!self.table || !self.temporaryExpandedRows || self.temporaryExpandedRows.size === 0) {
-                    return;
-                }
+                if (!self.table) return;
                 
-                setTimeout(() => {
-                    self.restoreTemporaryExpandedState();
-                }, 100);
+                const combinedSet = new Set([...self.temporaryExpandedRows, ...self.persistentExpandedRows]);
+                if (combinedSet.size > 0) {
+                    setTimeout(() => {
+                        self.restoreExpandedStateFromSet(combinedSet);
+                    }, 100);
+                }
+            },
+            renderComplete: function() {
+                // Final check to ensure expanded rows are restored
+                if (self.persistentExpandedRows.size > 0) {
+                    self.restoreExpandedStateFromSet(self.persistentExpandedRows);
+                }
             }
         };
 
@@ -248,6 +263,65 @@ export class BaseTable {
         }
 
         return config;
+    }
+
+    // New method to restore expanded state from a set of row IDs
+    restoreExpandedStateFromSet(expandedRowIds) {
+        if (!this.table || expandedRowIds.size === 0) return;
+        
+        const rows = this.table.getRows();
+        let restoredCount = 0;
+        
+        rows.forEach(row => {
+            const data = row.getData();
+            const id = this.generateRowId(data);
+            
+            if (expandedRowIds.has(id)) {
+                if (!data._expanded) {
+                    data._expanded = true;
+                    row.update(data);
+                    restoredCount++;
+                }
+                
+                // Update expander icon
+                const cells = row.getCells();
+                const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                
+                for (let field of nameFields) {
+                    const nameCell = cells.find(cell => cell.getField() === field);
+                    if (nameCell) {
+                        const cellElement = nameCell.getElement();
+                        const expander = cellElement.querySelector('.row-expander');
+                        if (expander && expander.innerHTML !== "−") {
+                            expander.innerHTML = "−";
+                        }
+                        break;
+                    }
+                }
+            }
+        });
+        
+        if (restoredCount > 0) {
+            console.log(`Restored ${restoredCount} expanded rows`);
+            
+            // Trigger row reformatting for expanded rows
+            setTimeout(() => {
+                rows.forEach(row => {
+                    const data = row.getData();
+                    if (data._expanded) {
+                        row.reformat();
+                    }
+                });
+            }, 50);
+        }
+    }
+
+    // New method to restore persistent expanded rows
+    restorePersistentExpandedRows() {
+        if (this.persistentExpandedRows.size > 0) {
+            console.log(`Restoring ${this.persistentExpandedRows.size} persistent expanded rows`);
+            this.restoreExpandedStateFromSet(this.persistentExpandedRows);
+        }
     }
 
     async fetchAllRecords(url, config) {
@@ -427,9 +501,9 @@ export class BaseTable {
     
     setExpandedRows(expandedRowIds) {
         this.expandedRowsSet = new Set(expandedRowIds);
+        this.persistentExpandedRows = new Set(expandedRowIds);
     }
 
-    // ENHANCED generateRowId method for better unique identification
     generateRowId(data) {
         if (data["Matchup Game ID"]) {
             return `matchup_${data["Matchup Game ID"]}`;
@@ -472,76 +546,7 @@ export class BaseTable {
         }
     }
 
-    redraw() {
-        if (this.table) {
-            const scrollPos = this.getTableScrollPosition();
-            
-            const rows = this.table.getRows();
-            this.expandedRowsSet.clear();
-            rows.forEach(row => {
-                const data = row.getData();
-                if (data._expanded) {
-                    const rowId = this.generateRowId(data);
-                    this.expandedRowsSet.add(rowId);
-                }
-            });
-            
-            this.table.redraw(true);
-            
-            setTimeout(() => {
-                const rows = this.table.getRows();
-                rows.forEach(row => {
-                    const data = row.getData();
-                    const rowId = this.generateRowId(data);
-                    const shouldBeExpanded = this.expandedRowsSet.has(rowId);
-                    
-                    if (shouldBeExpanded && !data._expanded) {
-                        data._expanded = true;
-                        row.update(data);
-                        row.reformat();
-                        
-                        setTimeout(() => {
-                            const cells = row.getCells();
-                            const nameField = data["Batter Name"] ? "Batter Name" : 
-                                            data["Pitcher Name"] ? "Pitcher Name" : 
-                                            "Matchup Team";
-                            const nameCell = cells.find(cell => cell.getField() === nameField);
-                            if (nameCell) {
-                                const cellElement = nameCell.getElement();
-                                const expander = cellElement.querySelector('.row-expander');
-                                if (expander) {
-                                    expander.innerHTML = "−";
-                                }
-                            }
-                        }, 50);
-                    } else if (!shouldBeExpanded && data._expanded) {
-                        data._expanded = false;
-                        row.update(data);
-                        row.reformat();
-                        
-                        setTimeout(() => {
-                            const cells = row.getCells();
-                            const nameField = data["Batter Name"] ? "Batter Name" : 
-                                            data["Pitcher Name"] ? "Pitcher Name" : 
-                                            "Matchup Team";
-                            const nameCell = cells.find(cell => cell.getField() === nameField);
-                            if (nameCell) {
-                                const cellElement = nameCell.getElement();
-                                const expander = cellElement.querySelector('.row-expander');
-                                if (expander) {
-                                    expander.innerHTML = "+";
-                                }
-                            }
-                        }, 50);
-                    }
-                });
-                
-                this.setTableScrollPosition(scrollPos);
-            }, 100);
-        }
-    }
-
-    // ENHANCED saveState method with complete metadata
+    // Enhanced saveState that maintains persistent expanded rows
     saveState() {
         if (!this.table) return;
         
@@ -554,6 +559,7 @@ export class BaseTable {
         
         this.expandedRowsCache.clear();
         this.expandedRowsSet.clear();
+        this.persistentExpandedRows.clear();
         
         if (!this.expandedRowsMetadata) {
             this.expandedRowsMetadata = new Map();
@@ -567,6 +573,7 @@ export class BaseTable {
                 const id = this.generateRowId(data);
                 this.expandedRowsCache.add(id);
                 this.expandedRowsSet.add(id);
+                this.persistentExpandedRows.add(id);
                 
                 const rowElement = row.getElement();
                 const hasSubrow = rowElement.querySelector('.subrow-container') !== null;
@@ -598,7 +605,7 @@ export class BaseTable {
         console.log(`Saved ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
     }
 
-    // ENHANCED restoreState method with forced synchronization
+    // Enhanced restoreState with multiple restoration attempts
     restoreState() {
         if (!this.table) return;
         
@@ -614,7 +621,8 @@ export class BaseTable {
         
         console.log(`Restoring ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
         
-        const persistentExpandedRows = new Set(this.expandedRowsCache);
+        // Copy to persistent set for continuous restoration
+        this.persistentExpandedRows = new Set(this.expandedRowsCache);
         const persistentMetadata = new Map(this.expandedRowsMetadata || new Map());
         
         const applyExpansion = (skipReformat = false) => {
@@ -625,7 +633,7 @@ export class BaseTable {
                 const data = row.getData();
                 const id = this.generateRowId(data);
                 
-                if (persistentExpandedRows.has(id)) {
+                if (this.persistentExpandedRows.has(id)) {
                     const metadata = persistentMetadata.get(id);
                     
                     if (!data._expanded) {
@@ -739,37 +747,34 @@ export class BaseTable {
         requestAnimationFrame(() => {
             applyExpansion();
             
-            let reapplyCount = 0;
-            const maxReapplies = 5;
-            
-            const reapplyExpansion = () => {
-                if (reapplyCount < maxReapplies) {
-                    reapplyCount++;
-                    console.log(`Reapplying expansion (attempt ${reapplyCount})`);
-                    applyExpansion(true);
-                }
-            };
-            
-            const events = ["dataFiltered", "dataLoaded", "renderComplete"];
+            // Set up event listeners for persistent reapplication
+            const events = ["dataFiltered", "dataLoaded", "renderComplete", "dataSorted"];
             const handlers = [];
             
             events.forEach(eventName => {
                 const handler = () => {
-                    setTimeout(reapplyExpansion, 200);
+                    if (this.persistentExpandedRows.size > 0) {
+                        setTimeout(() => {
+                            this.restoreExpandedStateFromSet(this.persistentExpandedRows);
+                        }, 200);
+                    }
                 };
                 handlers.push({event: eventName, handler: handler});
                 this.table.on(eventName, handler);
+                this.stateListeners.push({event: eventName, handler: handler});
             });
             
-            setTimeout(() => applyExpansion(true), 500);
-            setTimeout(() => applyExpansion(true), 1000);
+            // Multiple restoration attempts to ensure state is preserved
+            const restoreAttempts = [500, 1000, 1500, 2000, 3000];
+            restoreAttempts.forEach(delay => {
+                setTimeout(() => {
+                    if (this.persistentExpandedRows.size > 0) {
+                        this.restoreExpandedStateFromSet(this.persistentExpandedRows);
+                    }
+                }, delay);
+            });
             
-            setTimeout(() => {
-                handlers.forEach(({event, handler}) => {
-                    this.table.off(event, handler);
-                });
-            }, 3000);
-            
+            // Restore scroll position
             const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
             if (tableHolder && this.lastScrollPosition > 0) {
                 setTimeout(() => {
@@ -778,65 +783,16 @@ export class BaseTable {
             }
         });
     }
-    
-    // NEW METHOD: Restore temporary expanded state after data operations
-    restoreTemporaryExpandedState() {
-        if (!this.table || !this.temporaryExpandedRows || this.temporaryExpandedRows.size === 0) {
-            return;
-        }
-        
-        console.log(`Restoring ${this.temporaryExpandedRows.size} expanded rows after data operation`);
-        
-        const rows = this.table.getRows();
-        const rowsToReformat = [];
-        
-        rows.forEach(row => {
-            const data = row.getData();
-            const id = this.generateRowId(data);
-            
-            if (this.temporaryExpandedRows.has(id) || this.expandedRowsCache.has(id)) {
-                if (!data._expanded) {
-                    data._expanded = true;
-                    row.update(data);
-                    rowsToReformat.push(row);
-                }
-                
-                // Update expander icon immediately
-                const cells = row.getCells();
-                const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
-                
-                for (let field of nameFields) {
-                    const nameCell = cells.find(cell => cell.getField() === field);
-                    if (nameCell) {
-                        const cellElement = nameCell.getElement();
-                        const expander = cellElement.querySelector('.row-expander');
-                        if (expander && expander.innerHTML !== "−") {
-                            expander.innerHTML = "−";
-                        }
-                        break;
-                    }
-                }
-            }
-        });
-        
-        // Reformat rows that need it
-        if (rowsToReformat.length > 0) {
-            setTimeout(() => {
-                rowsToReformat.forEach(row => {
-                    row.reformat();
-                });
-                
-                // Normalize heights
-                setTimeout(() => {
-                    rowsToReformat.forEach(row => {
-                        row.normalizeHeight();
-                    });
-                }, 100);
-            }, 50);
-        }
-    }
 
     destroy() {
+        // Clean up event listeners
+        if (this.table && this.stateListeners.length > 0) {
+            this.stateListeners.forEach(({event, handler}) => {
+                this.table.off(event, handler);
+            });
+            this.stateListeners = [];
+        }
+        
         if (this.table) {
             this.saveState();
             this.table.destroy();
@@ -900,7 +856,6 @@ export class BaseTable {
         };
     }
 
-    // ENHANCED setupRowExpansion with better state synchronization
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -944,8 +899,10 @@ export class BaseTable {
                     const rowId = this.generateRowId(data);
                     if (shouldExpand) {
                         this.expandedRowsSet.add(rowId);
+                        this.persistentExpandedRows.add(rowId);
                     } else {
                         this.expandedRowsSet.delete(rowId);
+                        this.persistentExpandedRows.delete(rowId);
                     }
                     
                     row.update(data);
