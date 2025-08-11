@@ -114,8 +114,8 @@ export class GamePropsTable extends BaseTable {
                 }
             },
             {
-                title: "Caesars", 
-                field: "Game Caesars Odds",
+                title: "Pinnacle", 
+                field: "Game Pinnacle Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
