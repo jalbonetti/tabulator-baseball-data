@@ -1,4 +1,4 @@
-// components/customMultiSelect.js - OPTIMIZED VERSION WITH BETTER PERFORMANCE
+// components/customMultiSelect.js - FIXED VERSION WITH EXPANDED STATE PRESERVATION
 export function createCustomMultiSelect(cell, onRendered, success, cancel, options = {}) {
     // Extract options with defaults
     const dropdownWidth = options.dropdownWidth || 200; // Default width
@@ -30,6 +30,94 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
     
     // Store reference to column
     var column = cell.getColumn();
+    
+    // Store expanded rows before filter operations
+    function saveExpandedState() {
+        const expandedRows = new Set();
+        const rows = table.getRows();
+        
+        rows.forEach(row => {
+            const data = row.getData();
+            if (data._expanded) {
+                // Generate a unique ID for the row
+                let rowId = '';
+                if (data["Matchup Game ID"]) {
+                    rowId = `matchup_${data["Matchup Game ID"]}`;
+                } else if (data["Batter Name"]) {
+                    rowId = `batter_${data["Batter Name"]}_${data["Batter Team"]}`;
+                    if (data["Batter Prop Type"]) rowId += `_${data["Batter Prop Type"]}`;
+                    if (data["Batter Prop Value"]) rowId += `_${data["Batter Prop Value"]}`;
+                    if (data["Batter Prop Split ID"]) rowId += `_${data["Batter Prop Split ID"]}`;
+                } else if (data["Pitcher Name"]) {
+                    rowId = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"]}`;
+                    if (data["Pitcher Prop Type"]) rowId += `_${data["Pitcher Prop Type"]}`;
+                    if (data["Pitcher Prop Value"]) rowId += `_${data["Pitcher Prop Value"]}`;
+                    if (data["Pitcher Prop Split ID"]) rowId += `_${data["Pitcher Prop Split ID"]}`;
+                }
+                
+                if (rowId) {
+                    expandedRows.add(rowId);
+                }
+            }
+        });
+        
+        return expandedRows;
+    }
+    
+    // Restore expanded rows after filter operations
+    function restoreExpandedState(expandedRows) {
+        if (!expandedRows || expandedRows.size === 0) return;
+        
+        setTimeout(() => {
+            const rows = table.getRows();
+            
+            rows.forEach(row => {
+                const data = row.getData();
+                
+                // Generate the same unique ID
+                let rowId = '';
+                if (data["Matchup Game ID"]) {
+                    rowId = `matchup_${data["Matchup Game ID"]}`;
+                } else if (data["Batter Name"]) {
+                    rowId = `batter_${data["Batter Name"]}_${data["Batter Team"]}`;
+                    if (data["Batter Prop Type"]) rowId += `_${data["Batter Prop Type"]}`;
+                    if (data["Batter Prop Value"]) rowId += `_${data["Batter Prop Value"]}`;
+                    if (data["Batter Prop Split ID"]) rowId += `_${data["Batter Prop Split ID"]}`;
+                } else if (data["Pitcher Name"]) {
+                    rowId = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"]}`;
+                    if (data["Pitcher Prop Type"]) rowId += `_${data["Pitcher Prop Type"]}`;
+                    if (data["Pitcher Prop Value"]) rowId += `_${data["Pitcher Prop Value"]}`;
+                    if (data["Pitcher Prop Split ID"]) rowId += `_${data["Pitcher Prop Split ID"]}`;
+                }
+                
+                if (rowId && expandedRows.has(rowId)) {
+                    if (!data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        row.reformat();
+                    }
+                    
+                    // Update the expander icon
+                    const cells = row.getCells();
+                    const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                    
+                    for (let nameField of nameFields) {
+                        const nameCell = cells.find(c => c.getField() === nameField);
+                        if (nameCell) {
+                            const cellElement = nameCell.getElement();
+                            const expander = cellElement.querySelector('.row-expander');
+                            if (expander) {
+                                expander.innerHTML = "−";
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
+            
+            console.log(`Restored ${expandedRows.size} expanded rows after filter update`);
+        }, 200);
+    }
     
     function createDropdown() {
         var existing = document.getElementById(dropdownId);
@@ -82,12 +170,15 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
     // Set the custom filter function on the column
     column.getDefinition().headerFilterFunc = customFilterFunction;
     
-    // Debounced filter update
+    // Debounced filter update with state preservation
     function updateFilter() {
         // Clear any pending filter update
         if (filterTimeout) {
             clearTimeout(filterTimeout);
         }
+        
+        // Save expanded state before filtering
+        const expandedState = saveExpandedState();
         
         // Debounce filter updates to prevent rapid redraws
         filterTimeout = setTimeout(() => {
@@ -105,14 +196,18 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
                 success([...selectedValues]);
             }
             
-            // Use partial redraw for better performance
+            // Redraw the table
             if (table.getRowCount && table.getRowCount() > 1000) {
                 // For large tables, use progressive redraw
                 requestAnimationFrame(() => {
                     table.redraw(false);
+                    // Restore expanded state after redraw
+                    restoreExpandedState(expandedState);
                 });
             } else {
                 table.redraw();
+                // Restore expanded state after redraw
+                restoreExpandedState(expandedState);
             }
         }, 150); // 150ms debounce
     }
@@ -179,40 +274,10 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
             var scrollContainer = document.createElement("div");
             scrollContainer.style.cssText = `height: 250px; overflow-y: auto;`;
             
-            // Add placeholder for scrolling
-            var placeholder = document.createElement("div");
-            placeholder.style.height = (allValues.length * 30) + "px"; // Assuming 30px per item
-            
-            scrollContainer.appendChild(placeholder);
-            fragment.appendChild(scrollContainer);
-            
-            // Implement virtual scrolling logic
-            var visibleStart = 0;
-            var visibleEnd = 20; // Show 20 items at a time
-            
-            function renderVisibleItems() {
-                // Clear existing items
-                scrollContainer.innerHTML = '';
-                
-                // Add visible items
-                for (var i = visibleStart; i < Math.min(visibleEnd, allValues.length); i++) {
-                    var value = allValues[i];
-                    var optionDiv = createOptionElement(value);
-                    optionDiv.style.position = 'absolute';
-                    optionDiv.style.top = (i * 30) + 'px';
-                    optionDiv.style.width = '100%';
-                    scrollContainer.appendChild(optionDiv);
-                }
-            }
-            
-            scrollContainer.addEventListener('scroll', function() {
-                var scrollTop = scrollContainer.scrollTop;
-                visibleStart = Math.floor(scrollTop / 30);
-                visibleEnd = visibleStart + 20;
-                renderVisibleItems();
+            // Add all items (simplified for stability)
+            allValues.forEach(function(value) {
+                fragment.appendChild(createOptionElement(value));
             });
-            
-            renderVisibleItems();
         } else {
             // For smaller lists, render all items
             allValues.forEach(function(value) {
@@ -401,15 +466,39 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         document.addEventListener('click', closeHandler);
     }, 100);
     
-    // Initial load with retry logic
+    // Initial load with retry logic - preserve expanded state
     var loadAttempts = 0;
+    var initialLoadComplete = false;
+    
+    // Check if we're in a tab switch scenario
+    var isTabSwitch = false;
+    if (window.tabManager && window.tabManager.isTransitioning) {
+        isTabSwitch = true;
+    }
+    
     var tryLoad = function() {
         loadAttempts++;
         
         var data = table.getData();
         if (data && data.length > 0) {
             loadValues();
-            updateFilter();
+            if (!initialLoadComplete) {
+                initialLoadComplete = true;
+                
+                // During tab switch, delay filter update to allow state restoration
+                if (isTabSwitch) {
+                    // Wait for state restoration to complete
+                    setTimeout(() => {
+                        // Only update filter if values are not all selected
+                        if (selectedValues.length !== allValues.length && selectedValues.length > 0) {
+                            updateFilter();
+                        }
+                    }, 1000); // Give state restoration time to complete
+                } else if (selectedValues.length !== allValues.length) {
+                    // Normal load - update filter if needed
+                    updateFilter();
+                }
+            }
         } else if (loadAttempts < 5) {
             setTimeout(tryLoad, 500);
         }
@@ -425,7 +514,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         if (!isInitialized) {
             setTimeout(function() {
                 loadValues();
-                updateFilter();
+                // Don't update filter on data load - let the table maintain its state
             }, 100);
         }
     });
