@@ -124,11 +124,13 @@ export class BaseTable {
         this.expandedRowsCache = new Set();
         this.expandedRowsSet = new Set();
         this.expandedRowsMetadata = new Map();
+        this.temporaryExpandedRows = new Set();
         this.lastScrollPosition = 0;
         this.tableConfig = this.getBaseConfig();
     }
 
     getBaseConfig() {
+        const self = this;
         const config = {
             layout: "fitColumns",
             responsiveLayout: false,
@@ -158,6 +160,53 @@ export class BaseTable {
                         row._expanded = false;
                     }
                 });
+            },
+            // Preserve expanded state through data operations
+            dataProcessing: function() {
+                if (!self.table) return;
+                
+                const rows = self.table.getRows();
+                self.temporaryExpandedRows = new Set();
+                
+                rows.forEach(row => {
+                    const data = row.getData();
+                    if (data._expanded) {
+                        const id = self.generateRowId(data);
+                        self.temporaryExpandedRows.add(id);
+                    }
+                });
+                
+                if (self.temporaryExpandedRows.size > 0) {
+                    console.log(`Preserving ${self.temporaryExpandedRows.size} expanded rows during data operation`);
+                }
+            },
+            dataProcessed: function() {
+                if (!self.table || !self.temporaryExpandedRows || self.temporaryExpandedRows.size === 0) {
+                    return;
+                }
+                
+                setTimeout(() => {
+                    self.restoreTemporaryExpandedState();
+                }, 100);
+            },
+            dataFiltered: function(filters, rows) {
+                if (!self.table || !self.temporaryExpandedRows || self.temporaryExpandedRows.size === 0) {
+                    return;
+                }
+                
+                console.log(`Filter complete, restoring expanded state`);
+                setTimeout(() => {
+                    self.restoreTemporaryExpandedState();
+                }, 150);
+            },
+            dataSorted: function(sorters, rows) {
+                if (!self.table || !self.temporaryExpandedRows || self.temporaryExpandedRows.size === 0) {
+                    return;
+                }
+                
+                setTimeout(() => {
+                    self.restoreTemporaryExpandedState();
+                }, 100);
             }
         };
 
@@ -684,6 +733,9 @@ export class BaseTable {
             }
         };
         
+        // Store expanded rows in temporary set for filter preservation
+        this.temporaryExpandedRows = new Set(this.expandedRowsCache);
+        
         requestAnimationFrame(() => {
             applyExpansion();
             
@@ -725,6 +777,63 @@ export class BaseTable {
                 }, 400);
             }
         });
+    }
+    
+    // NEW METHOD: Restore temporary expanded state after data operations
+    restoreTemporaryExpandedState() {
+        if (!this.table || !this.temporaryExpandedRows || this.temporaryExpandedRows.size === 0) {
+            return;
+        }
+        
+        console.log(`Restoring ${this.temporaryExpandedRows.size} expanded rows after data operation`);
+        
+        const rows = this.table.getRows();
+        const rowsToReformat = [];
+        
+        rows.forEach(row => {
+            const data = row.getData();
+            const id = this.generateRowId(data);
+            
+            if (this.temporaryExpandedRows.has(id) || this.expandedRowsCache.has(id)) {
+                if (!data._expanded) {
+                    data._expanded = true;
+                    row.update(data);
+                    rowsToReformat.push(row);
+                }
+                
+                // Update expander icon immediately
+                const cells = row.getCells();
+                const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                
+                for (let field of nameFields) {
+                    const nameCell = cells.find(cell => cell.getField() === field);
+                    if (nameCell) {
+                        const cellElement = nameCell.getElement();
+                        const expander = cellElement.querySelector('.row-expander');
+                        if (expander && expander.innerHTML !== "−") {
+                            expander.innerHTML = "−";
+                        }
+                        break;
+                    }
+                }
+            }
+        });
+        
+        // Reformat rows that need it
+        if (rowsToReformat.length > 0) {
+            setTimeout(() => {
+                rowsToReformat.forEach(row => {
+                    row.reformat();
+                });
+                
+                // Normalize heights
+                setTimeout(() => {
+                    rowsToReformat.forEach(row => {
+                        row.normalizeHeight();
+                    });
+                }, 100);
+            }, 50);
+        }
     }
 
     destroy() {
