@@ -1,4 +1,4 @@
-// tables/baseTable.js - FIXED VERSION WITH PERSISTENT STATE RESTORATION
+// tables/baseTable.js - COMPLETE FIX WITH ROBUST STATE RESTORATION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -114,6 +114,9 @@ class CacheManager {
 // Global cache manager instance
 const cacheManager = new CacheManager();
 
+// Global storage for expanded rows that persists across all operations
+const GLOBAL_EXPANDED_STATE = new Map();
+
 export class BaseTable {
     constructor(elementId, endpoint) {
         this.elementId = elementId;
@@ -125,10 +128,13 @@ export class BaseTable {
         this.expandedRowsSet = new Set();
         this.expandedRowsMetadata = new Map();
         this.temporaryExpandedRows = new Set();
-        this.persistentExpandedRows = new Set();
         this.lastScrollPosition = 0;
         this.tableConfig = this.getBaseConfig();
-        this.stateListeners = [];
+        
+        // Initialize global state for this table if not exists
+        if (!GLOBAL_EXPANDED_STATE.has(elementId)) {
+            GLOBAL_EXPANDED_STATE.set(elementId, new Set());
+        }
     }
 
     getBaseConfig() {
@@ -162,66 +168,17 @@ export class BaseTable {
                         row._expanded = false;
                     }
                 });
-                // Restore persistent expanded rows after data load
-                this.restorePersistentExpandedRows();
-            },
-            // CRITICAL: Preserve expanded state through ALL data operations
-            dataProcessing: function() {
-                if (!self.table) return;
                 
-                const rows = self.table.getRows();
-                self.temporaryExpandedRows.clear();
-                
-                rows.forEach(row => {
-                    const data = row.getData();
-                    if (data._expanded) {
-                        const id = self.generateRowId(data);
-                        self.temporaryExpandedRows.add(id);
-                        self.persistentExpandedRows.add(id); // Also add to persistent set
-                    }
-                });
-                
-                if (self.temporaryExpandedRows.size > 0) {
-                    console.log(`Preserving ${self.temporaryExpandedRows.size} expanded rows during data operation`);
-                }
-            },
-            dataProcessed: function() {
-                if (!self.table) return;
-                
-                // Use both temporary and persistent sets
-                const combinedSet = new Set([...self.temporaryExpandedRows, ...self.persistentExpandedRows]);
-                if (combinedSet.size > 0) {
-                    setTimeout(() => {
-                        self.restoreExpandedStateFromSet(combinedSet);
-                    }, 100);
-                }
-            },
-            dataFiltered: function(filters, rows) {
-                if (!self.table) return;
-                
-                console.log(`Filter complete, restoring expanded state`);
-                const combinedSet = new Set([...self.temporaryExpandedRows, ...self.persistentExpandedRows]);
-                if (combinedSet.size > 0) {
-                    setTimeout(() => {
-                        self.restoreExpandedStateFromSet(combinedSet);
-                    }, 150);
-                }
-            },
-            dataSorted: function(sorters, rows) {
-                if (!self.table) return;
-                
-                const combinedSet = new Set([...self.temporaryExpandedRows, ...self.persistentExpandedRows]);
-                if (combinedSet.size > 0) {
-                    setTimeout(() => {
-                        self.restoreExpandedStateFromSet(combinedSet);
-                    }, 100);
-                }
+                // Apply global expanded state after data loads
+                setTimeout(() => {
+                    self.applyGlobalExpandedState();
+                }, 100);
             },
             renderComplete: function() {
-                // Final check to ensure expanded rows are restored
-                if (self.persistentExpandedRows.size > 0) {
-                    self.restoreExpandedStateFromSet(self.persistentExpandedRows);
-                }
+                // Apply expanded state after render completes
+                setTimeout(() => {
+                    self.applyGlobalExpandedState();
+                }, 50);
             }
         };
 
@@ -263,65 +220,6 @@ export class BaseTable {
         }
 
         return config;
-    }
-
-    // New method to restore expanded state from a set of row IDs
-    restoreExpandedStateFromSet(expandedRowIds) {
-        if (!this.table || expandedRowIds.size === 0) return;
-        
-        const rows = this.table.getRows();
-        let restoredCount = 0;
-        
-        rows.forEach(row => {
-            const data = row.getData();
-            const id = this.generateRowId(data);
-            
-            if (expandedRowIds.has(id)) {
-                if (!data._expanded) {
-                    data._expanded = true;
-                    row.update(data);
-                    restoredCount++;
-                }
-                
-                // Update expander icon
-                const cells = row.getCells();
-                const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
-                
-                for (let field of nameFields) {
-                    const nameCell = cells.find(cell => cell.getField() === field);
-                    if (nameCell) {
-                        const cellElement = nameCell.getElement();
-                        const expander = cellElement.querySelector('.row-expander');
-                        if (expander && expander.innerHTML !== "−") {
-                            expander.innerHTML = "−";
-                        }
-                        break;
-                    }
-                }
-            }
-        });
-        
-        if (restoredCount > 0) {
-            console.log(`Restored ${restoredCount} expanded rows`);
-            
-            // Trigger row reformatting for expanded rows
-            setTimeout(() => {
-                rows.forEach(row => {
-                    const data = row.getData();
-                    if (data._expanded) {
-                        row.reformat();
-                    }
-                });
-            }, 50);
-        }
-    }
-
-    // New method to restore persistent expanded rows
-    restorePersistentExpandedRows() {
-        if (this.persistentExpandedRows.size > 0) {
-            console.log(`Restoring ${this.persistentExpandedRows.size} persistent expanded rows`);
-            this.restoreExpandedStateFromSet(this.persistentExpandedRows);
-        }
     }
 
     async fetchAllRecords(url, config) {
@@ -501,209 +399,72 @@ export class BaseTable {
     
     setExpandedRows(expandedRowIds) {
         this.expandedRowsSet = new Set(expandedRowIds);
-        this.persistentExpandedRows = new Set(expandedRowIds);
     }
 
+    // Simplified and more robust row ID generation
     generateRowId(data) {
-        if (data["Matchup Game ID"]) {
+        // Create a unique identifier based on the most identifying fields
+        const fields = [];
+        
+        // For Matchups
+        if (data["Matchup Game ID"] !== undefined) {
             return `matchup_${data["Matchup Game ID"]}`;
-        } 
-        else if (data["Batter Name"]) {
-            let id = `batter_${data["Batter Name"]}_${data["Batter Team"]}`;
-            if (data["Batter Prop Type"]) {
-                id += `_${data["Batter Prop Type"]}`;
-                if (data["Batter Prop Value"]) id += `_${data["Batter Prop Value"]}`;
-            }
-            if (data["Batter Prop Split ID"]) {
-                id += `_${data["Batter Prop Split ID"]}`;
-            }
-            if (data["Batter Stat Type"]) {
-                id += `_${data["Batter Stat Type"]}`;
-            }
-            return id;
         }
-        else if (data["Pitcher Name"]) {
-            let id = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"]}`;
-            if (data["Pitcher Prop Type"]) {
-                id += `_${data["Pitcher Prop Type"]}`;
-                if (data["Pitcher Prop Value"]) id += `_${data["Pitcher Prop Value"]}`;
-            }
-            if (data["Pitcher Prop Split ID"]) {
-                id += `_${data["Pitcher Prop Split ID"]}`;
-            }
-            if (data["Pitcher Stat Type"]) {
-                id += `_${data["Pitcher Stat Type"]}`;
-            }
-            return id;
+        
+        // For Batter tables
+        if (data["Batter Name"]) {
+            fields.push(data["Batter Name"]);
+            if (data["Batter Team"]) fields.push(data["Batter Team"]);
+            if (data["Batter Prop Type"]) fields.push(data["Batter Prop Type"]);
+            if (data["Batter Prop Value"]) fields.push(data["Batter Prop Value"]);
+            if (data["Batter Prop Split ID"]) fields.push(data["Batter Prop Split ID"]);
+            if (data["Batter Stat Type"]) fields.push(data["Batter Stat Type"]);
+            return `batter_${fields.join('_')}`;
         }
-        else {
-            const keyFields = Object.keys(data)
-                .filter(key => !key.startsWith('_') && data[key] !== null && data[key] !== undefined)
-                .slice(0, 5)
-                .map(key => `${key}:${data[key]}`)
-                .join('_');
-            return `generic_${keyFields}`;
+        
+        // For Pitcher tables
+        if (data["Pitcher Name"]) {
+            fields.push(data["Pitcher Name"]);
+            if (data["Pitcher Team"]) fields.push(data["Pitcher Team"]);
+            if (data["Pitcher Prop Type"]) fields.push(data["Pitcher Prop Type"]);
+            if (data["Pitcher Prop Value"]) fields.push(data["Pitcher Prop Value"]);
+            if (data["Pitcher Prop Split ID"]) fields.push(data["Pitcher Prop Split ID"]);
+            if (data["Pitcher Stat Type"]) fields.push(data["Pitcher Stat Type"]);
+            return `pitcher_${fields.join('_')}`;
         }
+        
+        // Fallback - use first few non-null values
+        const keys = Object.keys(data).filter(k => !k.startsWith('_') && data[k] != null);
+        return keys.slice(0, 5).map(k => `${k}:${data[k]}`).join('|');
     }
 
-    // Enhanced saveState that maintains persistent expanded rows
-    saveState() {
+    // Apply global expanded state to current table
+    applyGlobalExpandedState() {
         if (!this.table) return;
         
-        console.log(`Saving state for ${this.elementId}`);
+        const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId);
+        if (!globalState || globalState.size === 0) return;
         
-        const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-        if (tableHolder) {
-            this.lastScrollPosition = tableHolder.scrollTop;
-        }
-        
-        this.expandedRowsCache.clear();
-        this.expandedRowsSet.clear();
-        this.persistentExpandedRows.clear();
-        
-        if (!this.expandedRowsMetadata) {
-            this.expandedRowsMetadata = new Map();
-        }
+        console.log(`Applying ${globalState.size} globally stored expanded rows to ${this.elementId}`);
         
         const rows = this.table.getRows();
+        let expandedCount = 0;
         
         rows.forEach(row => {
             const data = row.getData();
-            if (data._expanded) {
-                const id = this.generateRowId(data);
-                this.expandedRowsCache.add(id);
-                this.expandedRowsSet.add(id);
-                this.persistentExpandedRows.add(id);
-                
-                const rowElement = row.getElement();
-                const hasSubrow = rowElement.querySelector('.subrow-container') !== null;
-                
-                const cells = row.getCells();
-                const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
-                let expanderState = "-";
-                
-                for (let field of nameFields) {
-                    const nameCell = cells.find(cell => cell.getField() === field);
-                    if (nameCell) {
-                        const cellElement = nameCell.getElement();
-                        const expander = cellElement.querySelector('.row-expander');
-                        if (expander) {
-                            expanderState = expander.innerHTML;
-                        }
-                        break;
-                    }
-                }
-                
-                this.expandedRowsMetadata.set(id, {
-                    hasSubrow: hasSubrow,
-                    data: data,
-                    expanderState: expanderState
-                });
-            }
-        });
-        
-        console.log(`Saved ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
-    }
-
-    // Enhanced restoreState with multiple restoration attempts
-    restoreState() {
-        if (!this.table) return;
-        
-        if (!this.expandedRowsCache || this.expandedRowsCache.size === 0) {
-            const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-            if (tableHolder && this.lastScrollPosition > 0) {
-                setTimeout(() => {
-                    tableHolder.scrollTop = this.lastScrollPosition;
-                }, 500);
-            }
-            return;
-        }
-        
-        console.log(`Restoring ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
-        
-        // Copy to persistent set for continuous restoration
-        this.persistentExpandedRows = new Set(this.expandedRowsCache);
-        const persistentMetadata = new Map(this.expandedRowsMetadata || new Map());
-        
-        const applyExpansion = (skipReformat = false) => {
-            const rows = this.table.getRows();
-            const rowsToProcess = [];
+            const rowId = this.generateRowId(data);
             
-            rows.forEach(row => {
-                const data = row.getData();
-                const id = this.generateRowId(data);
-                
-                if (this.persistentExpandedRows.has(id)) {
-                    const metadata = persistentMetadata.get(id);
-                    
-                    if (!data._expanded) {
-                        console.log(`Restoring expanded state for row: ${id}`);
-                        data._expanded = true;
-                        row.update(data);
-                    }
-                    
-                    const cells = row.getCells();
-                    const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
-                    
-                    for (let field of nameFields) {
-                        const nameCell = cells.find(cell => cell.getField() === field);
-                        if (nameCell) {
-                            const cellElement = nameCell.getElement();
-                            const expander = cellElement.querySelector('.row-expander');
-                            if (expander) {
-                                expander.innerHTML = metadata ? metadata.expanderState : "−";
-                            }
-                            break;
-                        }
-                    }
-                    
-                    if (!skipReformat) {
-                        rowsToProcess.push({
-                            row: row,
-                            hadSubrow: metadata ? metadata.hasSubrow : true,
-                            metadata: metadata
-                        });
-                    }
-                } else if (data._expanded) {
-                    console.log(`Collapsing incorrectly expanded row: ${id}`);
-                    data._expanded = false;
+            if (globalState.has(rowId)) {
+                if (!data._expanded) {
+                    data._expanded = true;
                     row.update(data);
+                    expandedCount++;
                     
-                    const cells = row.getCells();
-                    const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
-                    
-                    for (let field of nameFields) {
-                        const nameCell = cells.find(cell => cell.getField() === field);
-                        if (nameCell) {
-                            const cellElement = nameCell.getElement();
-                            const expander = cellElement.querySelector('.row-expander');
-                            if (expander) {
-                                expander.innerHTML = "+";
-                            }
-                            break;
-                        }
-                    }
-                    
-                    const rowElement = row.getElement();
-                    const existingSubrow = rowElement.querySelector('.subrow-container');
-                    if (existingSubrow) {
-                        existingSubrow.remove();
-                    }
-                }
-            });
-            
-            if (!skipReformat && rowsToProcess.length > 0) {
-                setTimeout(() => {
-                    rowsToProcess.forEach(({row, hadSubrow, metadata}) => {
-                        const rowElement = row.getElement();
-                        
-                        const existingSubrow = rowElement.querySelector('.subrow-container');
-                        if (existingSubrow) {
-                            existingSubrow.remove();
-                        }
-                        
+                    // Force reformat after a delay to ensure subtables are created
+                    setTimeout(() => {
                         row.reformat();
                         
+                        // Update expander icon
                         setTimeout(() => {
                             const cells = row.getCells();
                             const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
@@ -713,86 +474,141 @@ export class BaseTable {
                                 if (nameCell) {
                                     const cellElement = nameCell.getElement();
                                     const expander = cellElement.querySelector('.row-expander');
-                                    if (expander && metadata) {
-                                        expander.innerHTML = metadata.expanderState;
+                                    if (expander) {
+                                        expander.innerHTML = "−";
                                     }
                                     break;
                                 }
                             }
-                            
-                            if (hadSubrow) {
-                                const newSubrow = rowElement.querySelector('.subrow-container');
-                                if (!newSubrow) {
-                                    console.log('Forcing second reformat for row');
-                                    row.reformat();
-                                }
-                            }
-                        }, 100);
-                    });
-                    
-                    setTimeout(() => {
-                        rowsToProcess.forEach(({row}) => {
-                            row.normalizeHeight();
-                        });
-                        
-                        this.table.redraw(false);
-                    }, 300);
-                }, 100);
-            }
-        };
-        
-        // Store expanded rows in temporary set for filter preservation
-        this.temporaryExpandedRows = new Set(this.expandedRowsCache);
-        
-        requestAnimationFrame(() => {
-            applyExpansion();
-            
-            // Set up event listeners for persistent reapplication
-            const events = ["dataFiltered", "dataLoaded", "renderComplete", "dataSorted"];
-            const handlers = [];
-            
-            events.forEach(eventName => {
-                const handler = () => {
-                    if (this.persistentExpandedRows.size > 0) {
-                        setTimeout(() => {
-                            this.restoreExpandedStateFromSet(this.persistentExpandedRows);
-                        }, 200);
-                    }
-                };
-                handlers.push({event: eventName, handler: handler});
-                this.table.on(eventName, handler);
-                this.stateListeners.push({event: eventName, handler: handler});
-            });
-            
-            // Multiple restoration attempts to ensure state is preserved
-            const restoreAttempts = [500, 1000, 1500, 2000, 3000];
-            restoreAttempts.forEach(delay => {
-                setTimeout(() => {
-                    if (this.persistentExpandedRows.size > 0) {
-                        this.restoreExpandedStateFromSet(this.persistentExpandedRows);
-                    }
-                }, delay);
-            });
-            
-            // Restore scroll position
-            const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-            if (tableHolder && this.lastScrollPosition > 0) {
-                setTimeout(() => {
-                    tableHolder.scrollTop = this.lastScrollPosition;
-                }, 400);
+                        }, 50);
+                    }, 100);
+                }
             }
         });
+        
+        if (expandedCount > 0) {
+            console.log(`Successfully expanded ${expandedCount} rows`);
+        }
+    }
+
+    // Save state to global storage
+    saveState() {
+        if (!this.table) return;
+        
+        console.log(`Saving state for ${this.elementId}`);
+        
+        // Save scroll position
+        const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+        if (tableHolder) {
+            this.lastScrollPosition = tableHolder.scrollTop;
+        }
+        
+        // Clear and rebuild global expanded state
+        const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId);
+        globalState.clear();
+        
+        const rows = this.table.getRows();
+        
+        rows.forEach(row => {
+            const data = row.getData();
+            if (data._expanded) {
+                const id = this.generateRowId(data);
+                globalState.add(id);
+            }
+        });
+        
+        console.log(`Saved ${globalState.size} expanded rows for ${this.elementId}`);
+    }
+
+    // Restore state from global storage
+    restoreState() {
+        if (!this.table) return;
+        
+        const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId);
+        
+        if (!globalState || globalState.size === 0) {
+            // Just restore scroll position
+            if (this.lastScrollPosition > 0) {
+                setTimeout(() => {
+                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                    if (tableHolder) {
+                        tableHolder.scrollTop = this.lastScrollPosition;
+                    }
+                }, 500);
+            }
+            return;
+        }
+        
+        console.log(`Restoring ${globalState.size} expanded rows for ${this.elementId}`);
+        
+        // Apply the global state multiple times to ensure it sticks
+        const applyStateAttempt = (attemptNum) => {
+            if (attemptNum > 5) return;
+            
+            const rows = this.table.getRows();
+            let restoredCount = 0;
+            
+            rows.forEach(row => {
+                const data = row.getData();
+                const rowId = this.generateRowId(data);
+                
+                if (globalState.has(rowId)) {
+                    if (!data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        restoredCount++;
+                        
+                        // Delay reformat to ensure it happens after data update
+                        setTimeout(() => {
+                            row.reformat();
+                            
+                            // Update icon
+                            const cells = row.getCells();
+                            const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                            
+                            for (let field of nameFields) {
+                                const nameCell = cells.find(cell => cell.getField() === field);
+                                if (nameCell) {
+                                    const cellElement = nameCell.getElement();
+                                    const expander = cellElement.querySelector('.row-expander');
+                                    if (expander) {
+                                        expander.innerHTML = "−";
+                                    }
+                                    break;
+                                }
+                            }
+                        }, 50 * attemptNum); // Increase delay with each attempt
+                    }
+                }
+            });
+            
+            if (restoredCount > 0) {
+                console.log(`Restoration attempt ${attemptNum}: restored ${restoredCount} rows`);
+            }
+            
+            // Try again after a delay
+            setTimeout(() => {
+                applyStateAttempt(attemptNum + 1);
+            }, 500 * attemptNum);
+        };
+        
+        // Start restoration attempts
+        setTimeout(() => {
+            applyStateAttempt(1);
+        }, 100);
+        
+        // Restore scroll position
+        if (this.lastScrollPosition > 0) {
+            setTimeout(() => {
+                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.scrollTop = this.lastScrollPosition;
+                }
+            }, 400);
+        }
     }
 
     destroy() {
-        // Clean up event listeners
-        if (this.table && this.stateListeners.length > 0) {
-            this.stateListeners.forEach(({event, handler}) => {
-                this.table.off(event, handler);
-            });
-            this.stateListeners = [];
-        }
-        
         if (this.table) {
             this.saveState();
             this.table.destroy();
@@ -856,9 +672,11 @@ export class BaseTable {
         };
     }
 
+    // ENHANCED setupRowExpansion to update global state
     setupRowExpansion() {
         if (!this.table) return;
         
+        const self = this;
         let expansionTimeout;
         
         this.table.on("cellClick", (e, cell) => {
@@ -881,39 +699,39 @@ export class BaseTable {
                 expansionTimeout = setTimeout(() => {
                     var row = cell.getRow();
                     var data = row.getData();
-                    var rowElement = row.getElement();
                     
                     if (data._expanded === undefined) {
                         data._expanded = false;
                     }
                     
-                    var hasSubrow = rowElement.querySelector('.subrow-container') !== null;
-                    var cellElement = cell.getElement();
-                    var expanderIcon = cellElement.querySelector('.row-expander');
-                    var currentExpanderState = expanderIcon ? expanderIcon.innerHTML : "+";
+                    // Toggle expansion
+                    data._expanded = !data._expanded;
                     
-                    var shouldExpand = !data._expanded;
+                    // Update global state
+                    const rowId = self.generateRowId(data);
+                    const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId);
                     
-                    data._expanded = shouldExpand;
-                    
-                    const rowId = this.generateRowId(data);
-                    if (shouldExpand) {
-                        this.expandedRowsSet.add(rowId);
-                        this.persistentExpandedRows.add(rowId);
+                    if (data._expanded) {
+                        globalState.add(rowId);
                     } else {
-                        this.expandedRowsSet.delete(rowId);
-                        this.persistentExpandedRows.delete(rowId);
+                        globalState.delete(rowId);
                     }
                     
+                    // Update row
                     row.update(data);
                     
+                    // Update icon immediately
+                    var cellElement = cell.getElement();
+                    var expanderIcon = cellElement.querySelector('.row-expander');
                     if (expanderIcon) {
-                        expanderIcon.innerHTML = shouldExpand ? "−" : "+";
+                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
                     }
                     
+                    // Reformat row
                     requestAnimationFrame(() => {
                         row.reformat();
                         
+                        // Ensure icon stays correct after reformat
                         requestAnimationFrame(() => {
                             try {
                                 var updatedCellElement = cell.getElement();
