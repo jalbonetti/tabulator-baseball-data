@@ -123,8 +123,8 @@ export class PitcherPropsTable extends BaseTable {
                 }
             },
             {
-                title: "Caesars", 
-                field: "Pitcher Caesars Odds",
+                title: "Pinnacle", 
+                field: "Pitcher Pinnacle Odds",
                 width: 110,
                 sorter: "number",
                 hozAlign: "center",
