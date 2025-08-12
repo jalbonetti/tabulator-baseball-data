@@ -114,8 +114,9 @@ class CacheManager {
 // Global cache manager instance
 const cacheManager = new CacheManager();
 
-// Global storage for expanded rows that persists across all operations
-const GLOBAL_EXPANDED_STATE = new Map();
+// CRITICAL FIX: Make GLOBAL_EXPANDED_STATE globally accessible
+window.GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
+const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE;
 
 export class BaseTable {
     constructor(elementId, endpoint) {
