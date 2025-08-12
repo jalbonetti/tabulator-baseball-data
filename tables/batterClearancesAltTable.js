@@ -1,4 +1,4 @@
-// tables/batterClearancesAltTable.js - FIXED VERSION (NO REFRESH BUTTON, WORKING SUBTABLES)
+// tables/batterClearancesAltTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage, formatRatio, formatDecimal, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -90,7 +90,6 @@ export class BatterClearancesAltTable extends BaseTable {
         
         this.table.on("tableBuilt", () => {
             console.log("Batter Clearances Alt table built successfully");
-            // REMOVED: addRefreshButton call
         });
         
         // Optimize scroll performance for large datasets
@@ -108,8 +107,6 @@ export class BatterClearancesAltTable extends BaseTable {
             }, 300);
         });
     }
-
-    // REMOVED: addRefreshButton method entirely
 
     getPlayerLocation(matchup, playerTeam) {
         if (!matchup || !playerTeam) return "Home/Away";
@@ -145,6 +142,15 @@ export class BatterClearancesAltTable extends BaseTable {
 
     getColumns() {
         const self = this;
+        
+        // Odds formatter function
+        const oddsFormatter = function(cell) {
+            const value = cell.getValue();
+            if (!value || value === null || value === undefined) return "-";
+            const num = parseInt(value);
+            if (isNaN(num)) return "-";
+            return num > 0 ? `+${num}` : `${num}`;
+        };
         
         return [
             {title: "Player Info", columns: [
@@ -245,6 +251,28 @@ export class BatterClearancesAltTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false
+                }
+            ]},
+            {title: "Median Odds", columns: [
+                {
+                    title: "Over", 
+                    field: "Batter Median Over Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
+                },
+                {
+                    title: "Under", 
+                    field: "Batter Median Under Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
                 }
             ]}
         ];
