@@ -1,7 +1,10 @@
-// tables/batterClearancesAltTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS
+// tables/batterClearancesAltTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS AND GLOBAL STATE
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage, formatRatio, formatDecimal, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+
+// Access GLOBAL_EXPANDED_STATE through window
+const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 
 export class BatterClearancesAltTable extends BaseTable {
     constructor(elementId) {
@@ -278,9 +281,11 @@ export class BatterClearancesAltTable extends BaseTable {
         ];
     }
 
-    // Override setupRowExpansion to properly handle click events
+    // FIXED: Override setupRowExpansion to properly handle click events WITH GLOBAL STATE
     setupRowExpansion() {
         if (!this.table) return;
+        
+        const self = this;
         
         this.table.on("cellClick", (e, cell) => {
             const field = cell.getField();
@@ -289,9 +294,14 @@ export class BatterClearancesAltTable extends BaseTable {
                 e.preventDefault();
                 e.stopPropagation();
                 
+                // Don't process clicks during state restoration
+                if (self.isRestoringState) {
+                    console.log("Ignoring click during state restoration");
+                    return;
+                }
+                
                 var row = cell.getRow();
                 var data = row.getData();
-                var rowElement = row.getElement();
                 
                 // Initialize if undefined
                 if (data._expanded === undefined) {
@@ -301,7 +311,24 @@ export class BatterClearancesAltTable extends BaseTable {
                 // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update the row data
+                // Update global state - CRITICAL ADDITION
+                const rowId = self.generateRowId(data);
+                const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId) || new Map();
+                
+                if (data._expanded) {
+                    globalState.set(rowId, {
+                        timestamp: Date.now(),
+                        data: data
+                    });
+                } else {
+                    globalState.delete(rowId);
+                }
+                
+                GLOBAL_EXPANDED_STATE.set(self.elementId, globalState);
+                
+                console.log(`Row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
+                
+                // Update the row
                 row.update(data);
                 
                 // Use requestAnimationFrame for smooth updates
@@ -459,88 +486,88 @@ export class BatterClearancesAltTable extends BaseTable {
         });
     }
 
-createSubtable2(container, data) {
-    try {
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
-        
-        // Extract SP handedness
-        var spInfo = data["SP"] || "";
-        var spHandedness = null;
-        
-        if (spInfo.includes("(") && spInfo.includes(")")) {
-            var match = spInfo.match(/\(([RL])\)/);
-            if (match) {
-                spHandedness = match[1];
+    createSubtable2(container, data) {
+        try {
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Batter Team"]);
+            
+            // Extract SP handedness
+            var spInfo = data["SP"] || "";
+            var spHandedness = null;
+            
+            if (spInfo.includes("(") && spInfo.includes(")")) {
+                var match = spInfo.match(/\(([RL])\)/);
+                if (match) {
+                    spHandedness = match[1];
+                }
             }
-        }
-        
-        var spVersusText;
-        if (data["Handedness"] === "S") {
-            if (spHandedness === "R") {
-                spVersusText = "Lefties";
-            } else if (spHandedness === "L") {
-                spVersusText = "Righties";
+            
+            var spVersusText;
+            if (data["Handedness"] === "S") {
+                if (spHandedness === "R") {
+                    spVersusText = "Lefties";
+                } else if (spHandedness === "L") {
+                    spVersusText = "Righties";
+                } else {
+                    spVersusText = "Unknown";
+                }
             } else {
-                spVersusText = "Unknown";
+                spVersusText = data["Handedness"] === "L" ? "Lefties" : "Righties";
             }
-        } else {
-            spVersusText = data["Handedness"] === "L" ? "Lefties" : "Righties";
+            
+            var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+            var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
+            
+            // Format values to remove leading zeros from ratios
+            const formatValue = (value) => {
+                if (value === null || value === undefined || value === "" || value === "-") return "-";
+                // Check if it's a decimal ratio value (e.g., 0.xxx)
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue) && value.toString().includes('.')) {
+                    return formatRatio(value, 3);
+                }
+                return value;
+            };
+            
+            var tableData = [
+                {
+                    player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Righties",
+                    propData: removeLeadingZeroFromValue(data["Batter Prop Total R"]) || "-"
+                },
+                {
+                    player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Lefties",
+                    propData: removeLeadingZeroFromValue(data["Batter Prop Total L"]) || "-"
+                },
+                {
+                    player: (data["SP"] || "Unknown SP") + " Versus " + spVersusText,
+                    propData: removeLeadingZeroFromValue(data["SP Prop Total"]) || "-"
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
+                    propData: removeLeadingZeroFromValue(data["RR Prop Total"]) || "-"
+                },
+                {
+                    player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
+                    propData: removeLeadingZeroFromValue(data["LR Prop Total"]) || "-"
+                }
+            ];
+            
+            new Tabulator(container, {
+                layout: "fitColumns",
+                columnHeaderSortMulti: false,
+                resizableColumns: false,
+                resizableRows: false,
+                movableColumns: false,
+                virtualDom: false,
+                height: false,
+                data: tableData,
+                columns: [
+                    {title: "Players", field: "player", headerSort: false, resizable: false, width: 350},
+                    {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 220}
+                ]
+            });
+        } catch (error) {
+            console.error("Error creating batter clearances alt subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
         }
-        
-        var rrVersusText = data["Handedness"] === "S" ? "Lefties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
-        var lrVersusText = data["Handedness"] === "S" ? "Righties" : (data["Handedness"] === "L" ? "Lefties" : "Righties");
-        
-        // Format values to remove leading zeros from ratios
-        const formatValue = (value) => {
-            if (value === null || value === undefined || value === "" || value === "-") return "-";
-            // Check if it's a decimal ratio value (e.g., 0.xxx)
-            const numValue = parseFloat(value);
-            if (!isNaN(numValue) && value.toString().includes('.')) {
-                return formatRatio(value, 3);
-            }
-            return value;
-        };
-        
-var tableData = [
-    {
-        player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Righties",
-        propData: removeLeadingZeroFromValue(data["Batter Prop Total R"]) || "-"
-    },
-    {
-        player: data["Batter Name"] + " (" + (data["Handedness"] || "?") + ") Versus Lefties",
-        propData: removeLeadingZeroFromValue(data["Batter Prop Total L"]) || "-"
-    },
-    {
-        player: (data["SP"] || "Unknown SP") + " Versus " + spVersusText,
-        propData: removeLeadingZeroFromValue(data["SP Prop Total"]) || "-"
-    },
-    {
-        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Relievers (" + (data["R Relievers"] || "0") + ") Versus " + rrVersusText,
-        propData: removeLeadingZeroFromValue(data["RR Prop Total"]) || "-"
-    },
-    {
-        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Relievers (" + (data["L Relievers"] || "0") + ") Versus " + lrVersusText,
-        propData: removeLeadingZeroFromValue(data["LR Prop Total"]) || "-"
     }
-];
-        
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            virtualDom: false,
-            height: false,
-            data: tableData,
-            columns: [
-                {title: "Players", field: "player", headerSort: false, resizable: false, width: 350},
-                {title: "Prop Data", field: "propData", headerSort: false, resizable: false, width: 220}
-            ]
-        });
-    } catch (error) {
-        console.error("Error creating batter clearances alt subtable2:", error, data);
-        container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
-    }
-}
 }
