@@ -1,7 +1,10 @@
-// tables/pitcherClearancesAltTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS
+// tables/pitcherClearancesAltTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS AND GLOBAL STATE
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage, formatRatio, formatDecimal, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+
+// Access GLOBAL_EXPANDED_STATE through window
+const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 
 export class PitcherClearancesAltTable extends BaseTable {
     constructor(elementId) {
@@ -248,17 +251,52 @@ export class PitcherClearancesAltTable extends BaseTable {
         };
     }
 
-    // Override setupRowExpansion to use Pitcher Name field
+    // FIXED: Override setupRowExpansion to use Pitcher Name field WITH GLOBAL STATE
     setupRowExpansion() {
+        if (!this.table) return;
+        
+        const self = this;
+        
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "Pitcher Name") {
                 e.preventDefault();
                 e.stopPropagation();
                 
+                // Don't process clicks during state restoration
+                if (self.isRestoringState) {
+                    console.log("Ignoring click during state restoration");
+                    return;
+                }
+                
                 var row = cell.getRow();
                 var data = row.getData();
+                
+                // Initialize if undefined
+                if (data._expanded === undefined) {
+                    data._expanded = false;
+                }
+                
+                // Toggle expansion
                 data._expanded = !data._expanded;
                 
+                // Update global state - CRITICAL ADDITION
+                const rowId = self.generateRowId(data);
+                const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId) || new Map();
+                
+                if (data._expanded) {
+                    globalState.set(rowId, {
+                        timestamp: Date.now(),
+                        data: data
+                    });
+                } else {
+                    globalState.delete(rowId);
+                }
+                
+                GLOBAL_EXPANDED_STATE.set(self.elementId, globalState);
+                
+                console.log(`Pitcher row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
+                
+                // Update the row
                 requestAnimationFrame(() => {
                     row.update(data);
                     
