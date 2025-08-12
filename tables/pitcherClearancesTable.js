@@ -1,4 +1,4 @@
-// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH CORRECT FORMATTERS
+// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage, formatRatio, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -30,6 +30,15 @@ export class PitcherClearancesTable extends BaseTable {
     }
 
     getColumns() {
+        // Odds formatter function
+        const oddsFormatter = function(cell) {
+            const value = cell.getValue();
+            if (!value || value === null || value === undefined) return "-";
+            const num = parseInt(value);
+            if (isNaN(num)) return "-";
+            return num > 0 ? `+${num}` : `${num}`;
+        };
+
         return [
             {title: "Player Info", columns: [
                 {
@@ -155,6 +164,28 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false
+                }
+            ]},
+            {title: "Median Odds", columns: [
+                {
+                    title: "Over", 
+                    field: "Pitcher Median Over Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
+                },
+                {
+                    title: "Under", 
+                    field: "Pitcher Median Under Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
                 }
             ]}
         ];
