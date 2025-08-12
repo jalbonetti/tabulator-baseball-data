@@ -1,12 +1,12 @@
-// styles/tableStyles.js - FIXED OVERFLOW AND WIDTH ISSUES
+// styles/tableStyles.js - UPDATED WITH ADJUSTED WIDTHS FOR NEW COLUMNS
 export function injectStyles() {
-    // EASILY CONFIGURABLE TABLE WIDTHS
+    // EASILY CONFIGURABLE TABLE WIDTHS - Increased for new columns
     const TABLE_WIDTHS = {
-        matchups: '1200px',      // Fixed at 1200px as requested
-        batterClearances: '1500px',     
-        batterClearancesAlt: '1000px',  
-        pitcherClearances: '1500px',    
-        pitcherClearancesAlt: '1000px', 
+        matchups: '1200px',      
+        batterClearances: '1680px',          // Increased to accommodate new odds columns
+        batterClearancesAlt: '1180px',       // Increased to accommodate new odds columns  
+        pitcherClearances: '1680px',         // Increased to accommodate new odds columns
+        pitcherClearancesAlt: '1180px',      // Increased to accommodate new odds columns
         batterStats: '1720px',          
         pitcherStats: '1720px',         
         batterProps: '1720px',          
@@ -16,6 +16,51 @@ export function injectStyles() {
 
     var style = document.createElement('style');
     style.textContent = `
+        /* Apply updated widths to batter clearances tables */
+        #batter-table {
+            width: ${TABLE_WIDTHS.batterClearances} !important;
+            max-width: ${TABLE_WIDTHS.batterClearances} !important;
+        }
+        
+        #batter-table-alt {
+            width: ${TABLE_WIDTHS.batterClearancesAlt} !important;
+            max-width: ${TABLE_WIDTHS.batterClearancesAlt} !important;
+        }
+        
+        /* Apply updated widths to pitcher clearances tables */
+        #pitcher-table {
+            width: ${TABLE_WIDTHS.pitcherClearances} !important;
+            max-width: ${TABLE_WIDTHS.pitcherClearances} !important;
+        }
+        
+        #pitcher-table-alt {
+            width: ${TABLE_WIDTHS.pitcherClearancesAlt} !important;
+            max-width: ${TABLE_WIDTHS.pitcherClearancesAlt} !important;
+        }
+        
+        /* Update container widths for clearance tables */
+        #table1-container {
+            width: ${TABLE_WIDTHS.batterClearances} !important;
+            max-width: ${TABLE_WIDTHS.batterClearances} !important;
+        }
+        
+        #table2-container {
+            width: ${TABLE_WIDTHS.batterClearancesAlt} !important;
+            max-width: ${TABLE_WIDTHS.batterClearancesAlt} !important;
+        }
+        
+        #table3-container {
+            width: ${TABLE_WIDTHS.pitcherClearances} !important;
+            max-width: ${TABLE_WIDTHS.pitcherClearances} !important;
+        }
+        
+        #table4-container {
+            width: ${TABLE_WIDTHS.pitcherClearancesAlt} !important;
+            max-width: ${TABLE_WIDTHS.pitcherClearancesAlt} !important;
+        }
+
+        /* Rest of styles remain the same... */
+        
         /* CRITICAL: Prevent horizontal scroll on matchups table */
         #matchups-table {
             width: ${TABLE_WIDTHS.matchups} !important;
@@ -248,8 +293,6 @@ export function injectStyles() {
             -ms-user-select: none !important;
         }
         
-        /* Other table styles remain the same... */
-        
         /* Tab styling */
         .tabs-container {
             margin-bottom: 20px;
@@ -331,7 +374,9 @@ export function injectStyles() {
         }
         
         /* Left align name/team columns */
-        .tabulator .tabulator-cell[tabulator-field="Matchup Team"] {
+        .tabulator .tabulator-cell[tabulator-field="Matchup Team"],
+        .tabulator .tabulator-cell[tabulator-field="Batter Name"],
+        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"] {
             text-align: left !important;
         }
     `;
