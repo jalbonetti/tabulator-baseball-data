@@ -1,4 +1,4 @@
-// tables/batterClearancesTable.js - COMPLETE VERSION WITH CORRECT FORMATTERS
+// tables/batterClearancesTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage, formatRatio, removeLeadingZeroFromValue} from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -31,6 +31,15 @@ export class BatterClearancesTable extends BaseTable {
     }
 
     getColumns() {
+        // Odds formatter function
+        const oddsFormatter = function(cell) {
+            const value = cell.getValue();
+            if (!value || value === null || value === undefined) return "-";
+            const num = parseInt(value);
+            if (isNaN(num)) return "-";
+            return num > 0 ? `+${num}` : `${num}`;
+        };
+
         return [
             {title: "Player Info", columns: [
                 {
@@ -167,6 +176,28 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false
+                }
+            ]},
+            {title: "Median Odds", columns: [
+                {
+                    title: "Over", 
+                    field: "Batter Median Over Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
+                },
+                {
+                    title: "Under", 
+                    field: "Batter Median Under Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
                 }
             ]}
         ];
