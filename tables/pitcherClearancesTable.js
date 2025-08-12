@@ -1,7 +1,10 @@
-// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS
+// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS AND GLOBAL STATE
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage, formatRatio, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+
+// Access GLOBAL_EXPANDED_STATE through window
+const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 
 export class PitcherClearancesTable extends BaseTable {
     constructor(elementId) {
@@ -235,17 +238,52 @@ export class PitcherClearancesTable extends BaseTable {
         };
     }
 
-    // Override setupRowExpansion to use Pitcher Name field
+    // FIXED: Override setupRowExpansion to use Pitcher Name field WITH GLOBAL STATE
     setupRowExpansion() {
+        if (!this.table) return;
+        
+        const self = this;
+        
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "Pitcher Name") {
                 e.preventDefault();
                 e.stopPropagation();
                 
+                // Don't process clicks during state restoration
+                if (self.isRestoringState) {
+                    console.log("Ignoring click during state restoration");
+                    return;
+                }
+                
                 var row = cell.getRow();
                 var data = row.getData();
+                
+                // Initialize if undefined
+                if (data._expanded === undefined) {
+                    data._expanded = false;
+                }
+                
+                // Toggle expansion
                 data._expanded = !data._expanded;
                 
+                // Update global state - CRITICAL ADDITION
+                const rowId = self.generateRowId(data);
+                const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId) || new Map();
+                
+                if (data._expanded) {
+                    globalState.set(rowId, {
+                        timestamp: Date.now(),
+                        data: data
+                    });
+                } else {
+                    globalState.delete(rowId);
+                }
+                
+                GLOBAL_EXPANDED_STATE.set(self.elementId, globalState);
+                
+                console.log(`Pitcher row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
+                
+                // Update the row
                 requestAnimationFrame(() => {
                     row.update(data);
                     
@@ -295,66 +333,65 @@ export class PitcherClearancesTable extends BaseTable {
         });
     }
 
-createSubtable2(container, data) {
-    try {
-        var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
-        
-        // Format values to remove leading zeros from ratios
-        const formatValue = (value) => {
-            if (value === null || value === undefined || value === "" || value === "-") return "-";
-            // Check if it's a decimal ratio value (e.g., 0.xxx)
-            const numValue = parseFloat(value);
-            if (!isNaN(numValue) && value.toString().includes('.')) {
-                return formatRatio(value, 3);
-            }
-            return value;
-        };
-        
-        new Tabulator(container, {
-            layout: "fitColumns",
-            columnHeaderSortMulti: false,
-data: [
-    {
-        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
-        fullSeason: removeLeadingZeroFromValue(data["Pitcher Prop Total R Vs Season"]) || "-",
-        fullSeasonHA: removeLeadingZeroFromValue(data["Pitcher Prop Total R Vs Season At"]) || "-",
-        last30: removeLeadingZeroFromValue(data["Pitcher Prop Total R Vs 30"]) || "-",
-        last30HA: removeLeadingZeroFromValue(data["Pitcher Prop Total R Vs 30 At"]) || "-"
-    },
-    {
-        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
-        fullSeason: removeLeadingZeroFromValue(data["Pitcher Prop Total L Vs Season"]) || "-",
-        fullSeasonHA: removeLeadingZeroFromValue(data["Pitcher Prop Total L Vs Season At"]) || "-",
-        last30: removeLeadingZeroFromValue(data["Pitcher Prop Total L Vs 30"]) || "-",
-        last30HA: removeLeadingZeroFromValue(data["Pitcher Prop Total L Vs 30 At"]) || "-"
-    },
-    {
-        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
-        fullSeason: removeLeadingZeroFromValue(data["RB Prop Total Vs Season"]) || "-",
-        fullSeasonHA: removeLeadingZeroFromValue(data["RB Prop Total Vs Season At"]) || "-",
-        last30: removeLeadingZeroFromValue(data["RB Prop Total Vs 30"]) || "-",
-        last30HA: removeLeadingZeroFromValue(data["RB Prop Total Vs 30 At"]) || "-"
-    },
-    {
-        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
-        fullSeason: removeLeadingZeroFromValue(data["LB Prop Total Vs Season"]) || "-",
-        fullSeasonHA: removeLeadingZeroFromValue(data["LB Prop Total Vs Season At"]) || "-",
-        last30: removeLeadingZeroFromValue(data["LB Prop Total Vs 30"]) || "-",
-        last30HA: removeLeadingZeroFromValue(data["LB Prop Total Vs 30 At"]) || "-"
+    createSubtable2(container, data) {
+        try {
+            var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
+            
+            // Format values to remove leading zeros from ratios
+            const formatValue = (value) => {
+                if (value === null || value === undefined || value === "" || value === "-") return "-";
+                // Check if it's a decimal ratio value (e.g., 0.xxx)
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue) && value.toString().includes('.')) {
+                    return formatRatio(value, 3);
+                }
+                return value;
+            };
+            
+            new Tabulator(container, {
+                layout: "fitColumns",
+                columnHeaderSortMulti: false,
+                data: [
+                    {
+                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
+                        fullSeason: removeLeadingZeroFromValue(data["Pitcher Prop Total R Vs Season"]) || "-",
+                        fullSeasonHA: removeLeadingZeroFromValue(data["Pitcher Prop Total R Vs Season At"]) || "-",
+                        last30: removeLeadingZeroFromValue(data["Pitcher Prop Total R Vs 30"]) || "-",
+                        last30HA: removeLeadingZeroFromValue(data["Pitcher Prop Total R Vs 30 At"]) || "-"
+                    },
+                    {
+                        player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Lefties",
+                        fullSeason: removeLeadingZeroFromValue(data["Pitcher Prop Total L Vs Season"]) || "-",
+                        fullSeasonHA: removeLeadingZeroFromValue(data["Pitcher Prop Total L Vs Season At"]) || "-",
+                        last30: removeLeadingZeroFromValue(data["Pitcher Prop Total L Vs 30"]) || "-",
+                        last30HA: removeLeadingZeroFromValue(data["Pitcher Prop Total L Vs 30 At"]) || "-"
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Righty Batters (" + (data["R Batters"] || "0") + ") Versus " + (data["Handedness"] === "L" ? "Lefties" : "Righties"),
+                        fullSeason: removeLeadingZeroFromValue(data["RB Prop Total Vs Season"]) || "-",
+                        fullSeasonHA: removeLeadingZeroFromValue(data["RB Prop Total Vs Season At"]) || "-",
+                        last30: removeLeadingZeroFromValue(data["RB Prop Total Vs 30"]) || "-",
+                        last30HA: removeLeadingZeroFromValue(data["RB Prop Total Vs 30 At"]) || "-"
+                    },
+                    {
+                        player: (opponentTeam ? opponentTeam + " " : "") + "Lefty Batters (" + (data["L Batters"] || "0") + ") Versus " + (data["Handedness"] === "R" ? "Righties" : "Lefties"),
+                        fullSeason: removeLeadingZeroFromValue(data["LB Prop Total Vs Season"]) || "-",
+                        fullSeasonHA: removeLeadingZeroFromValue(data["LB Prop Total Vs Season At"]) || "-",
+                        last30: removeLeadingZeroFromValue(data["LB Prop Total Vs 30"]) || "-",
+                        last30HA: removeLeadingZeroFromValue(data["LB Prop Total Vs 30 At"]) || "-"
+                    }
+                ],
+                columns: [
+                    {title: "Players", field: "player", headerSort: false, width: 350},
+                    {title: "Full Season", field: "fullSeason", headerSort: false, width: 220},
+                    {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 220},
+                    {title: "Last 30 Days", field: "last30", headerSort: false, width: 220},
+                    {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 220}
+                ]
+            });
+        } catch (error) {
+            console.error("Error creating pitcher clearances subtable2:", error, data);
+            container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
+        }
     }
-],
-            columns: [
-                {title: "Players", field: "player", headerSort: false, width: 350},
-                {title: "Full Season", field: "fullSeason", headerSort: false, width: 220},
-                {title: "Full Season (Home/Away)", field: "fullSeasonHA", headerSort: false, width: 220},
-                {title: "Last 30 Days", field: "last30", headerSort: false, width: 220},
-                {title: "Last 30 Days (Home/Away)", field: "last30HA", headerSort: false, width: 220}
-            ]
-        });
-    } catch (error) {
-        console.error("Error creating pitcher clearances subtable2:", error, data);
-        container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
-    }
-}
-
 }
