@@ -219,30 +219,36 @@ export class BaseTable {
             };
             config.ajaxContentType = "json";
             
-            config.ajaxRequestFunc = async (url, config, params) => {
-                const cacheKey = `${this.endpoint}_data`;
-                
-                const memoryCached = this.getCachedData(cacheKey);
-                if (memoryCached) {
-                    console.log(`Memory cache hit for ${this.endpoint}`);
-                    return memoryCached;
-                }
-                
-                const dbCached = await cacheManager.getCachedData(cacheKey);
-                if (dbCached) {
-                    console.log(`IndexedDB cache hit for ${this.endpoint}`);
-                    this.setCachedData(cacheKey, dbCached);
-                    return dbCached;
-                }
-                
-                console.log(`No cache found for ${this.endpoint}, fetching from API...`);
-                const allRecords = await this.fetchAllRecords(url, config);
-                
-                this.setCachedData(cacheKey, allRecords);
-                await cacheManager.setCachedData(cacheKey, allRecords);
-                
-                return allRecords;
-            };
+config.ajaxRequestFunc = async (url, config, params) => {
+    const cacheKey = `${this.endpoint}_data`;
+    
+    const memoryCached = this.getCachedData(cacheKey);
+    if (memoryCached) {
+        console.log(`Memory cache hit for ${this.endpoint}`);
+        // Set dataLoaded flag when returning cached data
+        self.dataLoaded = true;
+        return memoryCached;
+    }
+    
+    const dbCached = await cacheManager.getCachedData(cacheKey);
+    if (dbCached) {
+        console.log(`IndexedDB cache hit for ${this.endpoint}`);
+        this.setCachedData(cacheKey, dbCached);
+        // Set dataLoaded flag when returning cached data
+        self.dataLoaded = true;
+        return dbCached;
+    }
+    
+    console.log(`No cache found for ${this.endpoint}, fetching from API...`);
+    const allRecords = await this.fetchAllRecords(url, config);
+    
+    this.setCachedData(cacheKey, allRecords);
+    await cacheManager.setCachedData(cacheKey, allRecords);
+    
+    // Set dataLoaded flag when returning fresh data
+    self.dataLoaded = true;
+    return allRecords;
+};
         }
 
         return config;
@@ -555,140 +561,143 @@ export class BaseTable {
     }
 
     // FIXED: Enhanced restoreState with proper timing
-    restoreState() {
-        if (!this.table) return;
-        
-        // If data isn't loaded yet, mark that we need to restore after load
-        if (!this.dataLoaded) {
-            console.log(`Data not yet loaded for ${this.elementId}, deferring state restore`);
-            this.pendingStateRestore = true;
-            return;
+restoreState() {
+    if (!this.table) return;
+    
+    // Check if table has data by looking at row count
+    const hasData = this.table.getData && this.table.getData().length > 0;
+    
+    // If data isn't loaded yet, mark that we need to restore after load
+    if (!this.dataLoaded && !hasData) {
+        console.log(`Data not yet loaded for ${this.elementId}, deferring state restore`);
+        this.pendingStateRestore = true;
+        return;
+    }
+    
+    const globalState = this.getGlobalState();
+    
+    if (!globalState || globalState.size === 0) {
+        // Just restore scroll position
+        if (this.lastScrollPosition > 0) {
+            setTimeout(() => {
+                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.scrollTop = this.lastScrollPosition;
+                }
+            }, 500);
         }
-        
-        const globalState = this.getGlobalState();
-        
-        if (!globalState || globalState.size === 0) {
-            // Just restore scroll position
-            if (this.lastScrollPosition > 0) {
-                setTimeout(() => {
-                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                    if (tableHolder) {
-                        tableHolder.scrollTop = this.lastScrollPosition;
+        return;
+    }
+    
+    console.log(`Restoring ${globalState.size} expanded rows for ${this.elementId}`);
+    
+    // Set restoration flag
+    this.isRestoringState = true;
+    
+    // Create a promise-based restoration
+    const restoreExpandedRows = () => {
+        return new Promise((resolve) => {
+            const rows = this.table.getRows();
+            let restoredCount = 0;
+            const rowsToExpand = [];
+            
+            console.log(`Checking ${rows.length} rows for restoration`);
+            
+            rows.forEach(row => {
+                const data = row.getData();
+                const rowId = this.generateRowId(data);
+                
+                // Debug logging
+                if (globalState.has(rowId)) {
+                    console.log(`Found matching row to restore: ${rowId}`);
+                }
+                
+                if (globalState.has(rowId)) {
+                    if (!data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        rowsToExpand.push(row);
+                        restoredCount++;
                     }
-                }, 500);
-            }
-            return;
-        }
-        
-        console.log(`Restoring ${globalState.size} expanded rows for ${this.elementId}`);
-        
-        // Set restoration flag
-        this.isRestoringState = true;
-        
-        // Create a promise-based restoration
-        const restoreExpandedRows = () => {
-            return new Promise((resolve) => {
-                const rows = this.table.getRows();
-                let restoredCount = 0;
-                const rowsToExpand = [];
-                
-                console.log(`Checking ${rows.length} rows for restoration`);
-                
-                rows.forEach(row => {
-                    const data = row.getData();
-                    const rowId = this.generateRowId(data);
-                    
-                    // Debug logging
-                    if (globalState.has(rowId)) {
-                        console.log(`Found matching row to restore: ${rowId}`);
-                    }
-                    
-                    if (globalState.has(rowId)) {
-                        if (!data._expanded) {
-                            data._expanded = true;
-                            row.update(data);
-                            rowsToExpand.push(row);
-                            restoredCount++;
-                        }
-                    }
-                });
-                
-                console.log(`Found ${restoredCount} rows to restore`);
-                
-                // Process each row sequentially with proper timing
-                let processIndex = 0;
-                
-                const processNextRow = () => {
-                    if (processIndex >= rowsToExpand.length) {
-                        resolve();
-                        return;
-                    }
-                    
-                    const row = rowsToExpand[processIndex];
-                    const rowElement = row.getElement();
-                    
-                    // Remove any existing subtables first
-                    const existingSubrow = rowElement.querySelector('.subrow-container');
-                    if (existingSubrow) {
-                        existingSubrow.remove();
-                    }
-                    
-                    // Force reformat to recreate subtables
-                    row.reformat();
-                    
-                    // Update expander icon
-                    setTimeout(() => {
-                        const cells = row.getCells();
-                        const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
-                        
-                        for (let field of nameFields) {
-                            const nameCell = cells.find(cell => cell.getField() === field);
-                            if (nameCell) {
-                                const cellElement = nameCell.getElement();
-                                const expander = cellElement.querySelector('.row-expander');
-                                if (expander) {
-                                    expander.innerHTML = "−";
-                                }
-                                break;
-                            }
-                        }
-                        
-                        processIndex++;
-                        // Small delay between rows to prevent blocking
-                        setTimeout(processNextRow, 20);
-                    }, 20);
-                };
-                
-                if (rowsToExpand.length > 0) {
-                    setTimeout(processNextRow, 100);
-                } else {
-                    resolve();
                 }
             });
-        };
-        
-        // Start restoration
-        restoreExpandedRows().then(() => {
-            console.log(`Restoration complete for ${this.elementId}`);
             
-            // Clear restoration flag with a small delay to ensure everything is settled
-            setTimeout(() => {
-                this.isRestoringState = false;
-                console.log(`Cleared restoration flag for ${this.elementId}`);
-                
-                // Force a final redraw to ensure everything is displayed correctly
-                this.table.redraw(false);
-                
-                // Restore scroll position
-                if (this.lastScrollPosition > 0) {
-                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                    if (tableHolder) {
-                        tableHolder.scrollTop = this.lastScrollPosition;
-                    }
+            console.log(`Found ${restoredCount} rows to restore`);
+            
+            // Process each row sequentially with proper timing
+            let processIndex = 0;
+            
+            const processNextRow = () => {
+                if (processIndex >= rowsToExpand.length) {
+                    resolve();
+                    return;
                 }
-            }, 200);
+                
+                const row = rowsToExpand[processIndex];
+                const rowElement = row.getElement();
+                
+                // Remove any existing subtables first
+                const existingSubrow = rowElement.querySelector('.subrow-container');
+                if (existingSubrow) {
+                    existingSubrow.remove();
+                }
+                
+                // Force reformat to recreate subtables
+                row.reformat();
+                
+                // Update expander icon
+                setTimeout(() => {
+                    const cells = row.getCells();
+                    const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                    
+                    for (let field of nameFields) {
+                        const nameCell = cells.find(cell => cell.getField() === field);
+                        if (nameCell) {
+                            const cellElement = nameCell.getElement();
+                            const expander = cellElement.querySelector('.row-expander');
+                            if (expander) {
+                                expander.innerHTML = "−";
+                            }
+                            break;
+                        }
+                    }
+                    
+                    processIndex++;
+                    // Small delay between rows to prevent blocking
+                    setTimeout(processNextRow, 20);
+                }, 20);
+            };
+            
+            if (rowsToExpand.length > 0) {
+                setTimeout(processNextRow, 100);
+            } else {
+                resolve();
+            }
         });
-    }
+    };
+    
+    // Start restoration
+    restoreExpandedRows().then(() => {
+        console.log(`Restoration complete for ${this.elementId}`);
+        
+        // Clear restoration flag with a small delay to ensure everything is settled
+        setTimeout(() => {
+            this.isRestoringState = false;
+            console.log(`Cleared restoration flag for ${this.elementId}`);
+            
+            // Force a final redraw to ensure everything is displayed correctly
+            this.table.redraw(false);
+            
+            // Restore scroll position
+            if (this.lastScrollPosition > 0) {
+                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.scrollTop = this.lastScrollPosition;
+                }
+            }
+        }, 200);
+    });
+}
 
     destroy() {
         if (this.table) {
