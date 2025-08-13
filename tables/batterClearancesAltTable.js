@@ -1,10 +1,7 @@
-// tables/batterClearancesAltTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS AND GLOBAL STATE
+// tables/batterClearancesAltTable.js - FIXED VERSION WITH PROPER STATE PRESERVATION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatClearancePercentage, formatRatio, formatDecimal, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
-
-// Access GLOBAL_EXPANDED_STATE through window
-const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 
 export class BatterClearancesAltTable extends BaseTable {
     constructor(elementId) {
@@ -281,7 +278,7 @@ export class BatterClearancesAltTable extends BaseTable {
         ];
     }
 
-    // FIXED: Override setupRowExpansion to properly handle click events WITH GLOBAL STATE
+    // FIXED: Override setupRowExpansion to properly use base class global state management
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -311,9 +308,9 @@ export class BatterClearancesAltTable extends BaseTable {
                 // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update global state - CRITICAL ADDITION
+                // Update global state using base class helper methods
                 const rowId = self.generateRowId(data);
-                const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId) || new Map();
+                const globalState = self.getGlobalState();
                 
                 if (data._expanded) {
                     globalState.set(rowId, {
@@ -324,7 +321,7 @@ export class BatterClearancesAltTable extends BaseTable {
                     globalState.delete(rowId);
                 }
                 
-                GLOBAL_EXPANDED_STATE.set(self.elementId, globalState);
+                self.setGlobalState(globalState);
                 
                 console.log(`Row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
                 
