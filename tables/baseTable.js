@@ -1,4 +1,4 @@
-// tables/baseTable.js - FIXED VERSION WITH PROPER STATE RESTORATION
+// tables/baseTable.js - COMPLETE FIXED VERSION WITH PROPER STATE RESTORATION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -125,6 +125,7 @@ export class BaseTable {
         this.table = null;
         this.isInitialized = false;
         this.dataLoaded = false;
+        this.pendingStateRestore = false;  // Track if we need to restore after data loads
         this.expandedRowsCache = new Set();
         this.expandedRowsSet = new Set();
         this.expandedRowsMetadata = new Map();
@@ -139,7 +140,7 @@ export class BaseTable {
         }
     }
 
-    // CRITICAL ADDITION: Helper methods to access global state (like MatchupsTable has)
+    // Helper methods to access global state
     getGlobalState() {
         if (GLOBAL_EXPANDED_STATE.has(this.elementId)) {
             return GLOBAL_EXPANDED_STATE.get(this.elementId);
@@ -178,19 +179,19 @@ export class BaseTable {
             columnVertAlign: "center",
             dataLoaded: (data) => {
                 console.log(`Table loaded ${data.length} total records`);
-                this.dataLoaded = true;
+                self.dataLoaded = true;
                 data.forEach(row => {
                     if (row._expanded === undefined) {
                         row._expanded = false;
                     }
                 });
                 
-                // Only apply global expanded state if we're in restoration mode
-                if (self.isRestoringState) {
+                // Check if we need to restore state after data load
+                if (self.pendingStateRestore) {
+                    console.log(`Data loaded, now restoring pending state for ${self.elementId}`);
                     setTimeout(() => {
-                        if (self.isRestoringState) {
-                            self.applyGlobalExpandedState();
-                        }
+                        self.restoreState();
+                        self.pendingStateRestore = false;
                     }, 100);
                 }
             },
@@ -553,9 +554,16 @@ export class BaseTable {
         console.log(`Saved ${globalState.size} expanded rows for ${this.elementId}`);
     }
 
-    // FIXED: Enhanced restoreState with proper subtable recreation
+    // FIXED: Enhanced restoreState with proper timing
     restoreState() {
         if (!this.table) return;
+        
+        // If data isn't loaded yet, mark that we need to restore after load
+        if (!this.dataLoaded) {
+            console.log(`Data not yet loaded for ${this.elementId}, deferring state restore`);
+            this.pendingStateRestore = true;
+            return;
+        }
         
         const globalState = this.getGlobalState();
         
@@ -584,9 +592,16 @@ export class BaseTable {
                 let restoredCount = 0;
                 const rowsToExpand = [];
                 
+                console.log(`Checking ${rows.length} rows for restoration`);
+                
                 rows.forEach(row => {
                     const data = row.getData();
                     const rowId = this.generateRowId(data);
+                    
+                    // Debug logging
+                    if (globalState.has(rowId)) {
+                        console.log(`Found matching row to restore: ${rowId}`);
+                    }
                     
                     if (globalState.has(rowId)) {
                         if (!data._expanded) {
@@ -683,6 +698,7 @@ export class BaseTable {
         }
         this.isInitialized = false;
         this.dataLoaded = false;
+        this.pendingStateRestore = false;
         this.isRestoringState = false;
     }
 
@@ -740,7 +756,7 @@ export class BaseTable {
         };
     }
 
-    // FIXED: Enhanced setupRowExpansion with better restoration handling and proper global state update
+    // Enhanced setupRowExpansion with better restoration handling and proper global state update
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -839,7 +855,7 @@ export class BaseTable {
                             }
                         });
                     });
-                }, 50); // Reduced timeout for more responsive clicks
+                }, 50);
             }
         });
     }
@@ -872,7 +888,7 @@ export class BaseTable {
         console.log("createSubtable2 should be overridden by child class");
     }
 
-    // FIXED: Enhanced createRowFormatter with better subtable recreation
+    // Enhanced createRowFormatter with better subtable recreation
     createRowFormatter() {
         const self = this;
         
