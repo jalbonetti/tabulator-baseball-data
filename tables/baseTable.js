@@ -139,6 +139,20 @@ export class BaseTable {
         }
     }
 
+    // CRITICAL ADDITION: Helper methods to access global state (like MatchupsTable has)
+    getGlobalState() {
+        if (GLOBAL_EXPANDED_STATE.has(this.elementId)) {
+            return GLOBAL_EXPANDED_STATE.get(this.elementId);
+        }
+        const newState = new Map();
+        GLOBAL_EXPANDED_STATE.set(this.elementId, newState);
+        return newState;
+    }
+    
+    setGlobalState(state) {
+        GLOBAL_EXPANDED_STATE.set(this.elementId, state);
+    }
+
     getBaseConfig() {
         const self = this;
         const config = {
@@ -451,7 +465,7 @@ export class BaseTable {
     applyGlobalExpandedState() {
         if (!this.table || !this.isRestoringState) return;
         
-        const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId);
+        const globalState = this.getGlobalState();
         if (!globalState || globalState.size === 0) return;
         
         console.log(`Applying ${globalState.size} globally stored expanded rows to ${this.elementId} during restoration`);
@@ -514,8 +528,8 @@ export class BaseTable {
             this.lastScrollPosition = tableHolder.scrollTop;
         }
         
-        // Get or create global state for this table
-        const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId) || new Map();
+        // Get or create global state for this table using helper method
+        const globalState = this.getGlobalState();
         
         // Clear and rebuild global expanded state
         globalState.clear();
@@ -533,8 +547,8 @@ export class BaseTable {
             }
         });
         
-        // Update global state
-        GLOBAL_EXPANDED_STATE.set(this.elementId, globalState);
+        // Update global state using helper method
+        this.setGlobalState(globalState);
         
         console.log(`Saved ${globalState.size} expanded rows for ${this.elementId}`);
     }
@@ -543,7 +557,7 @@ export class BaseTable {
     restoreState() {
         if (!this.table) return;
         
-        const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId);
+        const globalState = this.getGlobalState();
         
         if (!globalState || globalState.size === 0) {
             // Just restore scroll position
@@ -726,7 +740,7 @@ export class BaseTable {
         };
     }
 
-    // FIXED: Enhanced setupRowExpansion with better restoration handling
+    // FIXED: Enhanced setupRowExpansion with better restoration handling and proper global state update
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -779,9 +793,9 @@ export class BaseTable {
                     // Toggle expansion
                     data._expanded = !data._expanded;
                     
-                    // Update global state
+                    // Update global state using helper methods
                     const rowId = self.generateRowId(data);
-                    const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId) || new Map();
+                    const globalState = self.getGlobalState();
                     
                     if (data._expanded) {
                         globalState.set(rowId, {
@@ -792,7 +806,7 @@ export class BaseTable {
                         globalState.delete(rowId);
                     }
                     
-                    GLOBAL_EXPANDED_STATE.set(self.elementId, globalState);
+                    self.setGlobalState(globalState);
                     
                     console.log(`Row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
                     
