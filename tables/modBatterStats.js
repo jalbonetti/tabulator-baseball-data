@@ -1,10 +1,7 @@
-// tables/modBatterStats.js - UPDATED VERSION WITH TEAM ABBREVIATIONS, LOCATION-BASED SPLITS AND GLOBAL STATE
+// tables/modBatterStats.js - FIXED VERSION WITH PROPER STATE PRESERVATION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage, formatRatio, formatDecimal } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
-
-// Access GLOBAL_EXPANDED_STATE through window
-const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 
 export class ModBatterStatsTable extends BaseTable {
     constructor(elementId) {
@@ -132,7 +129,7 @@ export class ModBatterStatsTable extends BaseTable {
 
         this.table = new Tabulator(this.elementId, config);
         
-        // FIXED: Setup click handler for row expansion WITH GLOBAL STATE
+        // FIXED: Setup click handler for row expansion with proper global state management
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "Batter Name") {
                 e.preventDefault();
@@ -155,9 +152,9 @@ export class ModBatterStatsTable extends BaseTable {
                 // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update global state - CRITICAL ADDITION
+                // Update global state using base class helper methods
                 const rowId = this.generateRowId(data);
-                const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId) || new Map();
+                const globalState = this.getGlobalState();
                 
                 if (data._expanded) {
                     globalState.set(rowId, {
@@ -168,7 +165,7 @@ export class ModBatterStatsTable extends BaseTable {
                     globalState.delete(rowId);
                 }
                 
-                GLOBAL_EXPANDED_STATE.set(this.elementId, globalState);
+                this.setGlobalState(globalState);
                 
                 console.log(`Stats row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
                 
