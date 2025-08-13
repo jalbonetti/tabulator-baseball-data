@@ -1,10 +1,7 @@
-// tables/modPitcherStats.js - UPDATED VERSION WITH TEAM ABBREVIATIONS, LOCATION-BASED SPLITS AND GLOBAL STATE
+// tables/modPitcherStats.js - FULLY CORRECTED VERSION WITH PROPER STATE PRESERVATION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatPercentage, formatRatio, formatDecimal } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
-
-// Access GLOBAL_EXPANDED_STATE through window
-const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 
 export class ModPitcherStatsTable extends BaseTable {
     constructor(elementId) {
@@ -49,6 +46,7 @@ export class ModPitcherStatsTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
+            placeholder: "Loading all pitcher stats records...",
             columns: this.getColumns(),
             initialSort: [
                 {column: "Pitcher Name", dir: "asc"},
@@ -131,7 +129,7 @@ export class ModPitcherStatsTable extends BaseTable {
 
         this.table = new Tabulator(this.elementId, config);
         
-        // FIXED: Setup click handler for row expansion WITH GLOBAL STATE
+        // FIXED: Setup click handler for row expansion WITH PROPER BASE CLASS GLOBAL STATE
         this.table.on("cellClick", (e, cell) => {
             if (cell.getField() === "Pitcher Name") {
                 e.preventDefault();
@@ -154,9 +152,9 @@ export class ModPitcherStatsTable extends BaseTable {
                 // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update global state - CRITICAL ADDITION
+                // Update global state using base class helper methods
                 const rowId = this.generateRowId(data);
-                const globalState = GLOBAL_EXPANDED_STATE.get(this.elementId) || new Map();
+                const globalState = this.getGlobalState();
                 
                 if (data._expanded) {
                     globalState.set(rowId, {
@@ -167,7 +165,7 @@ export class ModPitcherStatsTable extends BaseTable {
                     globalState.delete(rowId);
                 }
                 
-                GLOBAL_EXPANDED_STATE.set(this.elementId, globalState);
+                this.setGlobalState(globalState);
                 
                 console.log(`Pitcher stats row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
                 
@@ -275,7 +273,7 @@ export class ModPitcherStatsTable extends BaseTable {
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false
-                    // REMOVED formatter - will now show abbreviations
+                    // Show abbreviations as-is
                 }
             ]},
             {title: "Stat Info", columns: [
