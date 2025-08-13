@@ -1,10 +1,7 @@
-// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH MEDIAN ODDS COLUMNS AND GLOBAL STATE
+// tables/pitcherClearancesTable.js - FIXED VERSION WITH PROPER STATE PRESERVATION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage, formatRatio, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
-
-// Access GLOBAL_EXPANDED_STATE through window
-const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 
 export class PitcherClearancesTable extends BaseTable {
     constructor(elementId) {
@@ -238,7 +235,7 @@ export class PitcherClearancesTable extends BaseTable {
         };
     }
 
-    // FIXED: Override setupRowExpansion to use Pitcher Name field WITH GLOBAL STATE
+    // FIXED: Override setupRowExpansion to use Pitcher Name field with proper global state
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -266,9 +263,9 @@ export class PitcherClearancesTable extends BaseTable {
                 // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update global state - CRITICAL ADDITION
+                // Update global state using base class helper methods
                 const rowId = self.generateRowId(data);
-                const globalState = GLOBAL_EXPANDED_STATE.get(self.elementId) || new Map();
+                const globalState = self.getGlobalState();
                 
                 if (data._expanded) {
                     globalState.set(rowId, {
@@ -279,7 +276,7 @@ export class PitcherClearancesTable extends BaseTable {
                     globalState.delete(rowId);
                 }
                 
-                GLOBAL_EXPANDED_STATE.set(self.elementId, globalState);
+                self.setGlobalState(globalState);
                 
                 console.log(`Pitcher row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
                 
