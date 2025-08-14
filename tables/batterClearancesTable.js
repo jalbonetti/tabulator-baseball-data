@@ -1,4 +1,4 @@
-// tables/batterClearancesTable.js - FIXED VERSION WITH PROPER STATE PRESERVATION
+// tables/batterClearancesTable.js - FIXED VERSION WITH CONSISTENT BASE CLASS USAGE
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage, formatRatio, removeLeadingZeroFromValue} from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -23,7 +23,8 @@ export class BatterClearancesTable extends BaseTable {
         };
 
         this.table = new Tabulator(this.elementId, config);
-        // Use the base class setupRowExpansion which properly handles global state
+        
+        // CRITICAL: Use the base class setupRowExpansion which has proper global state management
         this.setupRowExpansion();
         
         this.table.on("tableBuilt", () => {
@@ -204,7 +205,94 @@ export class BatterClearancesTable extends BaseTable {
         ];
     }
 
-    // Remove the overridden setupRowExpansion - use base class version which properly handles global state
+    // REMOVED: We don't override setupRowExpansion anymore - use the base class version
+    // The base class version has all the proper global state management
+
+    // Override createRowFormatter for table-specific subtables
+    createRowFormatter() {
+        const self = this;
+        
+        return (row) => {
+            var data = row.getData();
+            var rowElement = row.getElement();
+            
+            // Initialize _expanded if undefined
+            if (data._expanded === undefined) {
+                data._expanded = false;
+            }
+            
+            // Add/remove expanded class
+            if (data._expanded) {
+                rowElement.classList.add('row-expanded');
+            } else {
+                rowElement.classList.remove('row-expanded');
+            }
+            
+            // Handle expansion
+            if (data._expanded) {
+                // Check if subtables already exist
+                let existingSubrow = rowElement.querySelector('.subrow-container');
+                
+                // During restoration or if doesn't exist, create subtables
+                if (!existingSubrow || self.isRestoringState) {
+                    // Remove old subtable if it exists during restoration
+                    if (existingSubrow && self.isRestoringState) {
+                        existingSubrow.remove();
+                        existingSubrow = null;
+                    }
+                    
+                    if (!existingSubrow) {
+                        // Create container for subtables using requestAnimationFrame for better performance
+                        requestAnimationFrame(() => {
+                            var holderEl = document.createElement("div");
+                            holderEl.classList.add('subrow-container');
+                            holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%; position: relative; z-index: 1;';
+                            
+                            var subtable1 = document.createElement("div");
+                            subtable1.style.marginBottom = "15px";
+                            var subtable2 = document.createElement("div");
+                            
+                            holderEl.appendChild(subtable1);
+                            holderEl.appendChild(subtable2);
+                            rowElement.appendChild(holderEl);
+                            
+                            // Create subtables with error handling
+                            try {
+                                self.createSubtable1(subtable1, data);
+                            } catch (error) {
+                                console.error("Error creating subtable1:", error);
+                                subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                            }
+                            
+                            try {
+                                self.createSubtable2(subtable2, data);
+                            } catch (error) {
+                                console.error("Error creating subtable2:", error);
+                                subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                            }
+                            
+                            // Force row height recalculation
+                            setTimeout(() => {
+                                row.normalizeHeight();
+                            }, 100);
+                        });
+                    }
+                }
+            } else {
+                // Handle contraction
+                var existingSubrow = rowElement.querySelector('.subrow-container');
+                if (existingSubrow) {
+                    existingSubrow.remove();
+                    rowElement.classList.remove('row-expanded');
+                    
+                    // Force row height recalculation
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                    }, 50);
+                }
+            }
+        };
+    }
 
     createSubtable1(container, data) {
         const matchup = data["Matchup"] || "";
@@ -244,6 +332,7 @@ export class BatterClearancesTable extends BaseTable {
             resizableRows: false,
             movableColumns: false,
             height: false,
+            virtualDom: false,
             data: [{
                 propFactor: data["Batter Prop Park Factor"],
                 lineupStatus: data["Lineup Status"] + ": " + data["Batting Position"],
@@ -346,6 +435,11 @@ export class BatterClearancesTable extends BaseTable {
             new Tabulator(container, {
                 layout: "fitColumns",
                 columnHeaderSortMulti: false,
+                resizableColumns: false,
+                resizableRows: false,
+                movableColumns: false,
+                virtualDom: false,
+                height: false,
                 data: tableData,
                 columns: [
                     {title: "Players", field: "player", headerSort: false, width: 350},
@@ -360,4 +454,13 @@ export class BatterClearancesTable extends BaseTable {
             container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
         }
     }
+
+    // IMPORTANT: We inherit these methods from BaseTable with proper global state management:
+    // - saveState()
+    // - restoreState()
+    // - generateRowId()
+    // - getGlobalState()
+    // - setGlobalState()
+    // - setupRowExpansion()
+    // All the state management is handled by the base class now!
 }
