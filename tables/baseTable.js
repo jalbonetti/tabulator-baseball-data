@@ -126,7 +126,7 @@ export class BaseTable {
         this.isInitialized = false;
         this.dataLoaded = false;
         this.pendingStateRestore = false;  // Track if we need to restore after data loads
-        this.expandedRowsCache = new Set();
+        this.expandedRowsCache = new Map();  // FIX: Changed from Set to Map
         this.expandedRowsSet = new Set();
         this.expandedRowsMetadata = new Map();
         this.temporaryExpandedRows = new Set();
@@ -763,7 +763,7 @@ export class BaseTable {
         this.temporaryExpandedRows.clear();
         expandedRowIds.forEach(id => this.temporaryExpandedRows.add(id));
         
-        // Also update the cache
+        // Also update the cache (as a Map)
         this.expandedRowsCache.clear();
         expandedRowIds.forEach(id => this.expandedRowsCache.set(id, true));
         
