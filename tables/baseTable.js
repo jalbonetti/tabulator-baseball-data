@@ -1,4 +1,4 @@
-// tables/baseTable.js - COMPLETE VERSION WITH ALL EXISTING FEATURES + PERSISTENT STATE FIX
+// tables/baseTable.js - COMPLETE FIXED VERSION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -114,7 +114,7 @@ class CacheManager {
 // Global cache manager instance
 const cacheManager = new CacheManager();
 
-// CRITICAL FIX: Make GLOBAL_EXPANDED_STATE globally accessible
+// CRITICAL: Make GLOBAL_EXPANDED_STATE globally accessible
 window.GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE;
 
@@ -125,17 +125,17 @@ export class BaseTable {
         this.table = null;
         this.isInitialized = false;
         this.dataLoaded = false;
-        this.pendingStateRestore = false;  // Track if we need to restore after data loads
-        this.expandedRowsCache = new Map();  // FIX: Changed from Set to Map
+        this.pendingStateRestore = false;
+        this.expandedRowsCache = new Map();
         this.expandedRowsSet = new Set();
         this.expandedRowsMetadata = new Map();
         this.temporaryExpandedRows = new Set();
         this.lastScrollPosition = 0;
         this.tableConfig = this.getBaseConfig();
-        this.isRestoringState = false; // Flag to prevent loops
-        this.pendingRestoration = null; // NEW: Track pending restoration
-        this.restorationAttempts = 0; // NEW: Track restoration attempts
-        this.maxRestorationAttempts = 5; // NEW: Maximum retry attempts
+        this.isRestoringState = false;
+        this.pendingRestoration = null;
+        this.restorationAttempts = 0;
+        this.maxRestorationAttempts = 5;
         
         // Initialize global state for this table if not exists
         if (!GLOBAL_EXPANDED_STATE.has(elementId)) {
@@ -181,10 +181,8 @@ export class BaseTable {
             layoutColumnsOnNewData: false,
             columnVertAlign: "center",
             
-            // NEW ENHANCED: Data processing events for state preservation
             dataProcessing: () => {
                 console.log(`Data processing for ${self.elementId}`);
-                // Save expanded rows before any data operation
                 if (!self.isRestoringState && self.table) {
                     self.temporaryExpandedRows.clear();
                     const expandedRows = self.table.getRows().filter(row => {
@@ -202,32 +200,25 @@ export class BaseTable {
                 }
             },
             
-            // NEW ENHANCED: Check for pending restoration after data processed
             dataProcessed: () => {
                 console.log(`Data processed for ${self.elementId}`);
-                // Check if we have a pending restoration
                 if (self.pendingRestoration) {
                     self.executePendingRestoration();
                 }
             },
             
-            // NEW ENHANCED: Restore after filtering
             dataFiltered: () => {
                 console.log(`Data filtered for ${self.elementId}`);
-                // Restore expanded rows after filtering
                 if (!self.isRestoringState) {
                     self.restoreTemporaryExpandedState();
                 }
-                // Also check for pending restoration
                 if (self.pendingRestoration) {
                     self.executePendingRestoration();
                 }
             },
             
-            // NEW ENHANCED: Restore after sorting
             dataSorted: () => {
                 console.log(`Data sorted for ${self.elementId}`);
-                // Restore expanded rows after sorting
                 if (!self.isRestoringState) {
                     self.restoreTemporaryExpandedState();
                 }
@@ -242,7 +233,6 @@ export class BaseTable {
                     }
                 });
                 
-                // Check if we need to restore state after data load
                 if (self.pendingStateRestore) {
                     console.log(`Data loaded, now restoring pending state for ${self.elementId}`);
                     setTimeout(() => {
@@ -252,20 +242,16 @@ export class BaseTable {
                 }
             },
             
-            // NEW ENHANCED: Final restoration attempt on render complete
             renderComplete: function() {
                 console.log(`Render complete for ${self.elementId}`);
-                // Final attempt to restore if we have pending restoration
                 if (self.pendingRestoration && self.restorationAttempts < self.maxRestorationAttempts) {
                     setTimeout(() => {
                         self.executePendingRestoration();
                     }, 100);
                 }
                 
-                // Only apply expanded state if we're restoring, not during normal renders
                 if (self.isRestoringState) {
                     setTimeout(() => {
-                        // Only apply if still in restoring state
                         if (self.isRestoringState) {
                             self.applyGlobalExpandedState();
                         }
@@ -291,7 +277,6 @@ export class BaseTable {
                 const memoryCached = this.getCachedData(cacheKey);
                 if (memoryCached) {
                     console.log(`Memory cache hit for ${this.endpoint}`);
-                    // Set dataLoaded flag when returning cached data
                     self.dataLoaded = true;
                     return memoryCached;
                 }
@@ -300,7 +285,6 @@ export class BaseTable {
                 if (dbCached) {
                     console.log(`IndexedDB cache hit for ${this.endpoint}`);
                     this.setCachedData(cacheKey, dbCached);
-                    // Set dataLoaded flag when returning cached data
                     self.dataLoaded = true;
                     return dbCached;
                 }
@@ -311,7 +295,6 @@ export class BaseTable {
                 this.setCachedData(cacheKey, allRecords);
                 await cacheManager.setCachedData(cacheKey, allRecords);
                 
-                // Set dataLoaded flag when returning fresh data
                 self.dataLoaded = true;
                 return allRecords;
             };
@@ -500,15 +483,12 @@ export class BaseTable {
     }
 
     generateRowId(data) {
-        // Create a unique identifier based on the most identifying fields
         const fields = [];
         
-        // For Matchups
         if (data["Matchup Game ID"] !== undefined) {
             return `matchup_${data["Matchup Game ID"]}`;
         }
         
-        // For Batter tables
         if (data["Batter Name"]) {
             fields.push(data["Batter Name"]);
             if (data["Batter Team"]) fields.push(data["Batter Team"]);
@@ -519,7 +499,6 @@ export class BaseTable {
             return `batter_${fields.join('_')}`;
         }
         
-        // For Pitcher tables
         if (data["Pitcher Name"]) {
             fields.push(data["Pitcher Name"]);
             if (data["Pitcher Team"]) fields.push(data["Pitcher Team"]);
@@ -530,12 +509,10 @@ export class BaseTable {
             return `pitcher_${fields.join('_')}`;
         }
         
-        // Fallback - use first few non-null values
         const keys = Object.keys(data).filter(k => !k.startsWith('_') && data[k] != null);
         return keys.slice(0, 5).map(k => `${k}:${data[k]}`).join('|');
     }
 
-    // NEW METHOD: Execute pending restoration
     executePendingRestoration() {
         if (!this.pendingRestoration) return;
         
@@ -554,7 +531,6 @@ export class BaseTable {
         }
     }
 
-    // NEW METHOD: Enhanced restoration with retry logic
     restoreExpandedRowsWithRetry(expandedRowIds) {
         if (!this.table || expandedRowIds.length === 0) return false;
         
@@ -566,26 +542,21 @@ export class BaseTable {
             const row = allRows.find(r => this.generateRowId(r.getData()) === rowId);
             if (row) {
                 try {
-                    // Force expand the row
                     const rowData = row.getData();
                     const rowElement = row.getElement();
                     
-                    // Set expanded state in data
                     rowData._expanded = true;
                     row.update(rowData);
                     
-                    // Update visual state
                     if (rowElement) {
                         rowElement.classList.add('tabulator-row-expanded');
                         
-                        // Find and update the toggle
                         const toggle = rowElement.querySelector('.row-expander');
                         if (toggle) {
                             toggle.classList.add('open');
                             toggle.textContent = '−';
                         }
                         
-                        // Trigger the row formatter to show subtable
                         setTimeout(() => {
                             row.reformat();
                         }, 50);
@@ -605,7 +576,6 @@ export class BaseTable {
         return successCount === expandedRowIds.length;
     }
 
-    // NEW METHOD: Restore temporary expanded state after data operations
     restoreTemporaryExpandedState() {
         if (this.temporaryExpandedRows.size === 0) return;
         
@@ -636,13 +606,10 @@ export class BaseTable {
                     row.update(data);
                     expandedCount++;
                     
-                    // Force reformat after a delay to ensure subtables are created
                     setTimeout(() => {
-                        // Check we're still in restoration mode
                         if (this.isRestoringState) {
                             row.reformat();
                             
-                            // Update expander icon
                             setTimeout(() => {
                                 const cells = row.getCells();
                                 const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
@@ -670,6 +637,7 @@ export class BaseTable {
         }
     }
 
+    // CRITICAL FIX: This is the main fix - saveState now properly syncs with actual DOM state
     saveState() {
         if (!this.table) return;
         
@@ -681,51 +649,74 @@ export class BaseTable {
             this.lastScrollPosition = tableHolder.scrollTop;
         }
         
-        // Get or create global state for this table using helper method
+        // CRITICAL: Get the actual current state from the DOM and data
         const globalState = this.getGlobalState();
+        const actualExpandedRows = new Map();
         
-        // Clear and rebuild global expanded state
-        globalState.clear();
-        
+        // Check each row's actual state
         const rows = this.table.getRows();
-        
         rows.forEach(row => {
             const data = row.getData();
-            // ENHANCED: Check multiple conditions to catch all expanded rows
             const rowElement = row.getElement();
-            const isExpanded = data._expanded === true || 
-                             (rowElement && rowElement.classList.contains('tabulator-row-expanded')) ||
-                             (rowElement && rowElement.querySelector('.row-expander.open'));
+            const rowId = this.generateRowId(data);
             
+            // Check multiple conditions to determine if row is truly expanded
+            let isExpanded = false;
+            
+            // Check data._expanded flag
+            if (data._expanded === true) {
+                // Verify this is actually true in the DOM
+                const expander = rowElement ? rowElement.querySelector('.row-expander') : null;
+                const hasSubrow = rowElement ? rowElement.querySelector('.subrow-container') : null;
+                
+                // Only consider it expanded if the DOM shows it's expanded
+                if (expander && (expander.innerHTML === '−' || expander.textContent === '−')) {
+                    isExpanded = true;
+                } else if (hasSubrow) {
+                    isExpanded = true;
+                }
+            }
+            
+            // If row is expanded, add to the state
             if (isExpanded) {
-                const id = this.generateRowId(data);
-                globalState.set(id, { 
+                actualExpandedRows.set(rowId, { 
                     timestamp: Date.now(),
                     data: data 
                 });
             }
         });
         
-        // Also save to temporary for filter preservation
+        // CRITICAL: Update global state with the actual expanded rows
+        globalState.clear();
+        actualExpandedRows.forEach((value, key) => {
+            globalState.set(key, value);
+        });
+        
+        // Update the global state
+        this.setGlobalState(globalState);
+        
+        // Update local caches to match
+        this.expandedRowsSet.clear();
+        this.expandedRowsCache.clear();
+        actualExpandedRows.forEach((value, key) => {
+            this.expandedRowsSet.add(key);
+            this.expandedRowsCache.set(key, true);
+        });
+        
+        // Also update temporary expanded rows
         this.temporaryExpandedRows.clear();
-        globalState.forEach((value, key) => {
+        actualExpandedRows.forEach((value, key) => {
             this.temporaryExpandedRows.add(key);
         });
         
-        // Update global state using helper method
-        this.setGlobalState(globalState);
-        
-        console.log(`Saved ${globalState.size} expanded rows for ${this.elementId}`);
+        console.log(`Saved ${actualExpandedRows.size} expanded rows for ${this.elementId}`);
     }
 
-    // ENHANCED: restoreState with persistent restoration system
     restoreState() {
         if (!this.table) return;
         
-        // Check if table has data by looking at row count
         const hasData = this.table.getData && this.table.getData().length > 0;
         
-        // If data isn't loaded yet, mark that we need to restore after load
         if (!this.dataLoaded && !hasData) {
             console.log(`Data not yet loaded for ${this.elementId}, deferring state restore`);
             this.pendingStateRestore = true;
@@ -735,7 +726,6 @@ export class BaseTable {
         const globalState = this.getGlobalState();
         
         if (!globalState || globalState.size === 0) {
-            // Just restore scroll position
             if (this.lastScrollPosition > 0) {
                 setTimeout(() => {
                     const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
@@ -749,30 +739,24 @@ export class BaseTable {
         
         console.log(`Restoring ${globalState.size} expanded rows for ${this.elementId}`);
         
-        // Set restoration flag
         this.isRestoringState = true;
         
-        // NEW: Store as pending restoration
         const expandedRowIds = Array.from(globalState.keys());
         this.pendingRestoration = {
             expandedRowIds: expandedRowIds,
             timestamp: Date.now()
         };
         
-        // Copy to temporary expanded rows for filter preservation
         this.temporaryExpandedRows.clear();
         expandedRowIds.forEach(id => this.temporaryExpandedRows.add(id));
         
-        // Also update the cache (as a Map)
         this.expandedRowsCache.clear();
         expandedRowIds.forEach(id => this.expandedRowsCache.set(id, true));
         
-        // Try immediate restoration
         setTimeout(() => {
             this.executePendingRestoration();
         }, 50);
         
-        // NEW: Schedule additional attempts at strategic intervals
         [150, 300, 500, 750, 1000].forEach(delay => {
             setTimeout(() => {
                 if (this.pendingRestoration) {
@@ -781,7 +765,6 @@ export class BaseTable {
             }, delay);
         });
         
-        // Restore scroll position
         if (this.lastScrollPosition > 0) {
             setTimeout(() => {
                 const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
@@ -791,7 +774,6 @@ export class BaseTable {
             }, 400);
         }
         
-        // Clear restoration flag after a timeout if nothing else does
         setTimeout(() => {
             if (this.isRestoringState) {
                 console.log(`Cleared restoration flag for ${this.elementId}`);
@@ -866,7 +848,7 @@ export class BaseTable {
         };
     }
 
-    // Enhanced setupRowExpansion with better restoration handling and proper global state update
+    // CRITICAL FIX: Enhanced setupRowExpansion with proper state synchronization
     setupRowExpansion() {
         if (!this.table) return;
         
@@ -886,10 +868,8 @@ export class BaseTable {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Check if we're in restoration mode
                 if (self.isRestoringState) {
                     console.log("Click during restoration - queueing for later");
-                    // Queue the click to be processed after restoration
                     setTimeout(() => {
                         if (!self.isRestoringState) {
                             cell.getElement().click();
@@ -903,7 +883,6 @@ export class BaseTable {
                 }
                 
                 expansionTimeout = setTimeout(() => {
-                    // Double-check restoration flag
                     if (self.isRestoringState) {
                         console.log("Still restoring, ignoring click");
                         return;
@@ -919,20 +898,34 @@ export class BaseTable {
                     // Toggle expansion
                     data._expanded = !data._expanded;
                     
-                    // Update global state using helper methods
+                    // CRITICAL: Update global state immediately
                     const rowId = self.generateRowId(data);
                     const globalState = self.getGlobalState();
                     
                     if (data._expanded) {
+                        // Row is being expanded - add to state
                         globalState.set(rowId, {
                             timestamp: Date.now(),
                             data: data
                         });
                     } else {
+                        // Row is being collapsed - REMOVE from state
                         globalState.delete(rowId);
                     }
                     
+                    // Update the global state
                     self.setGlobalState(globalState);
+                    
+                    // Also update local caches to stay in sync
+                    if (data._expanded) {
+                        self.expandedRowsSet.add(rowId);
+                        self.expandedRowsCache.set(rowId, true);
+                        self.temporaryExpandedRows.add(rowId);
+                    } else {
+                        self.expandedRowsSet.delete(rowId);
+                        self.expandedRowsCache.delete(rowId);
+                        self.temporaryExpandedRows.delete(rowId);
+                    }
                     
                     console.log(`Row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
                     
@@ -998,7 +991,6 @@ export class BaseTable {
         console.log("createSubtable2 should be overridden by child class");
     }
 
-    // Enhanced createRowFormatter with better subtable recreation
     createRowFormatter() {
         const self = this;
         
@@ -1016,13 +1008,10 @@ export class BaseTable {
                 rowElement.classList.remove('row-expanded');
             }
             
-            // Handle expansion
             if (data._expanded) {
                 let existingSubrow = rowElement.querySelector('.subrow-container');
                 
-                // Always recreate subtables during restoration or if they don't exist
                 if (!existingSubrow || self.isRestoringState) {
-                    // Remove old subtable if it exists during restoration
                     if (existingSubrow && self.isRestoringState) {
                         existingSubrow.remove();
                         existingSubrow = null;
