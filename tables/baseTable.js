@@ -560,7 +560,7 @@ export class BaseTable {
         console.log(`Saved ${globalState.size} expanded rows for ${this.elementId}`);
     }
 
-    // FIXED: Enhanced restoreState with proper timing and row queuing
+    // FIXED: Enhanced restoreState that properly handles rows regardless of their _expanded state
     restoreState() {
         if (!this.table) return;
         
@@ -608,11 +608,17 @@ export class BaseTable {
                     
                     if (globalState.has(rowId)) {
                         console.log(`Found matching row to restore: ${rowId}`);
-                        // FIXED: Actually add the row to expansion queue
-                        if (!data._expanded) {
-                            data._expanded = true;
+                        
+                        // CRITICAL FIX: Always process the row, regardless of current _expanded state
+                        // Force the row to be expanded properly
+                        data._expanded = true;
+                        row.update(data);
+                        rowsToExpand.push(row);
+                    } else {
+                        // Ensure non-matching rows are collapsed
+                        if (data._expanded) {
+                            data._expanded = false;
                             row.update(data);
-                            rowsToExpand.push(row);
                         }
                     }
                 });
