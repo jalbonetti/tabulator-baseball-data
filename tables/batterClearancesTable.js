@@ -23,6 +23,7 @@ export class BatterClearancesTable extends BaseTable {
         };
 
         this.table = new Tabulator(this.elementId, config);
+        // Use the base class setupRowExpansion which properly handles global state
         this.setupRowExpansion();
         
         this.table.on("tableBuilt", () => {
@@ -103,7 +104,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number", 
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())  // KEEPS leading zero
+                    formatter: (cell) => formatPercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -124,7 +125,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())  // KEEPS leading zero
+                    formatter: (cell) => formatPercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -145,7 +146,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())  // KEEPS leading zero
+                    formatter: (cell) => formatPercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -166,7 +167,7 @@ export class BatterClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatPercentage(cell.getValue())  // KEEPS leading zero
+                    formatter: (cell) => formatPercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -202,6 +203,8 @@ export class BatterClearancesTable extends BaseTable {
             ]}
         ];
     }
+
+    // Remove the overridden setupRowExpansion - use base class version which properly handles global state
 
     createSubtable1(container, data) {
         const matchup = data["Matchup"] || "";
