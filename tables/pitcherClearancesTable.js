@@ -1,4 +1,4 @@
-// tables/pitcherClearancesTable.js - FIXED VERSION WITH PROPER STATE PRESERVATION
+// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH STATE PRESERVATION
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage, formatRatio, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -11,6 +11,7 @@ export class PitcherClearancesTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
+            placeholder: "Loading all pitcher clearance records...",
             columns: this.getColumns(),
             initialSort: [
                 {column: "Pitcher Name", dir: "asc"},
@@ -22,6 +23,8 @@ export class PitcherClearancesTable extends BaseTable {
         };
 
         this.table = new Tabulator(this.elementId, config);
+        
+        // CRITICAL: Use the base class setupRowExpansion which has proper global state management
         this.setupRowExpansion();
         
         this.table.on("tableBuilt", () => {
@@ -54,12 +57,15 @@ export class PitcherClearancesTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Pitcher Team", 
-                    width: 200, 
-                    minWidth: 150,
+                    width: 120,
+                    minWidth: 60,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 80
+                        });
+                    },
                     resizable: false,
-                    formatter: this.createTeamFormatter()
                 }
             ]},
             {title: "Prop Info", columns: [
@@ -67,18 +73,26 @@ export class PitcherClearancesTable extends BaseTable {
                     title: "Prop", 
                     field: "Pitcher Prop Type", 
                     width: 200, 
-                    minWidth: 150,
+                    minWidth: 140,
                     sorter: "string", 
-                    headerFilter: createCustomMultiSelect,
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 180
+                        });
+                    },
                     resizable: false
                 },
                 {
                     title: "Value", 
                     field: "Pitcher Prop Value", 
                     width: 200, 
-                    minWidth: 150,
+                    minWidth: 140,
                     sorter: "number", 
-                    headerFilter: createCustomMultiSelect,
+                    headerFilter: (cell, onRendered, success, cancel, editorParams) => {
+                        return createCustomMultiSelect(cell, onRendered, success, cancel, {
+                            dropdownWidth: 100
+                        });
+                    },
                     resizable: false
                 }
             ]},
@@ -91,7 +105,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatClearancePercentage(cell.getValue())  // KEEPS leading zero
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -112,7 +126,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatClearancePercentage(cell.getValue())  // KEEPS leading zero
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -133,7 +147,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number", 
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatClearancePercentage(cell.getValue())  // KEEPS leading zero
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -154,7 +168,7 @@ export class PitcherClearancesTable extends BaseTable {
                     sorter: "number",
                     sorterParams: {dir: "desc"},
                     resizable: false,
-                    formatter: (cell) => formatClearancePercentage(cell.getValue())  // KEEPS leading zero
+                    formatter: (cell) => formatClearancePercentage(cell.getValue())
                 },
                 {
                     title: "Games", 
@@ -191,124 +205,172 @@ export class PitcherClearancesTable extends BaseTable {
         ];
     }
 
-    // Override createNameFormatter to use Pitcher Name field
-    createNameFormatter() {
-        return function(cell, formatterParams, onRendered) {
-            var value = cell.getValue();
-            var row = cell.getRow();
-            var expanded = row.getData()._expanded || false;
-            
-            onRendered(function() {
-                try {
-                    var cellElement = cell.getElement();
-                    if (cellElement && cellElement.querySelector) {
-                        cellElement.innerHTML = '';
-                        
-                        var container = document.createElement("div");
-                        container.style.display = "flex";
-                        container.style.alignItems = "center";
-                        container.style.cursor = "pointer";
-                        
-                        var expander = document.createElement("span");
-                        expander.innerHTML = expanded ? "−" : "+";
-                        expander.style.marginRight = "8px";
-                        expander.style.fontWeight = "bold";
-                        expander.style.color = "#007bff";
-                        expander.style.fontSize = "14px";
-                        expander.style.minWidth = "12px";
-                        expander.classList.add("row-expander");
-                        
-                        var textSpan = document.createElement("span");
-                        textSpan.textContent = value || "";
-                        
-                        container.appendChild(expander);
-                        container.appendChild(textSpan);
-                        
-                        cellElement.appendChild(container);
-                    }
-                } catch (error) {
-                    console.error("Error in formatter onRendered:", error);
-                }
-            });
-            
-            return (expanded ? "− " : "+ ") + (value || "");
-        };
-    }
-
-    // FIXED: Override setupRowExpansion to use Pitcher Name field with proper global state
+    // Override setupRowExpansion to use Pitcher Name field with proper global state
     setupRowExpansion() {
         if (!this.table) return;
         
         const self = this;
+        let expansionTimeout;
         
         this.table.on("cellClick", (e, cell) => {
-            if (cell.getField() === "Pitcher Name") {
+            const field = cell.getField();
+            
+            if (field === "Pitcher Name") {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Don't process clicks during state restoration
                 if (self.isRestoringState) {
-                    console.log("Ignoring click during state restoration");
+                    console.log("Click during restoration - queueing for later");
+                    setTimeout(() => {
+                        if (!self.isRestoringState) {
+                            cell.getElement().click();
+                        }
+                    }, 500);
                     return;
                 }
                 
-                var row = cell.getRow();
-                var data = row.getData();
-                
-                // Initialize if undefined
-                if (data._expanded === undefined) {
-                    data._expanded = false;
+                if (expansionTimeout) {
+                    clearTimeout(expansionTimeout);
                 }
                 
-                // Toggle expansion
-                data._expanded = !data._expanded;
-                
-                // Update global state using base class helper methods
-                const rowId = self.generateRowId(data);
-                const globalState = self.getGlobalState();
-                
-                if (data._expanded) {
-                    globalState.set(rowId, {
-                        timestamp: Date.now(),
-                        data: data
-                    });
-                } else {
-                    globalState.delete(rowId);
-                }
-                
-                self.setGlobalState(globalState);
-                
-                console.log(`Pitcher row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
-                
-                // Update the row
-                requestAnimationFrame(() => {
+                expansionTimeout = setTimeout(() => {
+                    if (self.isRestoringState) {
+                        console.log("Still restoring, ignoring click");
+                        return;
+                    }
+                    
+                    var row = cell.getRow();
+                    var data = row.getData();
+                    
+                    if (data._expanded === undefined) {
+                        data._expanded = false;
+                    }
+                    
+                    // Toggle expansion
+                    data._expanded = !data._expanded;
+                    
+                    // CRITICAL: Update global state immediately
+                    const rowId = self.generateRowId(data);
+                    const globalState = self.getGlobalState();
+                    
+                    if (data._expanded) {
+                        globalState.set(rowId, {
+                            timestamp: Date.now(),
+                            data: data
+                        });
+                    } else {
+                        globalState.delete(rowId);
+                    }
+                    
+                    self.setGlobalState(globalState);
+                    
+                    console.log(`Pitcher row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
+                    
                     row.update(data);
+                    
+                    var cellElement = cell.getElement();
+                    var expanderIcon = cellElement.querySelector('.row-expander');
+                    if (expanderIcon) {
+                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                    }
                     
                     requestAnimationFrame(() => {
                         row.reformat();
                         
-                        setTimeout(() => {
+                        requestAnimationFrame(() => {
                             try {
-                                var cellElement = cell.getElement();
-                                if (cellElement && cellElement.querySelector) {
-                                    var expanderIcon = cellElement.querySelector('.row-expander');
-                                    if (expanderIcon) {
-                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                var updatedCellElement = cell.getElement();
+                                if (updatedCellElement) {
+                                    var updatedExpanderIcon = updatedCellElement.querySelector('.row-expander');
+                                    if (updatedExpanderIcon) {
+                                        updatedExpanderIcon.innerHTML = data._expanded ? "−" : "+";
                                     }
                                 }
                             } catch (error) {
                                 console.error("Error updating expander icon:", error);
                             }
-                        }, 10);
+                        });
                     });
-                });
+                }, 50);
             }
         });
     }
 
-    // Override createSubtable1 for pitcher data
+    createRowFormatter() {
+        const self = this;
+        
+        return (row) => {
+            var data = row.getData();
+            var rowElement = row.getElement();
+            
+            if (data._expanded === undefined) {
+                data._expanded = false;
+            }
+            
+            if (data._expanded) {
+                rowElement.classList.add('row-expanded');
+            } else {
+                rowElement.classList.remove('row-expanded');
+            }
+            
+            if (data._expanded) {
+                let existingSubrow = rowElement.querySelector('.subrow-container');
+                
+                if (!existingSubrow || self.isRestoringState) {
+                    if (existingSubrow && self.isRestoringState) {
+                        existingSubrow.remove();
+                        existingSubrow = null;
+                    }
+                    
+                    if (!existingSubrow) {
+                        requestAnimationFrame(() => {
+                            var holderEl = document.createElement("div");
+                            holderEl.classList.add('subrow-container');
+                            holderEl.style.cssText = 'padding: 10px; background: #f8f9fa; margin: 10px 0; border-radius: 4px; display: block; width: 100%; position: relative; z-index: 1;';
+                            
+                            var subtable1 = document.createElement("div");
+                            subtable1.style.marginBottom = "15px";
+                            var subtable2 = document.createElement("div");
+                            
+                            holderEl.appendChild(subtable1);
+                            holderEl.appendChild(subtable2);
+                            rowElement.appendChild(holderEl);
+                            
+                            try {
+                                self.createSubtable1(subtable1, data);
+                            } catch (error) {
+                                console.error("Error creating subtable1:", error);
+                                subtable1.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 1: ' + error.message + '</div>';
+                            }
+                            
+                            try {
+                                self.createSubtable2(subtable2, data);
+                            } catch (error) {
+                                console.error("Error creating subtable2:", error);
+                                subtable2.innerHTML = '<div style="padding: 10px; color: red;">Error loading subtable 2: ' + error.message + '</div>';
+                            }
+                            
+                            setTimeout(() => {
+                                row.normalizeHeight();
+                            }, 100);
+                        });
+                    }
+                }
+            } else {
+                var existingSubrow = rowElement.querySelector('.subrow-container');
+                if (existingSubrow) {
+                    existingSubrow.remove();
+                    rowElement.classList.remove('row-expanded');
+                    
+                    setTimeout(() => {
+                        row.normalizeHeight();
+                    }, 50);
+                }
+            }
+        };
+    }
+
     createSubtable1(container, data) {
-        // Combine park factors for display (R/L order)
         var parkFactorDisplay = "R: " + (data["Pitcher Prop Park Factor R"] || "-") + " / L: " + (data["Pitcher Prop Park Factor L"] || "-");
         
         new Tabulator(container, {
@@ -317,6 +379,8 @@ export class PitcherClearancesTable extends BaseTable {
             resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
+            height: false,
+            virtualDom: false,
             data: [{
                 propFactor: parkFactorDisplay,
                 matchup: data["Matchup"] || "-",
@@ -334,20 +398,14 @@ export class PitcherClearancesTable extends BaseTable {
         try {
             var opponentTeam = getOpponentTeam(data["Matchup"], data["Pitcher Team"]);
             
-            // Format values to remove leading zeros from ratios
-            const formatValue = (value) => {
-                if (value === null || value === undefined || value === "" || value === "-") return "-";
-                // Check if it's a decimal ratio value (e.g., 0.xxx)
-                const numValue = parseFloat(value);
-                if (!isNaN(numValue) && value.toString().includes('.')) {
-                    return formatRatio(value, 3);
-                }
-                return value;
-            };
-            
             new Tabulator(container, {
                 layout: "fitColumns",
                 columnHeaderSortMulti: false,
+                resizableColumns: false,
+                resizableRows: false,
+                movableColumns: false,
+                virtualDom: false,
+                height: false,
                 data: [
                     {
                         player: data["Pitcher Name"] + " (" + data["Handedness"] + ") Versus Righties",
