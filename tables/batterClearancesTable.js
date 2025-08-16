@@ -1,4 +1,4 @@
-// tables/batterClearancesTable.js - FIXED VERSION WITH CONSISTENT BASE CLASS USAGE
+// tables/batterClearancesTable.js - FIXED VERSION WITH BEST ODDS COLUMNS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage, formatRatio, removeLeadingZeroFromValue} from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -201,14 +201,32 @@ export class BatterClearancesTable extends BaseTable {
                     formatter: oddsFormatter,
                     hozAlign: "center"
                 }
+            ]},
+            {title: "Best Odds", columns: [
+                {
+                    title: "Over", 
+                    field: "Batter Best Over Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
+                },
+                {
+                    title: "Under", 
+                    field: "Batter Best Under Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
+                }
             ]}
         ];
     }
 
-    // REMOVED: We don't override setupRowExpansion anymore - use the base class version
-    // The base class version has all the proper global state management
-
-    // Override createRowFormatter for table-specific subtables
     createRowFormatter() {
         const self = this;
         
@@ -454,13 +472,4 @@ export class BatterClearancesTable extends BaseTable {
             container.innerHTML = '<div style="padding: 10px; color: red;">Error loading data: ' + error.message + '</div>';
         }
     }
-
-    // IMPORTANT: We inherit these methods from BaseTable with proper global state management:
-    // - saveState()
-    // - restoreState()
-    // - generateRowId()
-    // - getGlobalState()
-    // - setGlobalState()
-    // - setupRowExpansion()
-    // All the state management is handled by the base class now!
 }
