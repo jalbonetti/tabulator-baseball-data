@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION WITH PROPER TOGGLE SUPPORT
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH LOADING INDICATOR
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -12,7 +12,6 @@ export class MatchupsTable extends BaseTable {
         this.pitcherStatsCache = new Map();
         this.batterMatchupsCache = new Map();
         this.bullpenMatchupsCache = new Map();
-        // Removed local expandedRows set - using global state instead
         
         // Fixed configuration
         this.subtableConfig = {
@@ -45,6 +44,151 @@ export class MatchupsTable extends BaseTable {
                 so: 60
             }
         };
+    }
+
+    initialize() {
+        console.log('Initializing enhanced matchups table with correct formatters...');
+        
+        // Add loading indicator
+        const element = document.querySelector(this.elementId);
+        if (element && !element.querySelector('.loading-indicator')) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-indicator';
+            loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
+            loadingDiv.innerHTML = `
+                <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
+                <div>Loading matchups data...</div>
+                <div style="font-size: 12px; color: #666; margin-top: 10px;">Please wait while data loads...</div>
+            `;
+            element.appendChild(loadingDiv);
+            
+            // Add spinner animation if not already present
+            if (!document.querySelector('#matchups-spinner-style')) {
+                const style = document.createElement('style');
+                style.id = 'matchups-spinner-style';
+                style.textContent = `
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        const config = {
+            ...this.tableConfig,
+            columns: this.getColumns(),
+            width: "1200px",
+            maxWidth: "1200px",
+            height: "600px",
+            layout: "fitData", // FIXED: Changed from "fitDataFixed" to "fitData"
+            placeholder: "Loading matchups data...",
+            headerVisible: true,
+            headerHozAlign: "center",
+            renderVertical: "basic",
+            renderHorizontal: "basic",
+            layoutColumnsOnNewData: false,
+            virtualDomBuffer: 100,
+            initialSort: [
+                {column: "Matchup Game ID", dir: "asc"}
+            ],
+            rowFormatter: this.createRowFormatter(),
+            dataLoaded: (data) => {
+                console.log(`✅ Matchups data successfully loaded: ${data.length} rows`);
+                data.forEach(row => {
+                    row._expanded = false;
+                    row._dataFetched = false;
+                });
+                this.matchupsData = data;
+                
+                // Remove loading indicator
+                const element = document.querySelector(this.elementId);
+                if (element) {
+                    const loadingDiv = element.querySelector('.loading-indicator');
+                    if (loadingDiv) {
+                        loadingDiv.remove();
+                    }
+                }
+            },
+            ajaxError: (error) => {
+                console.error("Error loading Matchups data:", error);
+                
+                // Update loading indicator to show error
+                const element = document.querySelector(this.elementId);
+                if (element) {
+                    const loadingDiv = element.querySelector('.loading-indicator');
+                    if (loadingDiv) {
+                        loadingDiv.innerHTML = `
+                            <div style="color: red; font-weight: bold;">Error loading matchups data</div>
+                            <div style="font-size: 12px; margin-top: 10px;">Please refresh the page or try again later.</div>
+                            <button onclick="location.reload()" style="margin-top: 10px; padding: 5px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Refresh Page</button>
+                        `;
+                    }
+                }
+            },
+            renderStarted: () => {
+                // Show loading indicator when rendering starts
+                const element = document.querySelector(this.elementId);
+                if (element) {
+                    let loadingDiv = element.querySelector('.loading-indicator');
+                    if (!loadingDiv && !this.dataLoaded) {
+                        loadingDiv = document.createElement('div');
+                        loadingDiv.className = 'loading-indicator';
+                        loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center;';
+                        loadingDiv.innerHTML = `
+                            <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
+                            <div>Loading matchups data...</div>
+                        `;
+                        element.appendChild(loadingDiv);
+                    }
+                }
+            },
+            renderComplete: () => {
+                // Remove loading indicator when rendering is complete
+                const element = document.querySelector(this.elementId);
+                if (element) {
+                    const loadingDiv = element.querySelector('.loading-indicator');
+                    if (loadingDiv && this.dataLoaded) {
+                        loadingDiv.remove();
+                    }
+                }
+            }
+        };
+
+        this.table = new Tabulator(this.elementId, config);
+        this.setupRowExpansion();
+        
+        this.table.on("tableBuilt", () => {
+            console.log("Enhanced matchups table built successfully");
+            
+            const tableElement = document.querySelector(this.elementId);
+            if (tableElement) {
+                tableElement.style.overflow = "hidden";
+                tableElement.style.maxWidth = "1200px";
+                
+                const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.style.overflowX = "hidden";
+                    tableHolder.style.maxWidth = "100%";
+                }
+            }
+        });
+    }
+
+    // Override destroy method to properly clean up
+    destroy() {
+        // Remove any loading indicators
+        const element = document.querySelector(this.elementId);
+        if (element) {
+            const loadingDiv = element.querySelector('.loading-indicator');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+        
+        // Call parent destroy
+        super.destroy();
     }
 
     // Override setupRowExpansion to handle async data fetching and use base class state management
@@ -143,6 +287,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
 
+    // [Keep all other methods unchanged - getGlobalState, setGlobalState, saveState, restoreState, etc.]
     // Add helper methods to access global state
     getGlobalState() {
         // Access the global state map
@@ -407,9 +552,7 @@ export class MatchupsTable extends BaseTable {
         ];
     }
 
-    // Keep all other methods the same (createMatchupsSubtable, createParkFactorsTable, etc.)
-    // ... [Rest of the methods remain unchanged] ...
-
+    // [Keep all other methods unchanged - createMatchupsSubtable, createParkFactorsTable, etc.]
     createMatchupsSubtable(container, data) {
         const weatherData = [
             data["Matchup Weather 1"] || "No weather data",
@@ -482,8 +625,6 @@ export class MatchupsTable extends BaseTable {
         }, 50);
     }
 
-    // ... [Keep all other methods unchanged - createParkFactorsTable, createPitcherStatsTable, etc.]
-
     createParkFactorsTable(data) {
         if (data._parkFactors && data._parkFactors.length > 0) {
             const splitIdMap = {
@@ -513,7 +654,7 @@ export class MatchupsTable extends BaseTable {
             ];
 
             new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataFixed",
+                layout: "fitData",
                 width: totalColumnsWidth,
                 data: sortedParkFactors.map(pf => ({
                     split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
@@ -580,7 +721,7 @@ export class MatchupsTable extends BaseTable {
                 }];
 
                 const pitcherTable = new Tabulator(`#pitcher-stats-subtable-${data["Matchup Game ID"]}`, {
-                    layout: "fitDataFixed",
+                    layout: "fitData",
                     data: tableData,
                     columns: [
                         {
@@ -685,10 +826,7 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // ... [Keep all other methods unchanged]
-
     createBatterMatchupsTable(data) {
-        // ... [Keep existing implementation]
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
             const containerElement = document.getElementById(containerId);
@@ -763,7 +901,7 @@ export class MatchupsTable extends BaseTable {
                 });
 
             const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataFixed",
+                layout: "fitData",
                 data: tableData,
                 columns: [
                     {
@@ -868,7 +1006,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     createBullpenMatchupsTable(data, opposingLocationText) {
-        // ... [Keep existing implementation]
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
@@ -929,7 +1066,7 @@ export class MatchupsTable extends BaseTable {
             });
 
             const bullpenTable = new Tabulator(`#bullpen-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitDataFixed",
+                layout: "fitData",
                 data: tableData,
                 columns: [
                     {
@@ -1031,58 +1168,6 @@ export class MatchupsTable extends BaseTable {
                 }
             });
         }
-    }
-
-    // Rest of methods remain the same...
-    initialize() {
-        console.log('Initializing enhanced matchups table with correct formatters...');
-        
-        const config = {
-            ...this.tableConfig,
-            columns: this.getColumns(),
-            width: "1200px",
-            maxWidth: "1200px",
-            height: "600px",
-            layout: "fitDataFixed",
-            placeholder: "Loading matchups data...",
-            headerVisible: true,
-            headerHozAlign: "center",
-            renderVertical: "basic",
-            renderHorizontal: "basic",
-            layoutColumnsOnNewData: false,
-            virtualDomBuffer: 100,
-            initialSort: [
-                {column: "Matchup Game ID", dir: "asc"}
-            ],
-            rowFormatter: this.createRowFormatter(),
-            dataLoaded: (data) => {
-                console.log(`✅ Matchups data successfully loaded: ${data.length} rows`);
-                data.forEach(row => {
-                    row._expanded = false;
-                    row._dataFetched = false;
-                });
-                this.matchupsData = data;
-            }
-        };
-
-        this.table = new Tabulator(this.elementId, config);
-        this.setupRowExpansion();
-        
-        this.table.on("tableBuilt", () => {
-            console.log("Enhanced matchups table built successfully");
-            
-            const tableElement = document.querySelector(this.elementId);
-            if (tableElement) {
-                tableElement.style.overflow = "hidden";
-                tableElement.style.maxWidth = "1200px";
-                
-                const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
-                if (tableHolder) {
-                    tableHolder.style.overflowX = "hidden";
-                    tableHolder.style.maxWidth = "100%";
-                }
-            }
-        });
     }
 
     // Helper methods
