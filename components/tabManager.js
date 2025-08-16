@@ -1,4 +1,4 @@
-// components/tabManager.js - COMPLETE VERSION WITH ENHANCED STATE HANDLING
+// components/tabManager.js - FIXED VERSION WITH BETTER CLEANUP POLICY
 export class TabManager {
     constructor(tables) {
         this.tables = tables;
@@ -29,6 +29,13 @@ export class TabManager {
                     tableWrapper.initialize();
                     tableWrapper.isInitialized = true;
                     this.tabInitialized[tabId] = true;
+                    
+                    // Mark initialization time for cleanup tracking
+                    if (!this.tableStates[tabId]) {
+                        this.tableStates[tabId] = {};
+                    }
+                    this.tableStates[tabId].initializedAt = Date.now();
+                    
                     setTimeout(resolve, 100);
                 } else {
                     this.tabInitialized[tabId] = true;
@@ -456,19 +463,57 @@ export class TabManager {
         }
     }
     
+    // FIXED: Better cleanup policy - less aggressive for complex tables
     cleanupInactiveTab(tabId) {
         const tableWrapper = this.tables[tabId];
         
+        // Special handling for Matchups table (table0)
+        // It has complex async data loading that makes re-initialization slow
+        if (tabId === 'table0') {
+            const lastUsed = this.tableStates[tabId]?.savedAt || 0;
+            const timeSinceUsed = Date.now() - lastUsed;
+            
+            // Only clean up Matchups table after 15 minutes of inactivity (vs 5 minutes for others)
+            if (timeSinceUsed > 15 * 60 * 1000) {
+                console.log(`Cleaning up inactive Matchups tab after extended inactivity`);
+                if (tableWrapper && tableWrapper.destroy) {
+                    // Save state before destroying
+                    if (tableWrapper.saveState && typeof tableWrapper.saveState === 'function') {
+                        tableWrapper.saveState();
+                    }
+                    tableWrapper.destroy();
+                }
+                this.tabInitialized[tabId] = false;
+                delete this.tableStates[tabId].initializedAt;
+            }
+            return;
+        }
+        
+        // Regular cleanup for other tables
         if (tableWrapper && tableWrapper.isInitialized) {
             const lastUsed = this.tableStates[tabId]?.savedAt || 0;
             const timeSinceUsed = Date.now() - lastUsed;
             
-            if (timeSinceUsed > 5 * 60 * 1000) {
+            // Keep tables with lots of data longer (tables 2, 5, 6 have large datasets)
+            let cleanupThreshold = 5 * 60 * 1000; // 5 minutes default
+            if (['table2', 'table5', 'table6'].includes(tabId)) {
+                cleanupThreshold = 10 * 60 * 1000; // 10 minutes for large data tables
+            }
+            
+            if (timeSinceUsed > cleanupThreshold) {
                 console.log(`Cleaning up inactive tab: ${tabId}`);
-                tableWrapper.destroy();
+                
+                // Save state before destroying
+                if (tableWrapper.saveState && typeof tableWrapper.saveState === 'function') {
+                    tableWrapper.saveState();
+                }
+                
+                if (tableWrapper.destroy) {
+                    tableWrapper.destroy();
+                }
+                
                 this.tabInitialized[tabId] = false;
-                delete this.tableStates[tabId];
-                delete this.expandedRowsStates[tabId];
+                delete this.tableStates[tabId].initializedAt;
             }
         }
     }
@@ -480,7 +525,7 @@ export class TabManager {
                     this.cleanupInactiveTab(tabId);
                 }
             });
-        }, 60 * 1000);
+        }, 60 * 1000); // Check every minute
     }
 }
 
