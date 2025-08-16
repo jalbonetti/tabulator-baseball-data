@@ -1,12 +1,12 @@
-// styles/tableStyles.js - UPDATED WITH ADJUSTED WIDTHS FOR NEW COLUMNS
+// styles/tableStyles.js - UPDATED WITH ADJUSTED WIDTHS FOR BEST ODDS COLUMNS
 export function injectStyles() {
-    // EASILY CONFIGURABLE TABLE WIDTHS - Increased for new columns
+    // EASILY CONFIGURABLE TABLE WIDTHS - Updated for Best Odds columns
     const TABLE_WIDTHS = {
         matchups: '1200px',      
-        batterClearances: '1680px',          // Increased to accommodate new odds columns
-        batterClearancesAlt: '1180px',       // Increased to accommodate new odds columns  
-        pitcherClearances: '1680px',         // Increased to accommodate new odds columns
-        pitcherClearancesAlt: '1180px',      // Increased to accommodate new odds columns
+        batterClearances: '1860px',          // Increased to accommodate Best odds columns
+        batterClearancesAlt: '1360px',       // Increased to accommodate Best odds columns  
+        pitcherClearances: '1860px',         // Increased to accommodate Best odds columns
+        pitcherClearancesAlt: '1360px',      // Increased to accommodate Best odds columns
         batterStats: '1720px',          
         pitcherStats: '1720px',         
         batterProps: '1720px',          
