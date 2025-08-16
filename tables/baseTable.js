@@ -1,4 +1,4 @@
-// tables/baseTable.js - COMPLETE FIXED VERSION
+// tables/baseTable.js - ENHANCED VERSION WITH FILTER AND SORT STATE PRESERVATION
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { getOpponentTeam, getSwitchHitterVersus, formatPercentage } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -118,6 +118,12 @@ const cacheManager = new CacheManager();
 window.GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE || new Map();
 const GLOBAL_EXPANDED_STATE = window.GLOBAL_EXPANDED_STATE;
 
+// NEW: Global state for filters and sorts
+window.GLOBAL_FILTER_STATE = window.GLOBAL_FILTER_STATE || new Map();
+window.GLOBAL_SORT_STATE = window.GLOBAL_SORT_STATE || new Map();
+const GLOBAL_FILTER_STATE = window.GLOBAL_FILTER_STATE;
+const GLOBAL_SORT_STATE = window.GLOBAL_SORT_STATE;
+
 export class BaseTable {
     constructor(elementId, endpoint) {
         this.elementId = elementId;
@@ -137,9 +143,19 @@ export class BaseTable {
         this.restorationAttempts = 0;
         this.maxRestorationAttempts = 5;
         
+        // NEW: Track filter and sort states
+        this.filterState = new Map();
+        this.sortState = [];
+        
         // Initialize global state for this table if not exists
         if (!GLOBAL_EXPANDED_STATE.has(elementId)) {
             GLOBAL_EXPANDED_STATE.set(elementId, new Map());
+        }
+        if (!GLOBAL_FILTER_STATE.has(elementId)) {
+            GLOBAL_FILTER_STATE.set(elementId, new Map());
+        }
+        if (!GLOBAL_SORT_STATE.has(elementId)) {
+            GLOBAL_SORT_STATE.set(elementId, []);
         }
     }
 
@@ -155,6 +171,32 @@ export class BaseTable {
     
     setGlobalState(state) {
         GLOBAL_EXPANDED_STATE.set(this.elementId, state);
+    }
+
+    // NEW: Helper methods for filter state
+    getGlobalFilterState() {
+        if (GLOBAL_FILTER_STATE.has(this.elementId)) {
+            return GLOBAL_FILTER_STATE.get(this.elementId);
+        }
+        const newState = new Map();
+        GLOBAL_FILTER_STATE.set(this.elementId, newState);
+        return newState;
+    }
+    
+    setGlobalFilterState(state) {
+        GLOBAL_FILTER_STATE.set(this.elementId, state);
+    }
+
+    // NEW: Helper methods for sort state
+    getGlobalSortState() {
+        if (GLOBAL_SORT_STATE.has(this.elementId)) {
+            return GLOBAL_SORT_STATE.get(this.elementId);
+        }
+        return [];
+    }
+    
+    setGlobalSortState(state) {
+        GLOBAL_SORT_STATE.set(this.elementId, state);
     }
 
     getBaseConfig() {
@@ -637,7 +679,7 @@ export class BaseTable {
         }
     }
 
-    // CRITICAL FIX: This is the main fix - saveState now properly syncs with actual DOM state
+    // ENHANCED: saveState now saves filters and sorts too
     saveState() {
         if (!this.table) return;
         
@@ -709,9 +751,35 @@ export class BaseTable {
             this.temporaryExpandedRows.add(key);
         });
         
-        console.log(`Saved ${actualExpandedRows.size} expanded rows for ${this.elementId}`);
+        // NEW: Save filter state
+        const globalFilterState = this.getGlobalFilterState();
+        globalFilterState.clear();
+        
+        // Get header filters
+        const headerFilters = this.table.getHeaderFilters();
+        headerFilters.forEach(filter => {
+            if (filter.value !== "" && filter.value !== undefined) {
+                globalFilterState.set(filter.field, filter.value);
+            }
+        });
+        
+        this.setGlobalFilterState(globalFilterState);
+        
+        // NEW: Save sort state
+        const sortState = this.table.getSorters();
+        const globalSortState = sortState.map(sorter => ({
+            column: sorter.field,
+            dir: sorter.dir
+        }));
+        this.setGlobalSortState(globalSortState);
+        
+        console.log(`Saved state for ${this.elementId}:
+            - ${actualExpandedRows.size} expanded rows
+            - ${globalFilterState.size} filters
+            - ${globalSortState.length} sort columns`);
     }
 
+    // ENHANCED: restoreState now restores filters and sorts too
     restoreState() {
         if (!this.table) return;
         
@@ -723,17 +791,72 @@ export class BaseTable {
             return;
         }
         
+        // NEW: Restore sort state first (before filters)
+        const globalSortState = this.getGlobalSortState();
+        if (globalSortState && globalSortState.length > 0) {
+            console.log(`Restoring ${globalSortState.length} sort columns for ${this.elementId}`);
+            try {
+                this.table.setSort(globalSortState);
+            } catch (error) {
+                console.error(`Error restoring sort state:`, error);
+            }
+        }
+        
+        // NEW: Restore filter state
+        const globalFilterState = this.getGlobalFilterState();
+        if (globalFilterState && globalFilterState.size > 0) {
+            console.log(`Restoring ${globalFilterState.size} filters for ${this.elementId}`);
+            
+            // Clear all existing filters first
+            this.table.clearHeaderFilter();
+            
+            // Apply saved filters
+            globalFilterState.forEach((value, field) => {
+                try {
+                    // Special handling for custom multiselect filters
+                    const column = this.table.getColumn(field);
+                    if (column) {
+                        const headerElement = column.getElement();
+                        const filterElement = headerElement.querySelector('.tabulator-header-filter');
+                        
+                        if (filterElement && filterElement.querySelector('.custom-multiselect')) {
+                            // For custom multiselect, we need to trigger the filter function
+                            column.setHeaderFilterValue(value);
+                        } else {
+                            // For regular filters
+                            this.table.setHeaderFilterValue(field, value);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error restoring filter for field ${field}:`, error);
+                }
+            });
+            
+            // Allow filters to apply before restoring expanded rows
+            setTimeout(() => {
+                this.restoreExpandedRowsState();
+            }, 200);
+        } else {
+            // No filters to restore, proceed with expanded rows immediately
+            this.restoreExpandedRowsState();
+        }
+        
+        // Restore scroll position
+        if (this.lastScrollPosition > 0) {
+            setTimeout(() => {
+                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.scrollTop = this.lastScrollPosition;
+                }
+            }, 400);
+        }
+    }
+
+    // NEW: Separate method for restoring expanded rows state
+    restoreExpandedRowsState() {
         const globalState = this.getGlobalState();
         
         if (!globalState || globalState.size === 0) {
-            if (this.lastScrollPosition > 0) {
-                setTimeout(() => {
-                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                    if (tableHolder) {
-                        tableHolder.scrollTop = this.lastScrollPosition;
-                    }
-                }, 500);
-            }
             return;
         }
         
@@ -764,15 +887,6 @@ export class BaseTable {
                 }
             }, delay);
         });
-        
-        if (this.lastScrollPosition > 0) {
-            setTimeout(() => {
-                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                if (tableHolder) {
-                    tableHolder.scrollTop = this.lastScrollPosition;
-                }
-            }, 400);
-        }
         
         setTimeout(() => {
             if (this.isRestoringState) {
