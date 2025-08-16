@@ -1,4 +1,4 @@
-// components/customMultiSelect.js - FIXED VERSION WITH EXPANDED STATE PRESERVATION
+// components/customMultiSelect.js - FIXED VERSION WITH STATE SYNC
 export function createCustomMultiSelect(cell, onRendered, success, cancel, options = {}) {
     // Extract options with defaults
     const dropdownWidth = options.dropdownWidth || 200; // Default width
@@ -394,7 +394,29 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         }
     }
     
-    // Optimized value loading with caching
+    // NEW: Check for existing filter value and sync with it
+    function getCurrentFilterValue() {
+        // Get the current filter value for this column
+        const headerFilters = table.getHeaderFilters();
+        const currentFilter = headerFilters.find(f => f.field === field);
+        
+        if (currentFilter && currentFilter.value) {
+            // Check what type of filter value we have
+            if (currentFilter.value === "IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING") {
+                return [];
+            } else if (Array.isArray(currentFilter.value)) {
+                return currentFilter.value.map(v => String(v));
+            } else if (currentFilter.value === "") {
+                return null; // All values
+            } else {
+                return [String(currentFilter.value)];
+            }
+        }
+        
+        return null; // No filter set
+    }
+    
+    // ENHANCED: Load values with filter state sync
     function loadValues() {
         if (!isInitialized) {
             // Use a Set for better performance with large datasets
@@ -422,7 +444,18 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
                 allValues.sort();
             }
             
-            selectedValues = [...allValues];
+            // NEW: Check for existing filter and sync selected values
+            const existingFilter = getCurrentFilterValue();
+            
+            if (existingFilter !== null) {
+                // Filter is set, use those values
+                selectedValues = existingFilter;
+                console.log(`Synced with existing filter for ${field}: ${selectedValues.length} of ${allValues.length} selected`);
+            } else {
+                // No filter set, select all
+                selectedValues = [...allValues];
+            }
+            
             isInitialized = true;
         }
         
@@ -466,7 +499,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         document.addEventListener('click', closeHandler);
     }, 100);
     
-    // Initial load with retry logic - preserve expanded state
+    // ENHANCED: Initial load with filter state check
     var loadAttempts = 0;
     var initialLoadComplete = false;
     
@@ -485,15 +518,11 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
             if (!initialLoadComplete) {
                 initialLoadComplete = true;
                 
-                // During tab switch, delay filter update to allow state restoration
+                // During tab switch, the filter is already applied
+                // We just need to make sure our UI reflects it
                 if (isTabSwitch) {
-                    // Wait for state restoration to complete
-                    setTimeout(() => {
-                        // Only update filter if values are not all selected
-                        if (selectedValues.length !== allValues.length && selectedValues.length > 0) {
-                            updateFilter();
-                        }
-                    }, 1000); // Give state restoration time to complete
+                    // Just update the button text, don't reapply filter
+                    updateButtonText();
                 } else if (selectedValues.length !== allValues.length) {
                     // Normal load - update filter if needed
                     updateFilter();
@@ -509,13 +538,37 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         tryLoad();
     });
     
-    // Listen for table events
+    // Listen for table events - but check for filter state
     table.on("dataLoaded", function() {
         if (!isInitialized) {
             setTimeout(function() {
                 loadValues();
-                // Don't update filter on data load - let the table maintain its state
+                // Don't update filter on data load if it's already set
+                const existingFilter = getCurrentFilterValue();
+                if (existingFilter === null && selectedValues.length !== allValues.length) {
+                    updateFilter();
+                }
             }, 100);
+        }
+    });
+    
+    // NEW: Listen for filter changes from other sources (like state restoration)
+    table.on("dataFiltered", function() {
+        // If filter was changed externally, sync our state
+        if (isInitialized) {
+            const currentFilter = getCurrentFilterValue();
+            if (currentFilter !== null) {
+                const currentSet = new Set(currentFilter);
+                const selectedSet = new Set(selectedValues);
+                
+                // Check if they're different
+                if (currentSet.size !== selectedSet.size || 
+                    [...currentSet].some(v => !selectedSet.has(v))) {
+                    console.log(`External filter change detected for ${field}, syncing...`);
+                    selectedValues = currentFilter;
+                    updateButtonText();
+                }
+            }
         }
     });
     
