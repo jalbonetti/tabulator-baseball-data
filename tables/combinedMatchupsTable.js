@@ -553,7 +553,7 @@ export class MatchupsTable extends BaseTable {
     }
 
     // [Keep all other methods unchanged - createMatchupsSubtable, createParkFactorsTable, etc.]
-    createMatchupsSubtable(container, data) {
+createMatchupsSubtable(container, data) {
         const weatherData = [
             data["Matchup Weather 1"] || "No weather data",
             data["Matchup Weather 2"] || "No weather data",
@@ -563,7 +563,20 @@ export class MatchupsTable extends BaseTable {
 
         const isTeamAway = this.isTeamAway(data["Matchup Game"]);
         const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
-        const ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
+        
+        // Extract ballpark name and check for retractable roof
+        let ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
+        let hasRetractableRoof = false;
+        
+        // Check if ballpark name contains "(Retractable Roof)"
+        if (ballparkName.includes("(Retractable Roof)")) {
+            hasRetractableRoof = true;
+            // Remove "(Retractable Roof)" from the ballpark name
+            ballparkName = ballparkName.replace("(Retractable Roof)", "").trim();
+        }
+        
+        // Create weather section title with retractable roof indicator if needed
+        const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
         
         const totalWidth = this.subtableConfig.maxTotalWidth;
 
@@ -577,7 +590,7 @@ export class MatchupsTable extends BaseTable {
 
                 <!-- Weather Section -->
                 <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; flex-shrink: 0;">
-                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Weather</h5>
+                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
                     <div style="font-size: 12px; color: #333; text-align: center;">
                         <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
                         <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[1]}</div>
