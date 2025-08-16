@@ -1,4 +1,4 @@
-// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH STATE PRESERVATION
+// tables/pitcherClearancesTable.js - COMPLETE VERSION WITH BEST ODDS COLUMNS
 import { BaseTable } from './baseTable.js';
 import { getOpponentTeam, formatClearancePercentage, formatRatio, removeLeadingZeroFromValue } from '../shared/utils.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
@@ -194,6 +194,28 @@ export class PitcherClearancesTable extends BaseTable {
                 {
                     title: "Under", 
                     field: "Pitcher Median Under Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
+                }
+            ]},
+            {title: "Best Odds", columns: [
+                {
+                    title: "Over", 
+                    field: "Pitcher Best Over Odds", 
+                    width: 90, 
+                    minWidth: 75,
+                    sorter: "number",
+                    resizable: false,
+                    formatter: oddsFormatter,
+                    hozAlign: "center"
+                },
+                {
+                    title: "Under", 
+                    field: "Pitcher Best Under Odds", 
                     width: 90, 
                     minWidth: 75,
                     sorter: "number",
