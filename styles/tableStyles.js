@@ -29,7 +29,7 @@ export function injectStyles() {
         return;
     }
 
-    // Full style injection for non-Webflow environments (development/testing)
+    // Full style injection for non-Webflow environments
     var style = document.createElement('style');
     style.setAttribute('data-source', 'github-tables-full');
     style.textContent = `
@@ -113,7 +113,10 @@ export function injectStyles() {
         
         /* Standard desktop (1200px - 1400px) */
         @media screen and (min-width: 1200px) and (max-width: 1400px) {
-            .tabulator { max-width: 100% !important; }
+            .tabulator { 
+                max-width: 100% !important;
+                font-size: 13px !important;
+            }
             .table-container { padding: 15px !important; }
         }
         
@@ -293,6 +296,29 @@ export function injectStyles() {
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        /* Ultra-wide screens */
+        @media screen and (min-width: 1920px) {
+            .tabulator {
+                font-size: 16px !important;
+                max-width: 1800px !important;
+            }
+            
+            .tabulator .tabulator-header {
+                font-size: 14px !important;
+            }
+            
+            .tabulator .tabulator-cell {
+                padding: 8px 10px !important;
+            }
+        }
+        
+        /* Ensure touch gestures work on mobile */
+        @media (max-width: 767px) {
+            body {
+                touch-action: pan-x pan-y pinch-zoom !important;
+            }
         }
     `;
     
