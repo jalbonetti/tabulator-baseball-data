@@ -1,10 +1,10 @@
-// styles/tableStyles.js - COMPLETE RESPONSIVE VERSION
-import { CONFIG, isMobile, isTablet } from '../config/config.js';
+// styles/tableStyles.js - COMPLETE RESPONSIVE STYLING WITH SCROLLBAR REMOVAL
+import { CONFIG, isMobile, isTablet, getDeviceScale } from '../shared/config.js';
 
 export function injectStyles() {
     // Check if Webflow custom styles are already applied
-    if (document.body.classList.contains('bettor-results-tables')) {
-        console.log('Webflow custom styles detected, using minimal injection');
+    if (document.querySelector('style[data-table-styles="webflow"]')) {
+        console.log('Using Webflow custom styles, applying minimal overrides only');
         injectMinimalStyles();
         return;
     }
@@ -19,40 +19,92 @@ function injectMinimalStyles() {
     style.setAttribute('data-source', 'github-tables-minimal');
     style.textContent = `
         /* GitHub table-specific settings only */
-        #matchups-table .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.matchups.maxWidth}px !important; 
-        }
-        #batter-table .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.batterClearances.maxWidth}px !important; 
-        }
-        #batter-table-alt .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.batterClearancesAlt.maxWidth}px !important; 
-        }
-        #pitcher-table .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.pitcherClearances.maxWidth}px !important; 
-        }
-        #pitcher-table-alt .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.pitcherClearancesAlt.maxWidth}px !important; 
-        }
-        #mod-batter-stats-table .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.modBatterStats.maxWidth}px !important; 
-        }
-        #mod-pitcher-stats-table .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.modPitcherStats.maxWidth}px !important; 
-        }
-        #batter-props-table .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.batterProps.maxWidth}px !important; 
-        }
-        #pitcher-props-table .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.pitcherProps.maxWidth}px !important; 
-        }
-        #game-props-table .tabulator { 
-            max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.gameProps.maxWidth}px !important; 
+        
+        /* Remove ALL scrollbars */
+        * {
+            -ms-overflow-style: none !important;
+            scrollbar-width: none !important;
         }
         
-        /* Responsive overrides */
-        @media screen and (max-width: ${CONFIG.BREAKPOINTS.desktop}px) {
-            .tabulator { max-width: 100% !important; }
+        *::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+        
+        /* Fixed table widths */
+        #matchups-table .tabulator { 
+            max-width: 1200px !important;
+            width: 1200px !important;
+            overflow: hidden !important;
+        }
+        
+        #batter-table .tabulator { 
+            max-width: 1400px !important;
+            width: 1400px !important;
+        }
+        
+        #batter-table-alt .tabulator { 
+            max-width: 1200px !important;
+            width: 1200px !important;
+        }
+        
+        #pitcher-table .tabulator { 
+            max-width: 1400px !important;
+            width: 1400px !important;
+        }
+        
+        #pitcher-table-alt .tabulator { 
+            max-width: 1200px !important;
+            width: 1200px !important;
+        }
+        
+        #mod-batter-stats-table .tabulator { 
+            max-width: 1400px !important;
+            width: 1400px !important;
+        }
+        
+        #mod-pitcher-stats-table .tabulator { 
+            max-width: 1400px !important;
+            width: 1400px !important;
+        }
+        
+        #batter-props-table .tabulator { 
+            max-width: 1400px !important;
+            width: 1400px !important;
+        }
+        
+        #pitcher-props-table .tabulator { 
+            max-width: 1400px !important;
+            width: 1400px !important;
+        }
+        
+        #game-props-table .tabulator { 
+            max-width: 1400px !important;
+            width: 1400px !important;
+        }
+        
+        /* Prevent overflow on all table containers */
+        .tabulator .tabulator-tableHolder {
+            overflow: hidden !important;
+            max-width: 100% !important;
+        }
+        
+        /* Responsive scaling for mobile/tablet */
+        @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
+            .table-container {
+                transform: scale(${CONFIG.TABLE_DIMENSIONS.mobile.scale});
+                transform-origin: top center;
+                width: ${CONFIG.TABLE_DIMENSIONS.mobile.containerWidth};
+            }
+        }
+        
+        @media screen and (min-width: ${CONFIG.BREAKPOINTS.mobile + 1}px) and (max-width: ${CONFIG.BREAKPOINTS.tablet}px) {
+            .table-container {
+                transform: scale(${CONFIG.TABLE_DIMENSIONS.tablet.scale});
+                transform-origin: top center;
+                width: ${CONFIG.TABLE_DIMENSIONS.tablet.containerWidth};
+            }
         }
     `;
     document.head.appendChild(style);
@@ -64,11 +116,10 @@ function injectFullStyles() {
     style.setAttribute('data-table-styles', 'github');
     style.textContent = `
         /* ===================================
-           RESPONSIVE TABLE SYSTEM
+           COMPLETE RESPONSIVE TABLE SYSTEM
            =================================== */
         
         /* Remove ALL scrollbars globally */
-        ${CONFIG.FEATURES.REMOVE_SCROLLBARS ? `
         * {
             -ms-overflow-style: none !important;
             scrollbar-width: none !important;
@@ -82,8 +133,15 @@ function injectFullStyles() {
         
         body {
             overflow-x: hidden !important;
+            position: relative !important;
         }
-        ` : ''}
+        
+        /* Enable pinch-to-zoom on mobile */
+        @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
+            body {
+                touch-action: pan-x pan-y pinch-zoom !important;
+            }
+        }
         
         /* Container responsive sizing */
         .table-wrapper {
@@ -94,6 +152,7 @@ function injectFullStyles() {
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
+            position: relative !important;
         }
         
         .tables-container {
@@ -107,6 +166,7 @@ function injectFullStyles() {
             width: 100% !important;
             max-width: 100% !important;
             overflow: hidden !important;
+            position: relative !important;
         }
         
         /* Active/Inactive table states */
@@ -124,99 +184,83 @@ function injectFullStyles() {
         
         /* Base Tabulator responsive */
         .tabulator {
-            width: 100% !important;
             margin: 0 auto !important;
             font-size: 14px !important;
             overflow: hidden !important;
+            position: relative !important;
         }
         
         .tabulator .tabulator-tableholder {
             overflow: hidden !important;
-            max-height: ${CONFIG.DISPLAY.TABLE_HEIGHT} !important;
+            max-height: 600px !important;
+            position: relative !important;
         }
         
         /* Prevent horizontal scroll */
         .tabulator .tabulator-table {
             width: 100% !important;
+            max-width: 100% !important;
         }
         
-        /* Table-specific max widths for desktop */
+        /* Fixed table widths for desktop */
         @media screen and (min-width: ${CONFIG.BREAKPOINTS.desktop}px) {
             #matchups-table { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.matchups.maxWidth}px !important; 
-                width: ${CONFIG.TABLE_DIMENSIONS.desktop.matchups.width}px !important;
+                max-width: 1200px !important;
+                width: 1200px !important;
             }
-            #batter-table { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.batterClearances.maxWidth}px !important; 
+            
+            #matchups-table .tabulator {
+                max-width: 1200px !important;
+                width: 1200px !important;
             }
-            #batter-table-alt { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.batterClearancesAlt.maxWidth}px !important; 
+            
+            #batter-table,
+            #pitcher-table,
+            #mod-batter-stats-table,
+            #mod-pitcher-stats-table,
+            #batter-props-table,
+            #pitcher-props-table,
+            #game-props-table {
+                max-width: 1400px !important;
+                width: 1400px !important;
             }
-            #pitcher-table { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.pitcherClearances.maxWidth}px !important; 
-            }
-            #pitcher-table-alt { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.pitcherClearancesAlt.maxWidth}px !important; 
-            }
-            #mod-batter-stats-table { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.modBatterStats.maxWidth}px !important; 
-            }
-            #mod-pitcher-stats-table { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.modPitcherStats.maxWidth}px !important; 
-            }
-            #batter-props-table { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.batterProps.maxWidth}px !important; 
-            }
-            #pitcher-props-table { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.pitcherProps.maxWidth}px !important; 
-            }
-            #game-props-table { 
-                max-width: ${CONFIG.TABLE_DIMENSIONS.desktop.gameProps.maxWidth}px !important; 
+            
+            #batter-table-alt,
+            #pitcher-table-alt {
+                max-width: 1200px !important;
+                width: 1200px !important;
             }
         }
         
-        /* Tablet (768px - 1199px) */
+        /* Tablet (768px - 1199px) - Scale to 85% */
         @media screen and (min-width: ${CONFIG.BREAKPOINTS.mobile + 1}px) and (max-width: ${CONFIG.BREAKPOINTS.tablet}px) {
-            .tabulator {
-                font-size: 12px !important;
-                max-width: 100% !important;
-            }
-            
-            .tabulator .tabulator-header {
-                font-size: 11px !important;
-            }
-            
-            .tabulator .tabulator-cell {
-                padding: 4px 6px !important;
-            }
-            
             .table-container {
-                padding: 15px !important;
-            }
-            
-            /* Adjust column widths for tablet */
-            .tabulator .tabulator-col {
-                min-width: auto !important;
-            }
-        }
-        
-        /* Mobile (< 768px) - Scale transform approach */
-        @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
-            /* Scale the entire table wrapper */
-            .table-wrapper,
-            .tables-container {
-                transform: scale(${CONFIG.DISPLAY.MOBILE_SCALE});
-                transform-origin: top left;
-                width: ${CONFIG.TABLE_DIMENSIONS.mobile.widthMultiplier * 100}% !important;
-                max-width: ${CONFIG.TABLE_DIMENSIONS.mobile.widthMultiplier * 100}% !important;
+                transform: scale(0.85);
+                transform-origin: top center;
+                width: 118%; /* 100 / 0.85 */
+                margin: 0 auto;
             }
             
             .tabulator {
                 font-size: 14px !important; /* Keep original size, let scale handle it */
             }
             
+            .tab-buttons {
+                transform: scale(1) !important; /* Don't scale tab buttons */
+            }
+        }
+        
+        /* Mobile (< 768px) - Scale to 75% */
+        @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
             .table-container {
-                padding: 10px !important;
+                transform: scale(0.75);
+                transform-origin: top center;
+                width: 133%; /* 100 / 0.75 */
+                margin: 0 auto;
+            }
+            
+            .tabulator {
+                font-size: 14px !important; /* Keep original size, let scale handle it */
             }
             
             /* Mobile tab buttons */
@@ -236,11 +280,6 @@ function injectFullStyles() {
                 white-space: nowrap !important;
                 flex-shrink: 0 !important;
             }
-            
-            /* Enable pinch-to-zoom on mobile */
-            body {
-                touch-action: pan-x pan-y pinch-zoom !important;
-            }
         }
         
         /* Ultra-wide screens */
@@ -256,10 +295,6 @@ function injectFullStyles() {
             .tabulator .tabulator-cell {
                 padding: 8px 10px !important;
             }
-            
-            .table-container {
-                padding: 30px !important;
-            }
         }
         
         /* Tab styling */
@@ -271,8 +306,7 @@ function injectFullStyles() {
             background: white !important;
             padding: 10px 0 !important;
             width: 100% !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch !important;
+            max-width: 100% !important;
         }
         
         .tab-button {
@@ -335,15 +369,18 @@ function injectFullStyles() {
             text-align: left !important;
         }
         
-        /* Subtable responsive */
+        /* Subtable responsive - prevent overflow */
         .subrow-container {
             width: 100% !important;
+            max-width: 1120px !important;
             overflow: hidden !important;
+            margin: 0 auto !important;
         }
         
         .subrow-container .tabulator {
             font-size: 11px !important;
             min-width: auto !important;
+            overflow: hidden !important;
         }
         
         /* Loading indicator */
@@ -375,16 +412,6 @@ function injectFullStyles() {
             100% { transform: rotate(360deg); }
         }
         
-        /* Prevent text selection on mobile during scroll */
-        @media (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
-            .tabulator {
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
-            }
-        }
-        
         /* Fix for Webflow containers */
         .w-container {
             max-width: 100% !important;
@@ -402,30 +429,42 @@ function injectFullStyles() {
             z-index: 2;
         }
         
-        /* Custom scrollbar styling (if scrollbars are enabled) */
-        ${!CONFIG.FEATURES.REMOVE_SCROLLBARS ? `
-        .tabulator .tabulator-tableHolder::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+        /* Background image support for dead space */
+        .table-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 100%;
+            background-image: var(--table-bg-image, none);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: -1;
+            pointer-events: none;
         }
         
-        .tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
-            background: #f1f1f1;
+        /* Matchups table specific fixes */
+        #matchups-table .subrow-container {
+            max-width: 1120px !important;
         }
         
-        .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 4px;
+        #matchups-table .tabulator-row {
+            max-width: 100% !important;
         }
         
-        .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
-            background: #555;
+        /* Custom multiselect overflow fix */
+        .custom-multiselect-dropdown {
+            position: fixed !important;
+            z-index: 999999 !important;
+            max-height: 300px !important;
+            overflow-y: auto !important;
         }
-        ` : ''}
     `;
     
     document.head.appendChild(style);
-    console.log('Responsive table styles injected');
+    console.log('Complete responsive table styles injected');
     
     // Add dynamic resize handler
     addResponsiveHandlers();
@@ -450,8 +489,22 @@ function addResponsiveHandlers() {
 function updateTableResponsiveness() {
     const width = window.innerWidth;
     const tables = document.querySelectorAll('.tabulator');
+    const scale = getDeviceScale();
     
     tables.forEach(table => {
+        const container = table.closest('.table-container');
+        if (container) {
+            if (scale !== 1) {
+                container.style.transform = `scale(${scale})`;
+                container.style.transformOrigin = 'top center';
+                container.style.width = `${100 / scale}%`;
+            } else {
+                container.style.transform = '';
+                container.style.width = '';
+            }
+        }
+        
+        // Add appropriate classes
         if (width <= CONFIG.BREAKPOINTS.mobile) {
             table.classList.add('mobile-view');
             table.classList.remove('tablet-view', 'desktop-view');
