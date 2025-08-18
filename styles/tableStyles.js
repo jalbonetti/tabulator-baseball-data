@@ -1,5 +1,6 @@
-// styles/tableStyles.js - COMPLETE RESPONSIVE STYLING WITH SCROLLBAR REMOVAL
+// styles/tableStyles.js - WITH RESTORED TAB STYLING
 import { CONFIG, isMobile, isTablet, getDeviceScale } from '../shared/config.js';
+import { TAB_STYLES } from '../components/tabManager.js';
 
 export function injectStyles() {
     // Check if Webflow custom styles are already applied
@@ -19,6 +20,8 @@ function injectMinimalStyles() {
     style.setAttribute('data-source', 'github-tables-minimal');
     style.textContent = `
         /* GitHub table-specific settings only */
+        
+        ${TAB_STYLES}
         
         /* Remove ALL scrollbars */
         * {
@@ -90,7 +93,7 @@ function injectMinimalStyles() {
             max-width: 100% !important;
         }
         
-        /* Responsive scaling for mobile/tablet */
+        /* Responsive scaling for mobile/tablet - EXCLUDING TAB BUTTONS */
         @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
             .table-container {
                 transform: scale(${CONFIG.TABLE_DIMENSIONS.mobile.scale});
@@ -118,6 +121,8 @@ function injectFullStyles() {
         /* ===================================
            COMPLETE RESPONSIVE TABLE SYSTEM
            =================================== */
+        
+        ${TAB_STYLES}
         
         /* Remove ALL scrollbars globally */
         * {
@@ -232,7 +237,7 @@ function injectFullStyles() {
             }
         }
         
-        /* Tablet (768px - 1199px) - Scale to 85% */
+        /* Tablet (768px - 1199px) - Scale tables ONLY, not tabs */
         @media screen and (min-width: ${CONFIG.BREAKPOINTS.mobile + 1}px) and (max-width: ${CONFIG.BREAKPOINTS.tablet}px) {
             .table-container {
                 transform: scale(0.85);
@@ -242,15 +247,11 @@ function injectFullStyles() {
             }
             
             .tabulator {
-                font-size: 14px !important; /* Keep original size, let scale handle it */
-            }
-            
-            .tab-buttons {
-                transform: scale(1) !important; /* Don't scale tab buttons */
+                font-size: 14px !important;
             }
         }
         
-        /* Mobile (< 768px) - Scale to 75% */
+        /* Mobile (< 768px) - Scale tables ONLY, not tabs */
         @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
             .table-container {
                 transform: scale(0.75);
@@ -260,25 +261,7 @@ function injectFullStyles() {
             }
             
             .tabulator {
-                font-size: 14px !important; /* Keep original size, let scale handle it */
-            }
-            
-            /* Mobile tab buttons */
-            .tab-buttons {
-                display: flex !important;
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch !important;
-                gap: 5px !important;
-                padding-bottom: 10px !important;
-                transform: scale(1) !important; /* Don't scale tab buttons */
-                width: 100% !important;
-            }
-            
-            .tab-button {
-                padding: 8px 12px !important;
-                font-size: 12px !important;
-                white-space: nowrap !important;
-                flex-shrink: 0 !important;
+                font-size: 14px !important;
             }
         }
         
@@ -295,39 +278,6 @@ function injectFullStyles() {
             .tabulator .tabulator-cell {
                 padding: 8px 10px !important;
             }
-        }
-        
-        /* Tab styling */
-        .tabs-container {
-            margin-bottom: 20px;
-            z-index: 10;
-            position: sticky !important;
-            top: 0 !important;
-            background: white !important;
-            padding: 10px 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-        }
-        
-        .tab-button {
-            padding: 10px 20px;
-            border: 1px solid #ddd;
-            background: #f8f9fa;
-            cursor: pointer;
-            border-radius: 5px 5px 0 0;
-            font-weight: bold;
-            transition: background-color 0.3s;
-            white-space: nowrap;
-        }
-        
-        .tab-button:hover {
-            background: #e9ecef;
-        }
-        
-        .tab-button.active {
-            background: #007bff;
-            color: white;
-            border-color: #007bff;
         }
         
         /* Prevent column resizing */
@@ -383,35 +333,6 @@ function injectFullStyles() {
             overflow: hidden !important;
         }
         
-        /* Loading indicator */
-        .loading-indicator {
-            position: fixed !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            z-index: 9999 !important;
-            background: white !important;
-            padding: 20px 30px !important;
-            border-radius: 8px !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
-            text-align: center !important;
-        }
-        
-        .loading-indicator .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #007bff;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
         /* Fix for Webflow containers */
         .w-container {
             max-width: 100% !important;
@@ -464,7 +385,7 @@ function injectFullStyles() {
     `;
     
     document.head.appendChild(style);
-    console.log('Complete responsive table styles injected');
+    console.log('Complete responsive table styles with restored tab UI injected');
     
     // Add dynamic resize handler
     addResponsiveHandlers();
