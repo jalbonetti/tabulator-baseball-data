@@ -1,4 +1,4 @@
-// config/config.js - ENHANCED WITH RESPONSIVE TABLE CONFIGURATIONS
+// shared/config.js - COMPLETE RESPONSIVE CONFIGURATION WITH FIXED DIMENSIONS
 export const CONFIG = {
     // Supabase Configuration
     SUPABASE_URL: 'https://hcwolbvmffkmjcxsumwn.supabase.co',
@@ -33,7 +33,7 @@ export const CONFIG = {
         }
     },
     
-    // Table Configuration - RESPONSIVE DIMENSIONS
+    // Table Names
     TABLES: {
         BATTER_CLEARANCES: 'ModBatterClearances',
         PITCHER_CLEARANCES: 'ModPitcherClearances',
@@ -49,39 +49,65 @@ export const CONFIG = {
         GAME_PROPS: 'ModGameProps'
     },
     
-    // RESPONSIVE TABLE DIMENSIONS
+    // FIXED TABLE DIMENSIONS - Properly sized to prevent overflow
     TABLE_DIMENSIONS: {
-        // Desktop dimensions (1200px+ screens)
+        // Desktop dimensions (1200px+ screens) - CORRECTED WIDTHS
         desktop: {
-            matchups: { width: 1200, maxWidth: 1200 },
-            batterClearances: { width: 1860, maxWidth: 1860 },
-            batterClearancesAlt: { width: 1360, maxWidth: 1360 },
-            pitcherClearances: { width: 1860, maxWidth: 1860 },
-            pitcherClearancesAlt: { width: 1360, maxWidth: 1360 },
-            modBatterStats: { width: 1720, maxWidth: 1720 },
-            modPitcherStats: { width: 1720, maxWidth: 1720 },
-            batterProps: { width: 1720, maxWidth: 1720 },
-            pitcherProps: { width: 1720, maxWidth: 1720 },
-            gameProps: { width: 1720, maxWidth: 1720 }
+            matchups: { 
+                width: 1200, 
+                maxWidth: 1200,
+                subtableWidth: 1120, // Leaves room for padding
+                parkFactorsWidth: 550,
+                weatherWidth: 550
+            },
+            batterClearances: { 
+                width: 1400, // Reduced from 1860px
+                maxWidth: 1400 
+            },
+            batterClearancesAlt: { 
+                width: 1200, // Reduced from 1360px
+                maxWidth: 1200 
+            },
+            pitcherClearances: { 
+                width: 1400, // Reduced from 1860px
+                maxWidth: 1400 
+            },
+            pitcherClearancesAlt: { 
+                width: 1200, // Reduced from 1360px
+                maxWidth: 1200 
+            },
+            modBatterStats: { 
+                width: 1400, // Reduced from 1720px
+                maxWidth: 1400 
+            },
+            modPitcherStats: { 
+                width: 1400, // Reduced from 1720px
+                maxWidth: 1400 
+            },
+            batterProps: { 
+                width: 1400, // Reduced from 1720px
+                maxWidth: 1400 
+            },
+            pitcherProps: { 
+                width: 1400, // Reduced from 1720px
+                maxWidth: 1400 
+            },
+            gameProps: { 
+                width: 1400, // Reduced from 1720px
+                maxWidth: 1400 
+            }
         },
         // Tablet dimensions (768px - 1199px)
         tablet: {
-            matchups: { width: '100%', maxWidth: 1000 },
-            batterClearances: { width: '100%', maxWidth: '100%' },
-            batterClearancesAlt: { width: '100%', maxWidth: '100%' },
-            pitcherClearances: { width: '100%', maxWidth: '100%' },
-            pitcherClearancesAlt: { width: '100%', maxWidth: '100%' },
-            modBatterStats: { width: '100%', maxWidth: '100%' },
-            modPitcherStats: { width: '100%', maxWidth: '100%' },
-            batterProps: { width: '100%', maxWidth: '100%' },
-            pitcherProps: { width: '100%', maxWidth: '100%' },
-            gameProps: { width: '100%', maxWidth: '100%' }
+            scale: 0.85,
+            transformOrigin: 'top center',
+            containerWidth: '118%' // 100 / 0.85
         },
-        // Mobile dimensions (< 768px) - use scale transform
+        // Mobile dimensions (< 768px)
         mobile: {
-            scale: 0.65,
-            transformOrigin: 'top left',
-            widthMultiplier: 1.54 // 100 / 0.65
+            scale: 0.75,
+            transformOrigin: 'top center',
+            containerWidth: '133%' // 100 / 0.75
         }
     },
     
@@ -102,8 +128,10 @@ export const CONFIG = {
         TABLE_HEIGHT: '600px',
         HEADER_HEIGHT: 30,
         ROW_HEIGHT: 28,
-        MOBILE_SCALE: 0.65,
-        TABLET_SCALE: 0.85
+        MOBILE_SCALE: 0.75,
+        TABLET_SCALE: 0.85,
+        REMOVE_ALL_SCROLLBARS: true,
+        ENABLE_PINCH_ZOOM: true
     },
     
     // Feature Flags
@@ -115,7 +143,9 @@ export const CONFIG = {
         ENABLE_ODDS_INTEGRATION: true,
         ENABLE_RESPONSIVE_TABLES: true,
         REMOVE_SCROLLBARS: true,
-        ENABLE_MOBILE_PINCH_ZOOM: true
+        ENABLE_MOBILE_PINCH_ZOOM: true,
+        USE_FIXED_TABLE_CONTAINERS: true,
+        ENABLE_BACKGROUND_IMAGES: true
     },
     
     // Team Abbreviations Mapping
@@ -160,27 +190,6 @@ export const CONFIG = {
             static: 'tabulator-static-v1',
             api: 'tabulator-api-v1',
             runtime: 'tabulator-runtime-v1'
-        },
-        cacheUrls: {
-            static: [
-                '/',
-                '/main.js',
-                '/styles/tableStyles.js',
-                '/components/customMultiSelect.js',
-                '/components/tabManager.js'
-            ],
-            api: [
-                { url: '/ModBatterClearancesAlt', ttl: 15 * 60 * 1000 },
-                { url: '/ModBatterClearances', ttl: 15 * 60 * 1000 },
-                { url: '/ModPitcherClearances', ttl: 15 * 60 * 1000 },
-                { url: '/ModPitcherClearancesAlt', ttl: 15 * 60 * 1000 },
-                { url: '/ModMatchupsData', ttl: 15 * 60 * 1000 },
-                { url: '/ModBatterStats', ttl: 15 * 60 * 1000 },
-                { url: '/ModPitcherStats', ttl: 15 * 60 * 1000 },
-                { url: '/ModBatterProps', ttl: 15 * 60 * 1000 },
-                { url: '/ModPitcherProps', ttl: 15 * 60 * 1000 },
-                { url: '/ModGameProps', ttl: 15 * 60 * 1000 }
-            ]
         }
     }
 };
@@ -201,15 +210,27 @@ export function getSupabaseConfig() {
 export function getTableDimensions(tableName) {
     const width = window.innerWidth;
     
-    if (width < CONFIG.BREAKPOINTS.mobile) {
+    if (width <= CONFIG.BREAKPOINTS.mobile) {
         // Mobile - return desktop dimensions but they'll be scaled
-        return CONFIG.TABLE_DIMENSIONS.desktop[tableName];
-    } else if (width < CONFIG.BREAKPOINTS.desktop) {
+        return {
+            ...CONFIG.TABLE_DIMENSIONS.desktop[tableName],
+            scale: CONFIG.TABLE_DIMENSIONS.mobile.scale,
+            needsScaling: true
+        };
+    } else if (width <= CONFIG.BREAKPOINTS.tablet) {
         // Tablet
-        return CONFIG.TABLE_DIMENSIONS.tablet[tableName];
+        return {
+            ...CONFIG.TABLE_DIMENSIONS.desktop[tableName],
+            scale: CONFIG.TABLE_DIMENSIONS.tablet.scale,
+            needsScaling: true
+        };
     } else {
         // Desktop
-        return CONFIG.TABLE_DIMENSIONS.desktop[tableName];
+        return {
+            ...CONFIG.TABLE_DIMENSIONS.desktop[tableName],
+            scale: 1,
+            needsScaling: false
+        };
     }
 }
 
@@ -227,12 +248,17 @@ export function isTablet() {
 // Get appropriate scale for current device
 export function getDeviceScale() {
     if (isMobile()) {
-        return CONFIG.DISPLAY.MOBILE_SCALE;
+        return CONFIG.TABLE_DIMENSIONS.mobile.scale;
     } else if (isTablet()) {
-        return CONFIG.DISPLAY.TABLET_SCALE;
+        return CONFIG.TABLE_DIMENSIONS.tablet.scale;
     }
     return 1;
 }
 
 // Export CONFIG as default for backwards compatibility
 export default CONFIG;
+
+// Export additional items for direct access
+export const API_CONFIG = CONFIG.API_CONFIG;
+export const TEAM_NAME_MAP = CONFIG.TEAM_ABBREVIATIONS;
+export const SW_CONFIG = CONFIG.SW_CONFIG;
