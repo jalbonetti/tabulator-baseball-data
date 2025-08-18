@@ -9,7 +9,7 @@ import { ModPitcherStatsTable } from './tables/modPitcherStats.js';
 import { BatterPropsTable } from './tables/batterProps.js';
 import { PitcherPropsTable } from './tables/pitcherProps.js';
 import { GamePropsTable } from './tables/gameProps.js';
-import { TabManager } from './components/tabManager.js';
+import { TabManager, TAB_STYLES } from './components/tabManager.js';
 import { injectStyles } from './styles/tableStyles.js';
 import { SW_CONFIG } from './shared/config.js';
 
