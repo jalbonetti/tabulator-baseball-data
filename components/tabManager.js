@@ -1,188 +1,7 @@
-// EMERGENCY FIX - components/tabManager.js
-export class TabManager {
-    constructor(tables) {
-        this.tables = tables;
-        this.currentActiveTab = 'table0';
-        this.scrollPositions = {};
-        this.tableStates = {};
-        this.tabInitialized = {};
-        this.isTransitioning = false;
-        this.expandedRowsStates = {};
-        this.setupTabSwitching();
-        
-        // Only initialize the first tab
-        this.initializeTab(this.currentActiveTab);
-    }
+// components/tabManager.js - FIXED VERSION WITH TAB_STYLES EXPORT
 
-    initializeTab(tabId) {
-        if (this.tabInitialized[tabId]) {
-            return Promise.resolve();
-        }
-        
-        console.log(`Lazy initializing tab: ${tabId}`);
-        
-        return new Promise((resolve) => {
-            requestAnimationFrame(() => {
-                const tableWrapper = this.tables[tabId];
-                
-                if (tableWrapper && !tableWrapper.isInitialized) {
-                    tableWrapper.initialize();
-                    tableWrapper.isInitialized = true;
-                    this.tabInitialized[tabId] = true;
-                    
-                    if (!this.tableStates[tabId]) {
-                        this.tableStates[tabId] = {};
-                    }
-                    this.tableStates[tabId].initializedAt = Date.now();
-                    
-                    setTimeout(resolve, 100);
-                } else {
-                    this.tabInitialized[tabId] = true;
-                    resolve();
-                }
-            });
-        });
-    }
-
-    setupTabSwitching() {
-        let switchTimeout;
-        
-        document.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('tab-button')) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (this.isTransitioning) {
-                    console.log('Tab transition in progress, ignoring click');
-                    return;
-                }
-                
-                var targetTab = e.target.dataset.tab;
-                
-                if (targetTab === this.currentActiveTab) {
-                    return;
-                }
-                
-                if (switchTimeout) {
-                    clearTimeout(switchTimeout);
-                }
-                
-                console.log(`Saving state for ${this.currentActiveTab} before switching to ${targetTab}`);
-                this.saveCurrentTabState();
-                
-                await new Promise(resolve => setTimeout(resolve, 50));
-                
-                switchTimeout = setTimeout(async () => {
-                    console.log('Switching to tab:', targetTab);
-                    this.isTransitioning = true;
-                    
-                    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-                    e.target.classList.add('active');
-                    
-                    const currentContainer = document.getElementById(`${this.currentActiveTab}-container`);
-                    if (currentContainer) {
-                        currentContainer.className = 'table-container inactive-table';
-                        currentContainer.style.display = 'none';
-                    }
-                    
-                    await this.initializeTab(targetTab);
-                    
-                    const targetContainer = document.getElementById(`${targetTab}-container`);
-                    if (targetContainer) {
-                        targetContainer.className = 'table-container active-table';
-                        targetContainer.style.display = 'block';
-                        
-                        const previousTab = this.currentActiveTab;
-                        this.currentActiveTab = targetTab;
-                        
-                        await new Promise(resolve => requestAnimationFrame(resolve));
-                        
-                        console.log(`Restoring state for ${targetTab}`);
-                        this.restoreTabState(targetTab);
-                        
-                        setTimeout(() => {
-                            this.isTransitioning = false;
-                        }, 500);
-                    } else {
-                        this.isTransitioning = false;
-                    }
-                }, 100);
-            }
-        });
-    }
-
-    // Keep all other methods the same...
-    saveCurrentTabState() {
-        // Same as before
-    }
-
-    restoreTabState(tabId) {
-        // Same as before
-    }
-
-    createTabStructure(tableElement) {
-        if (tableElement && !tableElement.parentElement.classList.contains('table-wrapper')) {
-            var wrapper = document.createElement('div');
-            wrapper.className = 'table-wrapper';
-            wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
-            
-            var tabsContainer = document.createElement('div');
-            tabsContainer.className = 'tabs-container';
-            tabsContainer.innerHTML = `
-                <div class="tab-buttons">
-                    <button class="tab-button active" data-tab="table0">Matchups</button>
-                    <button class="tab-button" data-tab="table1">Batter Prop Clearances</button>
-                    <button class="tab-button" data-tab="table2">Batter Prop Clearances (Alt. View)</button>
-                    <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
-                    <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
-                    <button class="tab-button" data-tab="table5">Batter Stats</button>
-                    <button class="tab-button" data-tab="table6">Pitcher Stats</button>
-                    <button class="tab-button" data-tab="table7">Batter Props</button>
-                    <button class="tab-button" data-tab="table8">Pitcher Props</button>
-                    <button class="tab-button" data-tab="table9">Game Props</button>
-                </div>
-            `;
-            
-            var tablesContainer = document.createElement('div');
-            tablesContainer.className = 'tables-container';
-            tablesContainer.style.cssText = 'width: 100%; position: relative; min-height: 500px;';
-            
-            // Only create the containers that exist
-            var table0Container = document.createElement('div');
-            table0Container.className = 'table-container active-table';
-            table0Container.id = 'table0-container';
-            table0Container.style.cssText = 'width: 100%; display: block;';
-            
-            var table1Container = document.createElement('div');
-            table1Container.className = 'table-container inactive-table';
-            table1Container.id = 'table1-container';
-            table1Container.style.cssText = 'width: 100%; display: none;';
-            
-            var table2Container = document.createElement('div');
-            table2Container.className = 'table-container inactive-table';
-            table2Container.id = 'table2-container';
-            table2Container.style.cssText = 'width: 100%; display: none;';
-            
-            var table2Element = document.createElement('div');
-            table2Element.id = 'batter-table-alt';
-            
-            tableElement.parentNode.insertBefore(wrapper, tableElement);
-            wrapper.appendChild(tabsContainer);
-            wrapper.appendChild(tablesContainer);
-            
-            table1Container.appendChild(tableElement);
-            table2Container.appendChild(table2Element);
-            
-            tablesContainer.appendChild(table0Container);
-            tablesContainer.appendChild(table1Container);
-            tablesContainer.appendChild(table2Container);
-        }
-    }
-}
-
-// CRITICAL CSS FIXES
-const style = document.createElement('style');
-style.textContent = `
+// Export TAB_STYLES constant
+export const TAB_STYLES = `
     /* EMERGENCY TAB FIX */
     .tabs-container {
         width: 100% !important;
@@ -307,4 +126,259 @@ style.textContent = `
         display: none !important;
     }
 `;
-document.head.appendChild(style);
+
+export class TabManager {
+    constructor(tables) {
+        this.tables = tables;
+        this.currentActiveTab = 'table0';
+        this.scrollPositions = {};
+        this.tableStates = {};
+        this.tabInitialized = {};
+        this.isTransitioning = false;
+        this.expandedRowsStates = {};
+        this.setupTabSwitching();
+        
+        // Only initialize the first tab
+        this.initializeTab(this.currentActiveTab);
+        
+        // Inject styles when TabManager is created
+        this.injectStyles();
+    }
+    
+    injectStyles() {
+        // Check if styles already exist
+        if (!document.querySelector('#tab-manager-styles')) {
+            const style = document.createElement('style');
+            style.id = 'tab-manager-styles';
+            style.textContent = TAB_STYLES;
+            document.head.appendChild(style);
+        }
+    }
+
+    initializeTab(tabId) {
+        if (this.tabInitialized[tabId]) {
+            return Promise.resolve();
+        }
+        
+        console.log(`Lazy initializing tab: ${tabId}`);
+        
+        return new Promise((resolve) => {
+            requestAnimationFrame(() => {
+                const tableWrapper = this.tables[tabId];
+                
+                if (tableWrapper && !tableWrapper.isInitialized) {
+                    tableWrapper.initialize();
+                    tableWrapper.isInitialized = true;
+                    this.tabInitialized[tabId] = true;
+                    
+                    if (!this.tableStates[tabId]) {
+                        this.tableStates[tabId] = {};
+                    }
+                    this.tableStates[tabId].initializedAt = Date.now();
+                    
+                    setTimeout(resolve, 100);
+                } else {
+                    this.tabInitialized[tabId] = true;
+                    resolve();
+                }
+            });
+        });
+    }
+
+    setupTabSwitching() {
+        let switchTimeout;
+        
+        document.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('tab-button')) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (this.isTransitioning) {
+                    console.log('Tab transition in progress, ignoring click');
+                    return;
+                }
+                
+                var targetTab = e.target.dataset.tab;
+                
+                if (targetTab === this.currentActiveTab) {
+                    return;
+                }
+                
+                if (switchTimeout) {
+                    clearTimeout(switchTimeout);
+                }
+                
+                console.log(`Saving state for ${this.currentActiveTab} before switching to ${targetTab}`);
+                this.saveCurrentTabState();
+                
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                switchTimeout = setTimeout(async () => {
+                    console.log('Switching to tab:', targetTab);
+                    this.isTransitioning = true;
+                    
+                    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    
+                    const currentContainer = document.getElementById(`${this.currentActiveTab}-container`);
+                    if (currentContainer) {
+                        currentContainer.className = 'table-container inactive-table';
+                        currentContainer.style.display = 'none';
+                    }
+                    
+                    await this.initializeTab(targetTab);
+                    
+                    const targetContainer = document.getElementById(`${targetTab}-container`);
+                    if (targetContainer) {
+                        targetContainer.className = 'table-container active-table';
+                        targetContainer.style.display = 'block';
+                        
+                        const previousTab = this.currentActiveTab;
+                        this.currentActiveTab = targetTab;
+                        
+                        await new Promise(resolve => requestAnimationFrame(resolve));
+                        
+                        console.log(`Restoring state for ${targetTab}`);
+                        this.restoreTabState(targetTab);
+                        
+                        setTimeout(() => {
+                            this.isTransitioning = false;
+                        }, 500);
+                    } else {
+                        this.isTransitioning = false;
+                    }
+                }, 100);
+            }
+        });
+    }
+
+    saveCurrentTabState() {
+        // Implementation remains the same
+        const tableWrapper = this.tables[this.currentActiveTab];
+        if (!tableWrapper || !tableWrapper.table) return;
+        
+        const tableHolder = tableWrapper.table.element.querySelector('.tabulator-tableHolder');
+        if (tableHolder) {
+            this.scrollPositions[this.currentActiveTab] = tableHolder.scrollTop;
+        }
+        
+        if (tableWrapper.saveState && typeof tableWrapper.saveState === 'function') {
+            tableWrapper.saveState();
+        }
+        
+        const expandedRows = [];
+        const rows = tableWrapper.table.getRows();
+        rows.forEach(row => {
+            const data = row.getData();
+            if (data._expanded) {
+                expandedRows.push(tableWrapper.generateRowId ? tableWrapper.generateRowId(data) : JSON.stringify(data));
+            }
+        });
+        
+        this.expandedRowsStates[this.currentActiveTab] = expandedRows;
+        
+        console.log(`Saved state for ${this.currentActiveTab}: ${expandedRows.length} expanded rows, scroll: ${this.scrollPositions[this.currentActiveTab]}`);
+    }
+
+    restoreTabState(tabId) {
+        // Implementation remains the same
+        const tableWrapper = this.tables[tabId];
+        if (!tableWrapper || !tableWrapper.table) return;
+        
+        if (tableWrapper.restoreState && typeof tableWrapper.restoreState === 'function') {
+            tableWrapper.restoreState();
+        }
+        
+        const expandedRowIds = this.expandedRowsStates[tabId] || [];
+        if (expandedRowIds.length > 0) {
+            console.log(`Restoring ${expandedRowIds.length} expanded rows for ${tabId}`);
+            
+            setTimeout(() => {
+                const rows = tableWrapper.table.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    const rowId = tableWrapper.generateRowId ? tableWrapper.generateRowId(data) : JSON.stringify(data);
+                    
+                    if (expandedRowIds.includes(rowId)) {
+                        if (!data._expanded) {
+                            data._expanded = true;
+                            row.update(data);
+                            row.reformat();
+                        }
+                    }
+                });
+            }, 200);
+        }
+        
+        if (this.scrollPositions[tabId]) {
+            setTimeout(() => {
+                const tableHolder = tableWrapper.table.element.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.scrollTop = this.scrollPositions[tabId];
+                }
+            }, 300);
+        }
+    }
+
+    createTabStructure(tableElement) {
+        if (tableElement && !tableElement.parentElement.classList.contains('table-wrapper')) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'table-wrapper';
+            wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
+            
+            var tabsContainer = document.createElement('div');
+            tabsContainer.className = 'tabs-container';
+            tabsContainer.innerHTML = `
+                <div class="tab-buttons">
+                    <button class="tab-button active" data-tab="table0">Matchups</button>
+                    <button class="tab-button" data-tab="table1">Batter Prop Clearances</button>
+                    <button class="tab-button" data-tab="table2">Batter Prop Clearances (Alt. View)</button>
+                    <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
+                    <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
+                    <button class="tab-button" data-tab="table5">Batter Stats</button>
+                    <button class="tab-button" data-tab="table6">Pitcher Stats</button>
+                    <button class="tab-button" data-tab="table7">Batter Props</button>
+                    <button class="tab-button" data-tab="table8">Pitcher Props</button>
+                    <button class="tab-button" data-tab="table9">Game Props</button>
+                </div>
+            `;
+            
+            var tablesContainer = document.createElement('div');
+            tablesContainer.className = 'tables-container';
+            tablesContainer.style.cssText = 'width: 100%; position: relative; min-height: 500px;';
+            
+            var table0Container = document.createElement('div');
+            table0Container.className = 'table-container active-table';
+            table0Container.id = 'table0-container';
+            table0Container.style.cssText = 'width: 100%; display: block;';
+            
+            var table1Container = document.createElement('div');
+            table1Container.className = 'table-container inactive-table';
+            table1Container.id = 'table1-container';
+            table1Container.style.cssText = 'width: 100%; display: none;';
+            
+            var table2Container = document.createElement('div');
+            table2Container.className = 'table-container inactive-table';
+            table2Container.id = 'table2-container';
+            table2Container.style.cssText = 'width: 100%; display: none;';
+            
+            var table2Element = document.createElement('div');
+            table2Element.id = 'batter-table-alt';
+            
+            tableElement.parentNode.insertBefore(wrapper, tableElement);
+            wrapper.appendChild(tabsContainer);
+            wrapper.appendChild(tablesContainer);
+            
+            table1Container.appendChild(tableElement);
+            table2Container.appendChild(table2Element);
+            
+            tablesContainer.appendChild(table0Container);
+            tablesContainer.appendChild(table1Container);
+            tablesContainer.appendChild(table2Container);
+        }
+    }
+    
+    startPeriodicCleanup() {
+        // Optional: Add periodic cleanup if needed
+    }
+}
