@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION WITH LOADING INDICATOR
+// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH ALL FIXES
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -13,7 +13,7 @@ export class MatchupsTable extends BaseTable {
         this.batterMatchupsCache = new Map();
         this.bullpenMatchupsCache = new Map();
         
-        // Fixed configuration
+        // Fixed configuration to prevent overflow
         this.subtableConfig = {
             parkFactorsContainerWidth: 550,
             weatherContainerWidth: 550,
@@ -21,15 +21,15 @@ export class MatchupsTable extends BaseTable {
             maxTotalWidth: 1120,
             
             parkFactorsColumns: {
-                split: 90,
-                H: 50,
-                "1B": 50,
-                "2B": 50,
-                "3B": 50,
-                HR: 50,
-                R: 50,
-                BB: 50,
-                SO: 50
+                split: 100,
+                H: 55,
+                "1B": 55,
+                "2B": 55,
+                "3B": 55,
+                HR: 55,
+                R: 55,
+                BB: 55,
+                SO: 55
             },
             
             weatherAsTable: false,
@@ -82,7 +82,7 @@ export class MatchupsTable extends BaseTable {
             width: "1200px",
             maxWidth: "1200px",
             height: "600px",
-            layout: "fitData", // FIXED: Changed from "fitDataFixed" to "fitData"
+            layout: "fitData",
             placeholder: "Loading matchups data...",
             headerVisible: true,
             headerHozAlign: "center",
@@ -287,7 +287,6 @@ export class MatchupsTable extends BaseTable {
         });
     }
 
-    // [Keep all other methods unchanged - getGlobalState, setGlobalState, saveState, restoreState, etc.]
     // Add helper methods to access global state
     getGlobalState() {
         // Access the global state map
@@ -552,8 +551,7 @@ export class MatchupsTable extends BaseTable {
         ];
     }
 
-    // [Keep all other methods unchanged - createMatchupsSubtable, createParkFactorsTable, etc.]
-createMatchupsSubtable(container, data) {
+    createMatchupsSubtable(container, data) {
         const weatherData = [
             data["Matchup Weather 1"] || "No weather data",
             data["Matchup Weather 2"] || "No weather data",
@@ -581,7 +579,7 @@ createMatchupsSubtable(container, data) {
         const totalWidth = this.subtableConfig.maxTotalWidth;
 
         let tableHTML = `
-            <div style="display: flex; justify-content: flex-start; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
+            <div style="display: flex; justify-content: center; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
                 <!-- Park Factors Section -->
                 <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex-shrink: 0;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
@@ -603,7 +601,7 @@ createMatchupsSubtable(container, data) {
 
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
+                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Starting Pitcher</h4>
                     <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
@@ -612,7 +610,7 @@ createMatchupsSubtable(container, data) {
 
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
+                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
                     <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
@@ -621,7 +619,7 @@ createMatchupsSubtable(container, data) {
 
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden;">
+                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Bullpen</h4>
                     <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
