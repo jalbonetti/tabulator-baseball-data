@@ -16,28 +16,27 @@ constructor(elementId) {
     this.batterMatchupsCache = new Map();
     this.bullpenMatchupsCache = new Map();
     
-    // Fixed configuration to prevent overlap
+    // FIXED: Reduced widths to prevent overlap
     this.subtableConfig = {
-        parkFactorsContainerWidth: 530,
-        weatherContainerWidth: 530,
-        containerGap: 30, // Increased gap
-        maxTotalWidth: 1100, // Slightly reduced for better fit
+        parkFactorsContainerWidth: 480, // Reduced from 530
+        weatherContainerWidth: 480, // Reduced from 530
+        containerGap: 40, // Increased gap from 30
+        maxTotalWidth: 1000, // Reduced from 1100
         
         parkFactorsColumns: {
-            split: 100,
-            H: 55,
-            "1B": 55,
-            "2B": 55,
-            "3B": 55,
-            HR: 55,
-            R: 55,
-            BB: 55,
-            SO: 55
+            split: 90,
+            H: 50,
+            "1B": 50,
+            "2B": 50,
+            "3B": 50,
+            HR: 50,
+            R: 50,
+            BB: 50,
+            SO: 50
         },
         
-        // CONSISTENT column widths for all stat tables
         statTableColumns: {
-            name: 280, // Increased for full names
+            name: 280,
             split: 160,
             tbf_pa: 60,
             ratio: 70,
@@ -245,6 +244,10 @@ createBatterMatchupsTable(data) {
             renderHorizontal: "basic",
             layoutColumnsOnNewData: false,
             virtualDomBuffer: 100,
+            resizableColumns: false, // DISABLE ALL COLUMN RESIZING
+            resizableRows: false,
+            movableColumns: false,
+
             initialSort: [
                 {column: "Matchup Game ID", dir: "asc"}
             ],
@@ -608,151 +611,149 @@ createBatterMatchupsTable(data) {
         }
     }
 
-    getColumns() {
-        return [
-            {
-                title: "ID",
-                field: "Matchup Game ID",
-                visible: false,
-                sorter: "number"
-            },
-            {
-                title: "Team", 
-                field: "Matchup Team",
-                width: 340,
-                headerFilter: true,
-                headerFilterPlaceholder: "Search teams...",
-                sorter: "string",
-                formatter: (cell, formatterParams, onRendered) => {
-                    const value = cell.getValue();
-                    const row = cell.getRow();
-                    const expanded = row.getData()._expanded || false;
-                    
-                    const teamName = TEAM_NAME_MAP[value] || value;
-                    
-                    onRendered(function() {
-                        try {
-                            const cellElement = cell.getElement();
-                            if (cellElement) {
-                                cellElement.innerHTML = '';
-                                
-                                const container = document.createElement("div");
-                                container.style.display = "flex";
-                                container.style.alignItems = "center";
-                                container.style.cursor = "pointer";
-                                
-                                const expander = document.createElement("span");
-                                expander.innerHTML = expanded ? "−" : "+";
-                                expander.style.marginRight = "8px";
-                                expander.style.fontWeight = "bold";
-                                expander.style.color = "#007bff";
-                                expander.style.fontSize = "14px";
-                                expander.style.minWidth = "12px";
-                                expander.classList.add("row-expander");
-                                
-                                const textSpan = document.createElement("span");
-                                textSpan.textContent = teamName;
-                                
-                                container.appendChild(expander);
-                                container.appendChild(textSpan);
-                                
-                                cellElement.appendChild(container);
-                                cellElement.style.textAlign = "left";
-                            }
-                        } catch (error) {
-                            console.error("Error in team formatter:", error);
+   getColumns() {
+    return [
+        {
+            title: "ID",
+            field: "Matchup Game ID",
+            visible: false,
+            sorter: "number",
+            resizable: false // Disable resizing
+        },
+        {
+            title: "Team", 
+            field: "Matchup Team",
+            width: 340,
+            headerFilter: true,
+            headerFilterPlaceholder: "Search teams...",
+            sorter: "string",
+            resizable: false, // DISABLE RESIZING
+            formatter: (cell, formatterParams, onRendered) => {
+                const value = cell.getValue();
+                const row = cell.getRow();
+                const expanded = row.getData()._expanded || false;
+                
+                // FIXED: Show full team name, not abbreviation
+                const teamName = value; // Use the full team name as-is
+                
+                onRendered(function() {
+                    try {
+                        const cellElement = cell.getElement();
+                        if (cellElement) {
+                            cellElement.innerHTML = '';
+                            
+                            const container = document.createElement("div");
+                            container.style.display = "flex";
+                            container.style.alignItems = "center";
+                            container.style.cursor = "pointer";
+                            
+                            const expander = document.createElement("span");
+                            expander.innerHTML = expanded ? "−" : "+";
+                            expander.style.marginRight = "8px";
+                            expander.style.fontWeight = "bold";
+                            expander.style.color = "#007bff";
+                            expander.style.fontSize = "14px";
+                            expander.style.minWidth = "12px";
+                            expander.classList.add("row-expander");
+                            
+                            const textSpan = document.createElement("span");
+                            textSpan.textContent = teamName; // Full team name
+                            
+                            container.appendChild(expander);
+                            container.appendChild(textSpan);
+                            
+                            cellElement.appendChild(container);
+                            cellElement.style.textAlign = "left";
                         }
-                    });
-                    
-                    return (expanded ? "− " : "+ ") + teamName;
-                }
-            },
-            {
-                title: "Game", 
-                field: "Matchup Game",
-                width: 340,
-                headerFilter: createCustomMultiSelect,
-                headerSort: false
-            },
-            {
-                title: "Spread", 
-                field: "Matchup Spread",
-                width: 110,
-                hozAlign: "center",
-                headerSort: false
-            },
-            {
-                title: "Total", 
-                field: "Matchup Total",
-                width: 110,
-                hozAlign: "center",
-                headerSort: false
-            },
-            {
-                title: "Lineup Status",
-                field: "Matchup Lineup Status",
-                width: 250,
-                hozAlign: "center",
-                headerFilter: createCustomMultiSelect,
-                headerSort: false,
-                formatter: (cell) => {
-                    const value = cell.getValue();
-                    if (!value) return "";
-                    
-                    const color = value.toLowerCase().includes('confirmed') ? '#28a745' : '#6c757d';
-                    return `<span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${value}</span>`;
-                }
+                    } catch (error) {
+                        console.error("Error in team formatter:", error);
+                    }
+                });
+                
+                return (expanded ? "− " : "+ ") + teamName; // Full team name
             }
-        ];
-    }
-
-    createMatchupsSubtable(container, data) {
-        const weatherData = [
-            data["Matchup Weather 1"] || "No weather data",
-            data["Matchup Weather 2"] || "No weather data",
-            data["Matchup Weather 3"] || "No weather data",
-            data["Matchup Weather 4"] || "No weather data"
-        ];
-
-        const isTeamAway = this.isTeamAway(data["Matchup Game"]);
-        const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
-        
-        // Extract ballpark name and check for retractable roof
-        let ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
-        let hasRetractableRoof = false;
-        
-        // Check if ballpark name contains "(Retractable Roof)"
-        if (ballparkName.includes("(Retractable Roof)")) {
-            hasRetractableRoof = true;
-            // Remove "(Retractable Roof)" from the ballpark name
-            ballparkName = ballparkName.replace("(Retractable Roof)", "").trim();
+        },
+        {
+            title: "Game", 
+            field: "Matchup Game",
+            width: 340,
+            headerFilter: createCustomMultiSelect,
+            headerSort: false,
+            resizable: false // DISABLE RESIZING
+        },
+        {
+            title: "Spread", 
+            field: "Matchup Spread",
+            width: 110,
+            hozAlign: "center",
+            headerSort: false,
+            resizable: false // DISABLE RESIZING
+        },
+        {
+            title: "Total", 
+            field: "Matchup Total",
+            width: 110,
+            hozAlign: "center",
+            headerSort: false,
+            resizable: false // DISABLE RESIZING
+        },
+        {
+            title: "Lineup Status",
+            field: "Matchup Lineup Status",
+            width: 250,
+            hozAlign: "center",
+            headerFilter: createCustomMultiSelect,
+            headerSort: false,
+            resizable: false, // DISABLE RESIZING
+            formatter: (cell) => {
+                const value = cell.getValue();
+                if (!value) return "";
+                
+                const color = value.toLowerCase().includes('confirmed') ? '#28a745' : '#6c757d';
+                return `<span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${value}</span>`;
+            }
         }
-        
-        // Create weather section title with retractable roof indicator if needed
-        const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
-        
-        const totalWidth = this.subtableConfig.maxTotalWidth;
+    ];
 
-        let tableHTML = `
-            <div style="display: flex; justify-content: center; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
-                <!-- Park Factors Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex-shrink: 0;">
-                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
-                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
-                </div>
+createMatchupsSubtable(container, data) {
+    const weatherData = [
+        data["Matchup Weather 1"] || "No weather data",
+        data["Matchup Weather 2"] || "",
+        data["Matchup Weather 3"] || "",
+        data["Matchup Weather 4"] || ""
+    ].filter(d => d);
 
-                <!-- Weather Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; flex-shrink: 0;">
-                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
-                    <div style="font-size: 12px; color: #333; text-align: center;">
-                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[0]}</div>
-                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[1]}</div>
-                        <div style="padding: 8px 0; border-bottom: 1px solid #eee;">${weatherData[2]}</div>
-                        <div style="padding: 8px 0;">${weatherData[3]}</div>
-                    </div>
+    const isTeamAway = this.isTeamAway(data["Matchup Game"]);
+    const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
+    
+    let ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
+    let hasRetractableRoof = false;
+    
+    if (ballparkName.includes("(Retractable Roof)")) {
+        hasRetractableRoof = true;
+        ballparkName = ballparkName.replace("(Retractable Roof)", "").trim();
+    }
+    
+    const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
+    
+    // FIXED: Use proper widths and add clear:both to prevent overlap
+    let tableHTML = `
+        <div style="display: flex; justify-content: center; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${this.subtableConfig.maxTotalWidth}px; max-width: 100%; margin-left: auto; margin-right: auto; clear: both;">
+            <!-- Park Factors Section -->
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; min-width: ${this.subtableConfig.parkFactorsContainerWidth}px; max-width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
+                <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
+            </div>
+
+            <!-- Weather Section -->
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
+                <div style="font-size: 12px; color: #333;">
+                    ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; word-wrap: break-word;">${w}</div>`).join('')}
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             tableHTML += `
