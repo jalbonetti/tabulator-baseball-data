@@ -2,7 +2,7 @@
 
 // Export TAB_STYLES constant
 export const TAB_STYLES = `
-    /* EMERGENCY TAB FIX */
+    /* FULL WIDTH TAB CONTAINER */
     .tabs-container {
         width: 100% !important;
         max-width: 100% !important;
@@ -18,8 +18,8 @@ export const TAB_STYLES = `
     .tab-buttons {
         display: flex !important;
         flex-wrap: nowrap !important;
-        gap: 2px !important;
-        padding: 8px !important;
+        gap: 0 !important; /* Remove gap for full width */
+        padding: 0 !important; /* Remove padding for full width */
         background: #f8f9fa !important;
         overflow-x: auto !important;
         overflow-y: hidden !important;
@@ -27,6 +27,7 @@ export const TAB_STYLES = `
         scrollbar-width: thin !important;
         width: 100% !important;
         max-width: 100% !important;
+        justify-content: stretch !important; /* Stretch buttons */
     }
 
     /* Make scrollbar visible for tabs */
@@ -48,12 +49,12 @@ export const TAB_STYLES = `
         background: #555 !important;
     }
 
-    /* CRITICAL: Make buttons clickable and visible */
+    /* FULL WIDTH TAB BUTTONS */
     .tab-button {
-        /* Sizing */
-        padding: 10px 16px !important;
-        min-width: fit-content !important;
-        flex-shrink: 0 !important;
+        /* Sizing - make buttons expand */
+        padding: 12px 8px !important;
+        flex: 1 1 auto !important; /* Allow buttons to grow */
+        min-width: 120px !important; /* Minimum width */
         
         /* Make clickable */
         pointer-events: auto !important;
@@ -64,15 +65,21 @@ export const TAB_STYLES = `
         /* Styling */
         background: #ffffff !important;
         border: 1px solid #dee2e6 !important;
-        border-radius: 4px 4px 0 0 !important;
+        border-radius: 0 !important; /* Remove rounded corners for seamless look */
+        border-right: none !important; /* Remove right border except last */
         color: #495057 !important;
         font-size: 13px !important;
         font-weight: 500 !important;
         white-space: nowrap !important;
         transition: all 0.2s ease !important;
+        text-align: center !important;
         
         /* Remove any transforms */
         transform: none !important;
+    }
+    
+    .tab-button:last-child {
+        border-right: 1px solid #dee2e6 !important; /* Add right border to last button */
     }
 
     .tab-button:hover:not(.active) {
@@ -91,7 +98,7 @@ export const TAB_STYLES = `
 
     .tab-button:focus {
         outline: 2px solid #007bff !important;
-        outline-offset: 2px !important;
+        outline-offset: -2px !important;
     }
 
     /* Ensure tables container doesn't overflow */
