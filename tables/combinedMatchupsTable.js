@@ -1,5 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH ALL FIXES
-// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH ALL FIXES
+// tables/combinedMatchupsTable.js - CLEANED AND FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -14,12 +13,12 @@ export class MatchupsTable extends BaseTable {
         this.batterMatchupsCache = new Map();
         this.bullpenMatchupsCache = new Map();
         
-        // FIXED: Reduced widths to prevent overlap
+        // Subtable configuration
         this.subtableConfig = {
-            parkFactorsContainerWidth: 480, // Reduced from 530
-            weatherContainerWidth: 480, // Reduced from 530
-            containerGap: 40, // Increased gap from 30
-            maxTotalWidth: 1000, // Reduced from 1100
+            parkFactorsContainerWidth: 480,
+            weatherContainerWidth: 480,
+            containerGap: 40,
+            maxTotalWidth: 1000,
             
             parkFactorsColumns: {
                 split: 90,
@@ -45,6 +44,112 @@ export class MatchupsTable extends BaseTable {
                 pa: 60
             }
         };
+    }
+
+    initialize() {
+        console.log('Initializing enhanced matchups table...');
+        
+        // Add loading indicator
+        const element = document.querySelector(this.elementId);
+        if (element && !element.querySelector('.loading-indicator')) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-indicator';
+            loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
+            loadingDiv.innerHTML = `
+                <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
+                <div>Loading matchups data...</div>
+                <div style="font-size: 12px; color: #666; margin-top: 10px;">Please wait while data loads...</div>
+            `;
+            element.appendChild(loadingDiv);
+            
+            // Add spinner animation if not already present
+            if (!document.querySelector('#matchups-spinner-style')) {
+                const style = document.createElement('style');
+                style.id = 'matchups-spinner-style';
+                style.textContent = `
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        const config = {
+            ...this.tableConfig,
+            columns: this.getColumns(),
+            width: "1200px",
+            maxWidth: "1200px",
+            height: "600px",
+            layout: "fitData",
+            placeholder: "Loading matchups data...",
+            headerVisible: true,
+            headerHozAlign: "center",
+            renderVertical: "basic",
+            renderHorizontal: "basic",
+            layoutColumnsOnNewData: false,
+            virtualDomBuffer: 100,
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
+            initialSort: [
+                {column: "Matchup Game ID", dir: "asc"}
+            ],
+            rowFormatter: this.createRowFormatter(),
+            dataLoaded: (data) => {
+                console.log(`✅ Matchups data successfully loaded: ${data.length} rows`);
+                data.forEach(row => {
+                    row._expanded = false;
+                    row._dataFetched = false;
+                });
+                this.matchupsData = data;
+                
+                // Remove loading indicator
+                const element = document.querySelector(this.elementId);
+                if (element) {
+                    const loadingDiv = element.querySelector('.loading-indicator');
+                    if (loadingDiv) {
+                        loadingDiv.remove();
+                    }
+                }
+            },
+            ajaxError: (error) => {
+                console.error("Error loading Matchups data:", error);
+                
+                // Update loading indicator to show error
+                const element = document.querySelector(this.elementId);
+                if (element) {
+                    const loadingDiv = element.querySelector('.loading-indicator');
+                    if (loadingDiv) {
+                        loadingDiv.innerHTML = `
+                            <div style="color: red; font-weight: bold;">Error loading matchups data</div>
+                            <div style="font-size: 12px; margin-top: 10px;">Please refresh the page or try again later.</div>
+                            <button onclick="location.reload()" style="margin-top: 10px; padding: 5px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Refresh Page</button>
+                        `;
+                    }
+                }
+            }
+        };
+
+        this.table = new Tabulator(this.elementId, config);
+        this.setupRowExpansion();
+        
+        this.table.on("tableBuilt", () => {
+            console.log("Enhanced matchups table built successfully");
+            
+            const tableElement = document.querySelector(this.elementId);
+            if (tableElement) {
+                tableElement.style.overflow = "hidden";
+                tableElement.style.maxWidth = "1200px";
+                
+                const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.style.overflowX = "hidden";
+                    tableHolder.style.maxWidth = "100%";
+                }
+            }
+        });
     }
 
     getColumns() {
@@ -151,620 +256,45 @@ export class MatchupsTable extends BaseTable {
         ];
     }
 
+    createMatchupsSubtable(container, data) {
+        const weatherData = [
+            data["Matchup Weather 1"] || "No weather data",
+            data["Matchup Weather 2"] || "",
+            data["Matchup Weather 3"] || "",
+            data["Matchup Weather 4"] || ""
+        ].filter(d => d);
 
-// Update createMatchupsSubtable to fix weather overlap:
-createMatchupsSubtable(container, data) {
-    const weatherData = [
-        data["Matchup Weather 1"] || "No weather data",
-        data["Matchup Weather 2"] || "",
-        data["Matchup Weather 3"] || "",
-        data["Matchup Weather 4"] || ""
-    ].filter(d => d); // Filter out empty strings
+        const isTeamAway = this.isTeamAway(data["Matchup Game"]);
+        const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
+        
+        let ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
+        let hasRetractableRoof = false;
+        
+        if (ballparkName.includes("(Retractable Roof)")) {
+            hasRetractableRoof = true;
+            ballparkName = ballparkName.replace("(Retractable Roof)", "").trim();
+        }
+        
+        const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
+        const totalWidth = this.subtableConfig.maxTotalWidth;
 
-    const isTeamAway = this.isTeamAway(data["Matchup Game"]);
-    const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
-    
-    let ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
-    let hasRetractableRoof = false;
-    
-    if (ballparkName.includes("(Retractable Roof)")) {
-        hasRetractableRoof = true;
-        ballparkName = ballparkName.replace("(Retractable Roof)", "").trim();
-    }
-    
-    const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
-    
-    const totalWidth = this.subtableConfig.maxTotalWidth;
+        let tableHTML = `
+            <div style="display: flex; justify-content: center; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; margin-left: auto; margin-right: auto; clear: both;">
+                <!-- Park Factors Section -->
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; min-width: ${this.subtableConfig.parkFactorsContainerWidth}px; max-width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
+                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
+                </div>
 
-    let tableHTML = `
-        <div style="display: flex; justify-content: space-between; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; overflow: visible; margin-left: auto; margin-right: auto; position: relative;">
-            <!-- Park Factors Section -->
-            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
-                <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
-            </div>
-
-            <!-- Weather Section -->
-            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
-                <div style="font-size: 12px; color: #333;">
-                    ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee;">${w}</div>`).join('')}
+                <!-- Weather Section -->
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
+                    <div style="font-size: 12px; color: #333;">
+                        ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; word-wrap: break-word;">${w}</div>`).join('')}
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-
-    // Rest of the HTML generation remains the same but use consistent column widths...
-    // Continue with the rest of the subtables
-}
-
-// Update createBatterMatchupsTable to use consistent column widths:
-createBatterMatchupsTable(data) {
-    if (data._batterMatchups && data._batterMatchups.length > 0) {
-        // ... existing setup code ...
-
-        const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
-            layout: "fitData",
-            data: tableData,
-            columns: [
-                {
-                    title: "Name", 
-                    field: "name", 
-                    width: this.subtableConfig.statTableColumns.name, 
-                    headerSort: false,
-                    formatter: function(cell) {
-                        // ... existing formatter ...
-                    }
-                },
-                {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                {title: "PA", field: "PA", width: this.subtableConfig.statTableColumns.pa, hozAlign: "center", headerSort: false},
-                {title: "H/PA", field: "H/PA", width: this.subtableConfig.statTableColumns.h_pa, hozAlign: "center", headerSort: false},
-                {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                {title: "RBI", field: "RBI", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
-            ],
-            height: false,
-            headerHeight: 30,
-            rowHeight: 28
-        });
-
-        // ... rest of the click handler ...
-    }
-}
-
-initialize() {
-        console.log('Initializing enhanced matchups table with correct formatters...');
-        
-        // Add loading indicator
-        const element = document.querySelector(this.elementId);
-        if (element && !element.querySelector('.loading-indicator')) {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'loading-indicator';
-            loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
-            loadingDiv.innerHTML = `
-                <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
-                <div>Loading matchups data...</div>
-                <div style="font-size: 12px; color: #666; margin-top: 10px;">Please wait while data loads...</div>
-            `;
-            element.appendChild(loadingDiv);
-            
-            // Add spinner animation if not already present
-            if (!document.querySelector('#matchups-spinner-style')) {
-                const style = document.createElement('style');
-                style.id = 'matchups-spinner-style';
-                style.textContent = `
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        }
-        
-        const config = {
-            ...this.tableConfig,
-            columns: this.getColumns(),
-            width: "1200px",
-            maxWidth: "1200px",
-            height: "600px",
-            layout: "fitData",
-            placeholder: "Loading matchups data...",
-            headerVisible: true,
-            headerHozAlign: "center",
-            renderVertical: "basic",
-            renderHorizontal: "basic",
-            layoutColumnsOnNewData: false,
-            virtualDomBuffer: 100,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            initialSort: [
-                {column: "Matchup Game ID", dir: "asc"}
-            ],
-            rowFormatter: this.createRowFormatter(),
-            dataLoaded: (data) => {
-                console.log(`✅ Matchups data successfully loaded: ${data.length} rows`);
-                data.forEach(row => {
-                    row._expanded = false;
-                    row._dataFetched = false;
-                });
-                this.matchupsData = data;
-                
-                // Remove loading indicator
-                const element = document.querySelector(this.elementId);
-                if (element) {
-                    const loadingDiv = element.querySelector('.loading-indicator');
-                    if (loadingDiv) {
-                        loadingDiv.remove();
-                    }
-                }
-            },
-            ajaxError: (error) => {
-                console.error("Error loading Matchups data:", error);
-                
-                // Update loading indicator to show error
-                const element = document.querySelector(this.elementId);
-                if (element) {
-                    const loadingDiv = element.querySelector('.loading-indicator');
-                    if (loadingDiv) {
-                        loadingDiv.innerHTML = `
-                            <div style="color: red; font-weight: bold;">Error loading matchups data</div>
-                            <div style="font-size: 12px; margin-top: 10px;">Please refresh the page or try again later.</div>
-                            <button onclick="location.reload()" style="margin-top: 10px; padding: 5px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Refresh Page</button>
-                        `;
-                    }
-                }
-            }
-        };
-
-        this.table = new Tabulator(this.elementId, config);
-        this.setupRowExpansion();
-        
-        this.table.on("tableBuilt", () => {
-            console.log("Enhanced matchups table built successfully");
-            
-            const tableElement = document.querySelector(this.elementId);
-            if (tableElement) {
-                tableElement.style.overflow = "hidden";
-                tableElement.style.maxWidth = "1200px";
-                
-                const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
-                if (tableHolder) {
-                    tableHolder.style.overflowX = "hidden";
-                    tableHolder.style.maxWidth = "100%";
-                }
-            }
-        });
-    }
-
-
-    // Override destroy method to properly clean up
-    destroy() {
-        // Remove any loading indicators
-        const element = document.querySelector(this.elementId);
-        if (element) {
-            const loadingDiv = element.querySelector('.loading-indicator');
-            if (loadingDiv) {
-                loadingDiv.remove();
-            }
-        }
-        
-        // Call parent destroy
-        super.destroy();
-    }
-
-    // Override setupRowExpansion to handle async data fetching and use base class state management
-    setupRowExpansion() {
-        const self = this;
-        
-        this.table.on("cellClick", async (e, cell) => {
-            if (cell.getField() === "Matchup Team") {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Don't process clicks during state restoration
-                if (self.isRestoringState) {
-                    console.log("Ignoring click during state restoration");
-                    return;
-                }
-                
-                const row = cell.getRow();
-                const data = row.getData();
-                const matchupId = data["Matchup Game ID"];
-                
-                const scrollPos = this.getTableScrollPosition();
-                
-                // Fetch data if not already fetched
-                if (!data._expanded && !data._dataFetched) {
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = '⟳';
-                        expanderIcon.style.animation = 'spin 1s linear infinite';
-                    }
-                    
-                    const matchupData = await this.fetchMatchupData(matchupId);
-                    
-                    Object.assign(data, {
-                        _parkFactors: matchupData.parkFactors,
-                        _pitcherStats: matchupData.pitcherStats,
-                        _batterMatchups: matchupData.batterMatchups,
-                        _bullpenMatchups: matchupData.bullpenMatchups,
-                        _dataFetched: true
-                    });
-                    
-                    row.update(data);
-                    
-                    if (expanderIcon) {
-                        expanderIcon.style.animation = '';
-                    }
-                }
-                
-                // Toggle expansion using the new global state system
-                data._expanded = !data._expanded;
-                
-                // Update global state using base class method
-                const rowId = self.generateRowId(data);
-                const globalState = self.getGlobalState();
-                
-                if (data._expanded) {
-                    globalState.set(rowId, {
-                        timestamp: Date.now(),
-                        data: data
-                    });
-                } else {
-                    // IMPORTANT: Remove from global state when collapsing
-                    globalState.delete(rowId);
-                }
-                
-                // Update the global state
-                self.setGlobalState(globalState);
-                
-                console.log(`Matchup row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
-                
-                row.update(data);
-                
-                requestAnimationFrame(() => {
-                    row.reformat();
-                    
-                    requestAnimationFrame(() => {
-                        this.setTableScrollPosition(scrollPos);
-                        
-                        setTimeout(() => {
-                            try {
-                                const cellElement = cell.getElement();
-                                if (cellElement) {
-                                    const expanderIcon = cellElement.querySelector('.row-expander');
-                                    if (expanderIcon) {
-                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                                    }
-                                }
-                            } catch (error) {
-                                console.error("Error updating expander icon:", error);
-                            }
-                        }, 50);
-                    });
-                });
-            }
-        });
-    }
-
-    // Add helper methods to access global state
-    getGlobalState() {
-        // Access the global state map
-        if (typeof GLOBAL_EXPANDED_STATE !== 'undefined' && GLOBAL_EXPANDED_STATE.has(this.elementId)) {
-            return GLOBAL_EXPANDED_STATE.get(this.elementId);
-        }
-        const newState = new Map();
-        if (typeof GLOBAL_EXPANDED_STATE !== 'undefined') {
-            GLOBAL_EXPANDED_STATE.set(this.elementId, newState);
-        }
-        return newState;
-    }
-    
-    setGlobalState(state) {
-        if (typeof GLOBAL_EXPANDED_STATE !== 'undefined') {
-            GLOBAL_EXPANDED_STATE.set(this.elementId, state);
-        }
-    }
-
-    // Override saveState to handle matchup-specific data
-    saveState() {
-        if (!this.table) return;
-        
-        console.log(`Saving state for ${this.elementId}`);
-        
-        // Save scroll position
-        const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-        if (tableHolder) {
-            this.lastScrollPosition = tableHolder.scrollTop;
-        }
-        
-        // Get or create global state for this table
-        const globalState = this.getGlobalState();
-        
-        // Clear and rebuild global expanded state
-        globalState.clear();
-        
-        const rows = this.table.getRows();
-        
-        rows.forEach(row => {
-            const data = row.getData();
-            if (data._expanded) {
-                const id = this.generateRowId(data);
-                globalState.set(id, {
-                    timestamp: Date.now(),
-                    data: data,
-                    dataFetched: data._dataFetched || false
-                });
-            }
-        });
-        
-        // Update global state
-        this.setGlobalState(globalState);
-        
-        console.log(`Saved ${globalState.size} expanded matchup rows`);
-    }
-
-    // Override restoreState to handle async data fetching
-    restoreState() {
-        if (!this.table) return;
-        
-        const globalState = this.getGlobalState();
-        
-        if (!globalState || globalState.size === 0) {
-            // Just restore scroll position
-            if (this.lastScrollPosition > 0) {
-                setTimeout(() => {
-                    const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                    if (tableHolder) {
-                        tableHolder.scrollTop = this.lastScrollPosition;
-                    }
-                }, 500);
-            }
-            return;
-        }
-        
-        console.log(`Restoring ${globalState.size} expanded matchup rows`);
-        
-        // Set flag to indicate we're restoring
-        this.isRestoringState = true;
-        
-        // Apply the global state with async data fetching
-        const applyStateAttempt = async (attemptNum) => {
-            if (attemptNum > 3) {
-                // Clear restoration flag after final attempt
-                this.isRestoringState = false;
-                return;
-            }
-            
-            const rows = this.table.getRows();
-            let restoredCount = 0;
-            
-            for (const row of rows) {
-                const data = row.getData();
-                const rowId = this.generateRowId(data);
-                
-                if (globalState.has(rowId)) {
-                    const savedState = globalState.get(rowId);
-                    
-                    // Fetch data if needed
-                    if (!data._dataFetched && savedState.dataFetched) {
-                        const matchupData = await this.fetchMatchupData(data["Matchup Game ID"]);
-                        Object.assign(data, {
-                            _parkFactors: matchupData.parkFactors,
-                            _pitcherStats: matchupData.pitcherStats,
-                            _batterMatchups: matchupData.batterMatchups,
-                            _bullpenMatchups: matchupData.bullpenMatchups,
-                            _dataFetched: true
-                        });
-                    }
-                    
-                    if (!data._expanded) {
-                        data._expanded = true;
-                        row.update(data);
-                        restoredCount++;
-                        
-                        // Delay reformat to ensure it happens after data update
-                        setTimeout(() => {
-                            row.reformat();
-                            
-                            // Update icon
-                            const cells = row.getCells();
-                            const teamCell = cells.find(cell => cell.getField() === "Matchup Team");
-                            if (teamCell) {
-                                const cellElement = teamCell.getElement();
-                                const expander = cellElement.querySelector('.row-expander');
-                                if (expander) {
-                                    expander.innerHTML = "−";
-                                }
-                            }
-                        }, 50 * attemptNum);
-                    }
-                }
-            }
-            
-            if (restoredCount > 0) {
-                console.log(`Restoration attempt ${attemptNum}: restored ${restoredCount} matchup rows`);
-            }
-            
-            // Try again after a delay if needed
-            if (restoredCount < globalState.size && attemptNum < 3) {
-                setTimeout(() => {
-                    applyStateAttempt(attemptNum + 1);
-                }, 300 * attemptNum);
-            } else {
-                // Clear restoration flag
-                this.isRestoringState = false;
-            }
-        };
-        
-        // Start restoration attempts
-        setTimeout(() => {
-            applyStateAttempt(1);
-        }, 100);
-        
-        // Restore scroll position
-        if (this.lastScrollPosition > 0) {
-            setTimeout(() => {
-                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                if (tableHolder) {
-                    tableHolder.scrollTop = this.lastScrollPosition;
-                }
-            }, 400);
-        }
-    }
-
-   getColumns() {
-    return [
-        {
-            title: "ID",
-            field: "Matchup Game ID",
-            visible: false,
-            sorter: "number",
-            resizable: false // Disable resizing
-        },
-        {
-            title: "Team", 
-            field: "Matchup Team",
-            width: 340,
-            headerFilter: true,
-            headerFilterPlaceholder: "Search teams...",
-            sorter: "string",
-            resizable: false, // DISABLE RESIZING
-            formatter: (cell, formatterParams, onRendered) => {
-                const value = cell.getValue();
-                const row = cell.getRow();
-                const expanded = row.getData()._expanded || false;
-                
-                // FIXED: Show full team name, not abbreviation
-                const teamName = value; // Use the full team name as-is
-                
-                onRendered(function() {
-                    try {
-                        const cellElement = cell.getElement();
-                        if (cellElement) {
-                            cellElement.innerHTML = '';
-                            
-                            const container = document.createElement("div");
-                            container.style.display = "flex";
-                            container.style.alignItems = "center";
-                            container.style.cursor = "pointer";
-                            
-                            const expander = document.createElement("span");
-                            expander.innerHTML = expanded ? "−" : "+";
-                            expander.style.marginRight = "8px";
-                            expander.style.fontWeight = "bold";
-                            expander.style.color = "#007bff";
-                            expander.style.fontSize = "14px";
-                            expander.style.minWidth = "12px";
-                            expander.classList.add("row-expander");
-                            
-                            const textSpan = document.createElement("span");
-                            textSpan.textContent = teamName; // Full team name
-                            
-                            container.appendChild(expander);
-                            container.appendChild(textSpan);
-                            
-                            cellElement.appendChild(container);
-                            cellElement.style.textAlign = "left";
-                        }
-                    } catch (error) {
-                        console.error("Error in team formatter:", error);
-                    }
-                });
-                
-                return (expanded ? "− " : "+ ") + teamName; // Full team name
-            }
-        },
-        {
-            title: "Game", 
-            field: "Matchup Game",
-            width: 340,
-            headerFilter: createCustomMultiSelect,
-            headerSort: false,
-            resizable: false // DISABLE RESIZING
-        },
-        {
-            title: "Spread", 
-            field: "Matchup Spread",
-            width: 110,
-            hozAlign: "center",
-            headerSort: false,
-            resizable: false // DISABLE RESIZING
-        },
-        {
-            title: "Total", 
-            field: "Matchup Total",
-            width: 110,
-            hozAlign: "center",
-            headerSort: false,
-            resizable: false // DISABLE RESIZING
-        },
-        {
-            title: "Lineup Status",
-            field: "Matchup Lineup Status",
-            width: 250,
-            hozAlign: "center",
-            headerFilter: createCustomMultiSelect,
-            headerSort: false,
-            resizable: false, // DISABLE RESIZING
-            formatter: (cell) => {
-                const value = cell.getValue();
-                if (!value) return "";
-                
-                const color = value.toLowerCase().includes('confirmed') ? '#28a745' : '#6c757d';
-                return `<span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${value}</span>`;
-            }
-        }
-    ];
-
-createMatchupsSubtable(container, data) {
-    const weatherData = [
-        data["Matchup Weather 1"] || "No weather data",
-        data["Matchup Weather 2"] || "",
-        data["Matchup Weather 3"] || "",
-        data["Matchup Weather 4"] || ""
-    ].filter(d => d);
-
-    const isTeamAway = this.isTeamAway(data["Matchup Game"]);
-    const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
-    
-    let ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
-    let hasRetractableRoof = false;
-    
-    if (ballparkName.includes("(Retractable Roof)")) {
-        hasRetractableRoof = true;
-        ballparkName = ballparkName.replace("(Retractable Roof)", "").trim();
-    }
-    
-    const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
-    
-    // FIXED: Use proper widths and add clear:both to prevent overlap
-    let tableHTML = `
-        <div style="display: flex; justify-content: center; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${this.subtableConfig.maxTotalWidth}px; max-width: 100%; margin-left: auto; margin-right: auto; clear: both;">
-            <!-- Park Factors Section -->
-            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; min-width: ${this.subtableConfig.parkFactorsContainerWidth}px; max-width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
-                <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
-            </div>
-
-            <!-- Weather Section -->
-            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
-                <div style="font-size: 12px; color: #333;">
-                    ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; word-wrap: break-word;">${w}</div>`).join('')}
-                </div>
-            </div>
-        </div>
-    `;
+        `;
 
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             tableHTML += `
@@ -1102,17 +632,17 @@ createMatchupsSubtable(container, data) {
                         }
                     },
                     {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                    {title: "PA", field: "PA", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "H/PA", field: "H/PA", width: 60, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "RBI", field: "RBI", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: 50, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: 70, hozAlign: "center", headerSort: false}
+                    {title: "PA", field: "PA", width: this.subtableConfig.statTableColumns.pa, hozAlign: "center", headerSort: false},
+                    {title: "H/PA", field: "H/PA", width: this.subtableConfig.statTableColumns.h_pa, hozAlign: "center", headerSort: false},
+                    {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "RBI", field: "RBI", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
+                    {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                    {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
                 ],
                 height: false,
                 headerHeight: 30,
@@ -1348,6 +878,99 @@ createMatchupsSubtable(container, data) {
         }
     }
 
+    // Override setupRowExpansion to handle async data fetching
+    setupRowExpansion() {
+        const self = this;
+        
+        this.table.on("cellClick", async (e, cell) => {
+            if (cell.getField() === "Matchup Team") {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (self.isRestoringState) {
+                    console.log("Ignoring click during state restoration");
+                    return;
+                }
+                
+                const row = cell.getRow();
+                const data = row.getData();
+                const matchupId = data["Matchup Game ID"];
+                
+                const scrollPos = this.getTableScrollPosition();
+                
+                // Fetch data if not already fetched
+                if (!data._expanded && !data._dataFetched) {
+                    const cellElement = cell.getElement();
+                    const expanderIcon = cellElement.querySelector('.row-expander');
+                    if (expanderIcon) {
+                        expanderIcon.innerHTML = '⟳';
+                        expanderIcon.style.animation = 'spin 1s linear infinite';
+                    }
+                    
+                    const matchupData = await this.fetchMatchupData(matchupId);
+                    
+                    Object.assign(data, {
+                        _parkFactors: matchupData.parkFactors,
+                        _pitcherStats: matchupData.pitcherStats,
+                        _batterMatchups: matchupData.batterMatchups,
+                        _bullpenMatchups: matchupData.bullpenMatchups,
+                        _dataFetched: true
+                    });
+                    
+                    row.update(data);
+                    
+                    if (expanderIcon) {
+                        expanderIcon.style.animation = '';
+                    }
+                }
+                
+                // Toggle expansion
+                data._expanded = !data._expanded;
+                
+                // Update global state
+                const rowId = self.generateRowId(data);
+                const globalState = self.getGlobalState();
+                
+                if (data._expanded) {
+                    globalState.set(rowId, {
+                        timestamp: Date.now(),
+                        data: data
+                    });
+                } else {
+                    globalState.delete(rowId);
+                }
+                
+                self.setGlobalState(globalState);
+                
+                console.log(`Matchup row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}.`);
+                
+                row.update(data);
+                
+                requestAnimationFrame(() => {
+                    row.reformat();
+                    
+                    requestAnimationFrame(() => {
+                        this.setTableScrollPosition(scrollPos);
+                        
+                        setTimeout(() => {
+                            try {
+                                const cellElement = cell.getElement();
+                                if (cellElement) {
+                                    const expanderIcon = cellElement.querySelector('.row-expander');
+                                    if (expanderIcon) {
+                                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
+                            }
+                        }, 50);
+                    });
+                });
+            }
+        });
+    }
+
     // Helper methods
     isTeamAway(matchupGame) {
         return matchupGame.includes(" @ ");
@@ -1480,10 +1103,6 @@ createMatchupsSubtable(container, data) {
             tableHolder.scrollTop = position;
         }
     }
-    
-    getTabulator() {
-        return this.table;
-    }
 
     createRowFormatter() {
         return (row) => {
@@ -1517,6 +1136,22 @@ createMatchupsSubtable(container, data) {
         };
     }
 
+    // Override destroy method to properly clean up
+    destroy() {
+        // Remove any loading indicators
+        const element = document.querySelector(this.elementId);
+        if (element) {
+            const loadingDiv = element.querySelector('.loading-indicator');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+        
+        // Call parent destroy
+        super.destroy();
+    }
+
+    // Not used for matchups table but required by parent class
     createSubtable1(container, data) {
         // Not used for matchups table
     }
