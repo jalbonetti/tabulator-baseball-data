@@ -200,28 +200,28 @@ export class BaseTable {
     }
 
     getBaseConfig() {
-        const self = this;
-        const config = {
-            layout: "fitColumns",
-            responsiveLayout: false,
-            persistence: false,
-            paginationSize: false,
-            height: "1000px",
-            minWidth: 1000,
-            resizableColumns: false,
-            resizableRows: false,
-            movableColumns: false,
-            placeholder: "Loading data...",
-            virtualDom: true,
-            virtualDomBuffer: 300,
-            renderVertical: "virtual",
-            renderHorizontal: "virtual",
-            progressiveRender: true,
-            progressiveRenderSize: 20,
-            progressiveRenderMargin: 100,
-            blockHozScrollKeyboard: true,
-            layoutColumnsOnNewData: false,
-            columnVertAlign: "center",
+    const self = this;
+    const config = {
+        layout: "fitColumns",
+        responsiveLayout: false,
+        persistence: false,
+        paginationSize: false,
+        height: "600px", // Changed from 1000px to standard 600px for vertical scroll
+        minWidth: 1000,
+        resizableColumns: false, // DISABLE COLUMN RESIZING GLOBALLY
+        resizableRows: false,
+        movableColumns: false,
+        placeholder: "Loading data...",
+        virtualDom: true,
+        virtualDomBuffer: 300,
+        renderVertical: "virtual",
+        renderHorizontal: "virtual",
+        progressiveRender: true,
+        progressiveRenderSize: 20,
+        progressiveRenderMargin: 100,
+        blockHozScrollKeyboard: true,
+        layoutColumnsOnNewData: false,
+        columnVertAlign: "center",
             
             dataProcessing: () => {
                 console.log(`Data processing for ${self.elementId}`);
