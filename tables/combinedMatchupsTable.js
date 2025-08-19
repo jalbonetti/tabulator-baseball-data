@@ -1,118 +1,156 @@
 // tables/combinedMatchupsTable.js - COMPLETE VERSION WITH ALL FIXES
+// tables/combinedMatchupsTable.js - COMPLETE VERSION WITH ALL FIXES
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { formatRatio, formatDecimal } from '../shared/utils.js';
 
 export class MatchupsTable extends BaseTable {
-// tables/combinedMatchupsTable.js - FIXES for weather overlap and column consistency
-
-// In the constructor, update the subtableConfig:
-constructor(elementId) {
-    super(elementId, 'ModMatchupsData');
-    this.matchupsData = [];
-    this.parkFactorsCache = new Map();
-    this.pitcherStatsCache = new Map();
-    this.batterMatchupsCache = new Map();
-    this.bullpenMatchupsCache = new Map();
-    
-    // FIXED: Reduced widths to prevent overlap
-    this.subtableConfig = {
-        parkFactorsContainerWidth: 480, // Reduced from 530
-        weatherContainerWidth: 480, // Reduced from 530
-        containerGap: 40, // Increased gap from 30
-        maxTotalWidth: 1000, // Reduced from 1100
+    constructor(elementId) {
+        super(elementId, 'ModMatchupsData');
+        this.matchupsData = [];
+        this.parkFactorsCache = new Map();
+        this.pitcherStatsCache = new Map();
+        this.batterMatchupsCache = new Map();
+        this.bullpenMatchupsCache = new Map();
         
-        parkFactorsColumns: {
-            split: 90,
-            H: 50,
-            "1B": 50,
-            "2B": 50,
-            "3B": 50,
-            HR: 50,
-            R: 50,
-            BB: 50,
-            SO: 50
-        },
-        
-        statTableColumns: {
-            name: 280,
-            split: 160,
-            tbf_pa: 60,
-            ratio: 70,
-            stat: 50,
-            era_rbi: 60,
-            so: 60,
-            h_pa: 70,
-            pa: 60
-        }
-    };
-}
-
-// Update getColumns to use full team names:
-getColumns() {
-    return [
-        {
-            title: "ID",
-            field: "Matchup Game ID",
-            visible: false,
-            sorter: "number"
-        },
-        {
-            title: "Team", 
-            field: "Matchup Team",
-            width: 340,
-            headerFilter: true,
-            headerFilterPlaceholder: "Search teams...",
-            sorter: "string",
-            formatter: (cell, formatterParams, onRendered) => {
-                const value = cell.getValue();
-                const row = cell.getRow();
-                const expanded = row.getData()._expanded || false;
-                
-                // Use full team name, not abbreviation
-                const teamName = value; // Keep full name
-                
-                onRendered(function() {
-                    try {
-                        const cellElement = cell.getElement();
-                        if (cellElement) {
-                            cellElement.innerHTML = '';
-                            
-                            const container = document.createElement("div");
-                            container.style.display = "flex";
-                            container.style.alignItems = "center";
-                            container.style.cursor = "pointer";
-                            
-                            const expander = document.createElement("span");
-                            expander.innerHTML = expanded ? "−" : "+";
-                            expander.style.marginRight = "8px";
-                            expander.style.fontWeight = "bold";
-                            expander.style.color = "#007bff";
-                            expander.style.fontSize = "14px";
-                            expander.style.minWidth = "12px";
-                            expander.classList.add("row-expander");
-                            
-                            const textSpan = document.createElement("span");
-                            textSpan.textContent = teamName;
-                            
-                            container.appendChild(expander);
-                            container.appendChild(textSpan);
-                            
-                            cellElement.appendChild(container);
-                            cellElement.style.textAlign = "left";
-                        }
-                    } catch (error) {
-                        console.error("Error in team formatter:", error);
-                    }
-                });
-                
-                return (expanded ? "− " : "+ ") + teamName;
+        // FIXED: Reduced widths to prevent overlap
+        this.subtableConfig = {
+            parkFactorsContainerWidth: 480, // Reduced from 530
+            weatherContainerWidth: 480, // Reduced from 530
+            containerGap: 40, // Increased gap from 30
+            maxTotalWidth: 1000, // Reduced from 1100
+            
+            parkFactorsColumns: {
+                split: 90,
+                H: 50,
+                "1B": 50,
+                "2B": 50,
+                "3B": 50,
+                HR: 50,
+                R: 50,
+                BB: 50,
+                SO: 50
+            },
+            
+            statTableColumns: {
+                name: 280,
+                split: 160,
+                tbf_pa: 60,
+                ratio: 70,
+                stat: 50,
+                era_rbi: 60,
+                so: 60,
+                h_pa: 70,
+                pa: 60
             }
-        },
-        // Rest of columns remain the same...
-    ];
-}
+        };
+    }
+
+    getColumns() {
+        return [
+            {
+                title: "ID",
+                field: "Matchup Game ID",
+                visible: false,
+                sorter: "number",
+                resizable: false
+            },
+            {
+                title: "Team", 
+                field: "Matchup Team",
+                width: 340,
+                headerFilter: true,
+                headerFilterPlaceholder: "Search teams...",
+                sorter: "string",
+                resizable: false,
+                formatter: (cell, formatterParams, onRendered) => {
+                    const value = cell.getValue();
+                    const row = cell.getRow();
+                    const expanded = row.getData()._expanded || false;
+                    
+                    const teamName = value; // Keep full team name
+                    
+                    onRendered(function() {
+                        try {
+                            const cellElement = cell.getElement();
+                            if (cellElement) {
+                                cellElement.innerHTML = '';
+                                
+                                const container = document.createElement("div");
+                                container.style.display = "flex";
+                                container.style.alignItems = "center";
+                                container.style.cursor = "pointer";
+                                
+                                const expander = document.createElement("span");
+                                expander.innerHTML = expanded ? "−" : "+";
+                                expander.style.marginRight = "8px";
+                                expander.style.fontWeight = "bold";
+                                expander.style.color = "#007bff";
+                                expander.style.fontSize = "14px";
+                                expander.style.minWidth = "12px";
+                                expander.classList.add("row-expander");
+                                
+                                const textSpan = document.createElement("span");
+                                textSpan.textContent = teamName;
+                                
+                                container.appendChild(expander);
+                                container.appendChild(textSpan);
+                                
+                                cellElement.appendChild(container);
+                                cellElement.style.textAlign = "left";
+                            }
+                        } catch (error) {
+                            console.error("Error in team formatter:", error);
+                        }
+                    });
+                    
+                    return (expanded ? "− " : "+ ") + teamName;
+                }
+            },
+            {
+                title: "Game", 
+                field: "Matchup Game",
+                width: 340,
+                headerFilter: createCustomMultiSelect,
+                headerSort: false,
+                resizable: false
+            },
+            {
+                title: "Spread", 
+                field: "Matchup Spread",
+                width: 110,
+                hozAlign: "center",
+                headerSort: false,
+                resizable: false
+            },
+            {
+                title: "Total", 
+                field: "Matchup Total",
+                width: 110,
+                hozAlign: "center",
+                headerSort: false,
+                resizable: false
+            },
+            {
+                title: "Lineup Status",
+                field: "Matchup Lineup Status",
+                width: 250,
+                hozAlign: "center",
+                headerFilter: createCustomMultiSelect,
+                headerSort: false,
+                resizable: false,
+                formatter: (cell) => {
+                    const value = cell.getValue();
+                    if (!value) return "";
+                    
+                    const color = value.toLowerCase().includes('confirmed') ? '#28a745' : '#6c757d';
+                    return `<span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${value}</span>`;
+                }
+            }
+        ];
+    }
+
 
 // Update createMatchupsSubtable to fix weather overlap:
 createMatchupsSubtable(container, data) {
@@ -200,7 +238,7 @@ createBatterMatchupsTable(data) {
     }
 }
 
-    initialize() {
+initialize() {
         console.log('Initializing enhanced matchups table with correct formatters...');
         
         // Add loading indicator
@@ -244,10 +282,9 @@ createBatterMatchupsTable(data) {
             renderHorizontal: "basic",
             layoutColumnsOnNewData: false,
             virtualDomBuffer: 100,
-            resizableColumns: false, // DISABLE ALL COLUMN RESIZING
+            resizableColumns: false,
             resizableRows: false,
             movableColumns: false,
-
             initialSort: [
                 {column: "Matchup Game ID", dir: "asc"}
             ],
@@ -284,33 +321,6 @@ createBatterMatchupsTable(data) {
                         `;
                     }
                 }
-            },
-            renderStarted: () => {
-                // Show loading indicator when rendering starts
-                const element = document.querySelector(this.elementId);
-                if (element) {
-                    let loadingDiv = element.querySelector('.loading-indicator');
-                    if (!loadingDiv && !this.dataLoaded) {
-                        loadingDiv = document.createElement('div');
-                        loadingDiv.className = 'loading-indicator';
-                        loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center;';
-                        loadingDiv.innerHTML = `
-                            <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
-                            <div>Loading matchups data...</div>
-                        `;
-                        element.appendChild(loadingDiv);
-                    }
-                }
-            },
-            renderComplete: () => {
-                // Remove loading indicator when rendering is complete
-                const element = document.querySelector(this.elementId);
-                if (element) {
-                    const loadingDiv = element.querySelector('.loading-indicator');
-                    if (loadingDiv && this.dataLoaded) {
-                        loadingDiv.remove();
-                    }
-                }
             }
         };
 
@@ -333,6 +343,7 @@ createBatterMatchupsTable(data) {
             }
         });
     }
+
 
     // Override destroy method to properly clean up
     destroy() {
