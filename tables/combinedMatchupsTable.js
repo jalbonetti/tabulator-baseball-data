@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - CLEANED AND FIXED VERSION
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH PROPER CONTAINER SIZING
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -13,35 +13,35 @@ export class MatchupsTable extends BaseTable {
         this.batterMatchupsCache = new Map();
         this.bullpenMatchupsCache = new Map();
         
-        // Subtable configuration
+        // FIXED: Restored proper container sizes and column widths
         this.subtableConfig = {
-            parkFactorsContainerWidth: 480,
-            weatherContainerWidth: 480,
-            containerGap: 40,
-            maxTotalWidth: 1000,
+            parkFactorsContainerWidth: 550,  // Increased from 480
+            weatherContainerWidth: 550,      // Increased from 480
+            containerGap: 20,                 // Reduced gap to fit better
+            maxTotalWidth: 1120,              // Increased to accommodate larger containers
             
             parkFactorsColumns: {
-                split: 90,
-                H: 50,
-                "1B": 50,
-                "2B": 50,
-                "3B": 50,
-                HR: 50,
-                R: 50,
-                BB: 50,
-                SO: 50
+                split: 100,  // Increased from 90
+                H: 55,       // Increased from 50
+                "1B": 55,    // Increased from 50
+                "2B": 55,    // Increased from 50
+                "3B": 55,    // Increased from 50
+                HR: 55,      // Increased from 50
+                R: 55,       // Increased from 50
+                BB: 55,      // Increased from 50
+                SO: 55       // Increased from 50
             },
             
             statTableColumns: {
-                name: 280,
-                split: 160,
-                tbf_pa: 60,
-                ratio: 70,
-                stat: 50,
-                era_rbi: 60,
-                so: 60,
-                h_pa: 70,
-                pa: 60
+                name: 300,      // Increased from 280
+                split: 180,     // Increased from 160
+                tbf_pa: 70,     // Increased from 60
+                ratio: 80,      // Increased from 70
+                stat: 60,       // Increased from 50
+                era_rbi: 70,    // Increased from 60
+                so: 70,         // Increased from 60
+                h_pa: 80,       // Increased from 70
+                pa: 70          // Increased from 60
             }
         };
     }
@@ -281,13 +281,13 @@ export class MatchupsTable extends BaseTable {
         let tableHTML = `
             <div style="display: flex; justify-content: center; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; margin-left: auto; margin-right: auto; clear: both;">
                 <!-- Park Factors Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; min-width: ${this.subtableConfig.parkFactorsContainerWidth}px; max-width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; min-width: ${this.subtableConfig.parkFactorsContainerWidth}px; max-width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
                     <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
 
                 <!-- Weather Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
                     <div style="font-size: 12px; color: #333;">
                         ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; word-wrap: break-word;">${w}</div>`).join('')}
@@ -346,6 +346,7 @@ export class MatchupsTable extends BaseTable {
                 return order[a["Park Factor Split ID"]] - order[b["Park Factor Split ID"]];
             });
 
+            // Calculate the total width needed for columns
             const totalColumnsWidth = Object.values(this.subtableConfig.parkFactorsColumns)
                 .reduce((sum, width) => sum + width, 0);
 
@@ -361,9 +362,11 @@ export class MatchupsTable extends BaseTable {
                 {title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, hozAlign: "center", headerSort: false}
             ];
 
+            // FIXED: Use fitColumns layout to prevent overflow
             new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitData",
-                width: totalColumnsWidth,
+                layout: "fitColumns",  // Changed from "fitData" to ensure it fits within container
+                width: "100%",         // Use percentage width instead of fixed
+                maxWidth: this.subtableConfig.parkFactorsContainerWidth - 20, // Account for padding
                 data: sortedParkFactors.map(pf => ({
                     split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
                     H: pf["Park Factor H"],
@@ -429,7 +432,9 @@ export class MatchupsTable extends BaseTable {
                 }];
 
                 const pitcherTable = new Tabulator(`#pitcher-stats-subtable-${data["Matchup Game ID"]}`, {
-                    layout: "fitData",
+                    layout: "fitColumns",  // Use fitColumns to prevent overflow
+                    width: "100%",
+                    maxWidth: this.subtableConfig.maxTotalWidth,
                     data: tableData,
                     columns: [
                         {
@@ -609,7 +614,9 @@ export class MatchupsTable extends BaseTable {
                 });
 
             const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitData",
+                layout: "fitColumns",  // Use fitColumns to prevent overflow
+                width: "100%",
+                maxWidth: this.subtableConfig.maxTotalWidth,
                 data: tableData,
                 columns: [
                     {
@@ -774,7 +781,9 @@ export class MatchupsTable extends BaseTable {
             });
 
             const bullpenTable = new Tabulator(`#bullpen-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitData",
+                layout: "fitColumns",  // Use fitColumns to prevent overflow
+                width: "100%",
+                maxWidth: this.subtableConfig.maxTotalWidth,
                 data: tableData,
                 columns: [
                     {
