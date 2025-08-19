@@ -5,46 +5,201 @@ import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
 import { formatRatio, formatDecimal } from '../shared/utils.js';
 
 export class MatchupsTable extends BaseTable {
-    constructor(elementId) {
-        super(elementId, 'ModMatchupsData');
-        this.matchupsData = [];
-        this.parkFactorsCache = new Map();
-        this.pitcherStatsCache = new Map();
-        this.batterMatchupsCache = new Map();
-        this.bullpenMatchupsCache = new Map();
+// tables/combinedMatchupsTable.js - FIXES for weather overlap and column consistency
+
+// In the constructor, update the subtableConfig:
+constructor(elementId) {
+    super(elementId, 'ModMatchupsData');
+    this.matchupsData = [];
+    this.parkFactorsCache = new Map();
+    this.pitcherStatsCache = new Map();
+    this.batterMatchupsCache = new Map();
+    this.bullpenMatchupsCache = new Map();
+    
+    // Fixed configuration to prevent overlap
+    this.subtableConfig = {
+        parkFactorsContainerWidth: 530,
+        weatherContainerWidth: 530,
+        containerGap: 30, // Increased gap
+        maxTotalWidth: 1100, // Slightly reduced for better fit
         
-        // Fixed configuration to prevent overflow
-        this.subtableConfig = {
-            parkFactorsContainerWidth: 550,
-            weatherContainerWidth: 550,
-            containerGap: 20,
-            maxTotalWidth: 1120,
-            
-            parkFactorsColumns: {
-                split: 100,
-                H: 55,
-                "1B": 55,
-                "2B": 55,
-                "3B": 55,
-                HR: 55,
-                R: 55,
-                BB: 55,
-                SO: 55
-            },
-            
-            weatherAsTable: false,
-            
-            statTableColumns: {
-                name: 200,
-                split: 140,
-                tbf_pa: 60,
-                ratio: 70,
-                stat: 50,
-                era_rbi: 60,
-                so: 60
+        parkFactorsColumns: {
+            split: 100,
+            H: 55,
+            "1B": 55,
+            "2B": 55,
+            "3B": 55,
+            HR: 55,
+            R: 55,
+            BB: 55,
+            SO: 55
+        },
+        
+        // CONSISTENT column widths for all stat tables
+        statTableColumns: {
+            name: 280, // Increased for full names
+            split: 160,
+            tbf_pa: 60,
+            ratio: 70,
+            stat: 50,
+            era_rbi: 60,
+            so: 60,
+            h_pa: 70,
+            pa: 60
+        }
+    };
+}
+
+// Update getColumns to use full team names:
+getColumns() {
+    return [
+        {
+            title: "ID",
+            field: "Matchup Game ID",
+            visible: false,
+            sorter: "number"
+        },
+        {
+            title: "Team", 
+            field: "Matchup Team",
+            width: 340,
+            headerFilter: true,
+            headerFilterPlaceholder: "Search teams...",
+            sorter: "string",
+            formatter: (cell, formatterParams, onRendered) => {
+                const value = cell.getValue();
+                const row = cell.getRow();
+                const expanded = row.getData()._expanded || false;
+                
+                // Use full team name, not abbreviation
+                const teamName = value; // Keep full name
+                
+                onRendered(function() {
+                    try {
+                        const cellElement = cell.getElement();
+                        if (cellElement) {
+                            cellElement.innerHTML = '';
+                            
+                            const container = document.createElement("div");
+                            container.style.display = "flex";
+                            container.style.alignItems = "center";
+                            container.style.cursor = "pointer";
+                            
+                            const expander = document.createElement("span");
+                            expander.innerHTML = expanded ? "−" : "+";
+                            expander.style.marginRight = "8px";
+                            expander.style.fontWeight = "bold";
+                            expander.style.color = "#007bff";
+                            expander.style.fontSize = "14px";
+                            expander.style.minWidth = "12px";
+                            expander.classList.add("row-expander");
+                            
+                            const textSpan = document.createElement("span");
+                            textSpan.textContent = teamName;
+                            
+                            container.appendChild(expander);
+                            container.appendChild(textSpan);
+                            
+                            cellElement.appendChild(container);
+                            cellElement.style.textAlign = "left";
+                        }
+                    } catch (error) {
+                        console.error("Error in team formatter:", error);
+                    }
+                });
+                
+                return (expanded ? "− " : "+ ") + teamName;
             }
-        };
+        },
+        // Rest of columns remain the same...
+    ];
+}
+
+// Update createMatchupsSubtable to fix weather overlap:
+createMatchupsSubtable(container, data) {
+    const weatherData = [
+        data["Matchup Weather 1"] || "No weather data",
+        data["Matchup Weather 2"] || "",
+        data["Matchup Weather 3"] || "",
+        data["Matchup Weather 4"] || ""
+    ].filter(d => d); // Filter out empty strings
+
+    const isTeamAway = this.isTeamAway(data["Matchup Game"]);
+    const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
+    
+    let ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
+    let hasRetractableRoof = false;
+    
+    if (ballparkName.includes("(Retractable Roof)")) {
+        hasRetractableRoof = true;
+        ballparkName = ballparkName.replace("(Retractable Roof)", "").trim();
     }
+    
+    const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
+    
+    const totalWidth = this.subtableConfig.maxTotalWidth;
+
+    let tableHTML = `
+        <div style="display: flex; justify-content: space-between; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; overflow: visible; margin-left: auto; margin-right: auto; position: relative;">
+            <!-- Park Factors Section -->
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
+                <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
+            </div>
+
+            <!-- Weather Section -->
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
+                <div style="font-size: 12px; color: #333;">
+                    ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee;">${w}</div>`).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Rest of the HTML generation remains the same but use consistent column widths...
+    // Continue with the rest of the subtables
+}
+
+// Update createBatterMatchupsTable to use consistent column widths:
+createBatterMatchupsTable(data) {
+    if (data._batterMatchups && data._batterMatchups.length > 0) {
+        // ... existing setup code ...
+
+        const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
+            layout: "fitData",
+            data: tableData,
+            columns: [
+                {
+                    title: "Name", 
+                    field: "name", 
+                    width: this.subtableConfig.statTableColumns.name, 
+                    headerSort: false,
+                    formatter: function(cell) {
+                        // ... existing formatter ...
+                    }
+                },
+                {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
+                {title: "PA", field: "PA", width: this.subtableConfig.statTableColumns.pa, hozAlign: "center", headerSort: false},
+                {title: "H/PA", field: "H/PA", width: this.subtableConfig.statTableColumns.h_pa, hozAlign: "center", headerSort: false},
+                {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                {title: "RBI", field: "RBI", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
+                {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
+            ],
+            height: false,
+            headerHeight: 30,
+            rowHeight: 28
+        });
+
+        // ... rest of the click handler ...
+    }
+}
 
     initialize() {
         console.log('Initializing enhanced matchups table with correct formatters...');
