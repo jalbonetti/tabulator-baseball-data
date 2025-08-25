@@ -34,7 +34,7 @@ export class MatchupsTable extends BaseTable {
             
             statTableColumns: {
                 name: 300,      // Increased from 280
-                split: 170,     // Increased from 160
+                split: 160,     // Increased from 160
                 tbf_pa: 60,     // Increased from 60
                 ratio: 60,      // Increased from 70
                 stat: 60,       // Increased from 50
