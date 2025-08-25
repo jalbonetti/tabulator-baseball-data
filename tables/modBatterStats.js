@@ -92,7 +92,7 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 120, 
+                    width: 100, 
                     minWidth: 80,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
@@ -103,7 +103,7 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Stat", 
                     field: "Batter Stat Type", 
-                    width: 120, 
+                    width: 100, 
                     minWidth: 80,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
