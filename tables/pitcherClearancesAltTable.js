@@ -156,7 +156,7 @@ export class PitcherClearancesAltTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Pitcher Team", 
-                    width: 120,
+                    width: 100,
                     minWidth: 80,
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
@@ -171,8 +171,8 @@ export class PitcherClearancesAltTable extends BaseTable {
                 {
                     title: "Prop", 
                     field: "Pitcher Prop Type", 
-                    width: 160, 
-                    minWidth: 120,
+                    width: 100, 
+                    minWidth: 80,
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
@@ -184,7 +184,7 @@ export class PitcherClearancesAltTable extends BaseTable {
                 {
                     title: "Value", 
                     field: "Pitcher Prop Value", 
-                    width: 120, 
+                    width: 100, 
                     minWidth: 80,
                     sorter: "number", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
@@ -411,7 +411,7 @@ export class PitcherClearancesAltTable extends BaseTable {
                 handedness: data["Handedness"] || "-"
             }],
             columns: [
-                {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 200},
+                {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 600},
                 {title: "Location", field: "location", headerSort: false, width: 100},
                 {title: "Matchup", field: "matchup", headerSort: false, width: 250},
                 {title: "Handedness", field: "handedness", headerSort: false, width: 100}
