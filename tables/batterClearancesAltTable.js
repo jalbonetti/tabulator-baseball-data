@@ -184,8 +184,8 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Prop", 
                     field: "Batter Prop Type", 
-                    width: 160, 
-                    minWidth: 120,
+                    width: 100, 
+                    minWidth: 80,
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
@@ -197,7 +197,7 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Value", 
                     field: "Batter Prop Value", 
-                    width: 120, 
+                    width: 100, 
                     minWidth: 80,
                     sorter: "number", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
