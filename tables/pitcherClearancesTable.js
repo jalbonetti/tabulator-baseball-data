@@ -72,8 +72,8 @@ export class PitcherClearancesTable extends BaseTable {
                 {
                     title: "Prop", 
                     field: "Pitcher Prop Type", 
-                    width: 200, 
-                    minWidth: 140,
+                    width: 160, 
+                    minWidth: 120,
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
@@ -85,8 +85,8 @@ export class PitcherClearancesTable extends BaseTable {
                 {
                     title: "Value", 
                     field: "Pitcher Prop Value", 
-                    width: 200, 
-                    minWidth: 140,
+                    width: 120, 
+                    minWidth: 80,
                     sorter: "number", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
                         return createCustomMultiSelect(cell, onRendered, success, cancel, {
