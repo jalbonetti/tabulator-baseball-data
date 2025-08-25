@@ -92,8 +92,8 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Pitcher Team", 
-                    width: 200, 
-                    minWidth: 150,
+                    width: 120, 
+                    minWidth: 80,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false
@@ -103,8 +103,8 @@ export class ModPitcherStatsTable extends BaseTable {
                 {
                     title: "Stat", 
                     field: "Pitcher Stat Type", 
-                    width: 160, 
-                    minWidth: 100,
+                    width: 12, 
+                    minWidth: 80,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false
