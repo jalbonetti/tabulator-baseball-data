@@ -169,7 +169,7 @@ export class BatterClearancesAltTable extends BaseTable {
                 {
                     title: "Team", 
                     field: "Batter Team", 
-                    width: 120,
+                    width: 100,
                     minWidth: 80,
                     sorter: "string", 
                     headerFilter: (cell, onRendered, success, cancel, editorParams) => {
