@@ -21,7 +21,7 @@ export class MatchupsTable extends BaseTable {
             maxTotalWidth: 1120,              // Increased to accommodate larger containers
             
             parkFactorsColumns: {
-                split: 100,  // Increased from 90
+                split: 90,  // Increased from 90
                 H: 55,       // Increased from 50
                 "1B": 55,    // Increased from 50
                 "2B": 55,    // Increased from 50
@@ -35,13 +35,13 @@ export class MatchupsTable extends BaseTable {
             statTableColumns: {
                 name: 300,      // Increased from 280
                 split: 180,     // Increased from 160
-                tbf_pa: 70,     // Increased from 60
-                ratio: 80,      // Increased from 70
+                tbf_pa: 60,     // Increased from 60
+                ratio: 60,      // Increased from 70
                 stat: 60,       // Increased from 50
-                era_rbi: 70,    // Increased from 60
-                so: 70,         // Increased from 60
-                h_pa: 80,       // Increased from 70
-                pa: 70          // Increased from 60
+                era_rbi: 60,    // Increased from 60
+                so: 60,         // Increased from 60
+                h_pa: 60,       // Increased from 70
+                pa: 60          // Increased from 60
             }
         };
     }
