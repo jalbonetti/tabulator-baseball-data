@@ -93,7 +93,7 @@ export class ModBatterStatsTable extends BaseTable {
                     title: "Team", 
                     field: "Batter Team", 
                     width: 100, 
-                    minWidth: 80,
+                    minWidth: 60,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false
@@ -112,8 +112,8 @@ export class ModBatterStatsTable extends BaseTable {
                 {
                     title: "Split", 
                     field: "Batter Prop Split ID", 
-                    width: 220, 
-                    minWidth: 180,
+                    width: 180, 
+                    minWidth: 140,
                     sorter: "string", 
                     headerFilter: createCustomMultiSelect,
                     resizable: false,
@@ -398,11 +398,11 @@ export class ModBatterStatsTable extends BaseTable {
                 bullpen: bullpenInfo
             }],
             columns: [
-                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 130},
+                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 300},
                 {title: "Lineup Status", field: "lineupStatus", headerSort: false, width: 150},
-                {title: "Hand", field: "handedness", headerSort: false, width: 80},
-                {title: "Matchup", field: "matchup", headerSort: false, width: 200},
-                {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 150},
+                {title: "Hand", field: "handedness", headerSort: false, width: 100},
+                {title: "Matchup", field: "matchup", headerSort: false, width: 300},
+                {title: "Opposing Pitcher", field: "opposingPitcher", headerSort: false, width: 400},
                 {title: "Bullpen", field: "bullpen", headerSort: false, width: 120}
             ]
         });
