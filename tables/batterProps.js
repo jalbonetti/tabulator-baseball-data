@@ -36,7 +36,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "Matchup", 
                 field: "Batter Matchup",
-                width: 160,
+                width: 200,
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
                 sorter: false
@@ -74,7 +74,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "DraftKings", 
                 field: "Batter DraftKings Odds",
-                width: 100,
+                width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
@@ -87,7 +87,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "FanDuel", 
                 field: "Batter FanDuel Odds",
-                width: 100,
+                width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
@@ -100,7 +100,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "BetRivers", 
                 field: "Batter BetRivers Odds",
-                width: 100,
+                width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
@@ -113,7 +113,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "BetMGM", 
                 field: "Batter BetMGM Odds",
-                width: 100,
+                width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
@@ -126,7 +126,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "Pinnacle", 
                 field: "Batter Pinnacle Odds",
-                width: 100,
+                width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
@@ -139,7 +139,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "Fanatics", 
                 field: "Batter Fanatics Odds",
-                width: 100,
+                width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
@@ -152,7 +152,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "ESPN", 
                 field: "Batter ESPN Odds",
-                width: 100,
+                width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
@@ -165,7 +165,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "Median", 
                 field: "Batter Median Odds",
-                width: 100,
+                width: 110,
                 sorter: "number",
                 hozAlign: "center",
                 formatter: function(cell) {
@@ -178,7 +178,7 @@ export class BatterPropsTable extends BaseTable {
             {
                 title: "Best Above Median", 
                 field: "Batter Best Odds",
-                width: 300,
+                width: 200,
                 hozAlign: "left",
                 formatter: function(cell) {
                     const value = cell.getValue();
