@@ -456,10 +456,10 @@ export class ModPitcherStatsTable extends BaseTable {
                 opposingLineup: lineupInfo
             }],
             columns: [
-                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 150},
-                {title: "Hand", field: "handedness", headerSort: false, width: 80},
+                {title: "Prop Park Factor", field: "propFactor", headerSort: false, width: 600},
+                {title: "Hand", field: "handedness", headerSort: false, width: 100},
                 {title: "Matchup", field: "matchup", headerSort: false, width: 300},
-                {title: "Opposing Lineup", field: "opposingLineup", headerSort: false, width: 150}
+                {title: "Opposing Lineup", field: "opposingLineup", headerSort: false, width: 90}
             ]
         });
     }
