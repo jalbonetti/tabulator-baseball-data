@@ -413,7 +413,7 @@ export class PitcherClearancesAltTable extends BaseTable {
             columns: [
                 {title: "Prop Park Factor (R/L)", field: "propFactor", headerSort: false, width: 600},
                 {title: "Location", field: "location", headerSort: false, width: 100},
-                {title: "Matchup", field: "matchup", headerSort: false, width: 250},
+                {title: "Matchup", field: "matchup", headerSort: false, width: 300},
                 {title: "Handedness", field: "handedness", headerSort: false, width: 100}
             ]
         });
