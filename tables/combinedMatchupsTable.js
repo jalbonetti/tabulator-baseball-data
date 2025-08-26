@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION WITH PROPER CONTAINER SIZING
+// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION WITH ERROR HANDLING
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -49,8 +49,33 @@ export class MatchupsTable extends BaseTable {
     initialize() {
         console.log('Initializing enhanced matchups table...');
         
+        // FIX: Check if element exists, create if it doesn't
+        let element = document.querySelector(this.elementId);
+        if (!element) {
+            console.warn(`Element ${this.elementId} not found, creating it...`);
+            
+            // Create the element
+            const newElement = document.createElement('div');
+            newElement.id = this.elementId.replace('#', '');
+            
+            // Find appropriate container - check multiple possible locations
+            const container = document.querySelector('.table-container.active-table') || 
+                            document.querySelector('#table0-container') ||
+                            document.querySelector('.tables-container') ||
+                            document.querySelector('.table-wrapper') ||
+                            document.body;
+            
+            if (container) {
+                container.appendChild(newElement);
+                console.log(`Created element ${this.elementId} in container`);
+                element = newElement;
+            } else {
+                console.error('Could not find any container for matchups table');
+                return;
+            }
+        }
+        
         // Add loading indicator
-        const element = document.querySelector(this.elementId);
         if (element && !element.querySelector('.loading-indicator')) {
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'loading-indicator';
@@ -132,24 +157,80 @@ export class MatchupsTable extends BaseTable {
             }
         };
 
-        this.table = new Tabulator(this.elementId, config);
-        this.setupRowExpansion();
-        
-        this.table.on("tableBuilt", () => {
-            console.log("Enhanced matchups table built successfully");
+        // FIX: Add try-catch for Tabulator initialization
+        try {
+            this.table = new Tabulator(this.elementId, config);
+            this.setupRowExpansion();
             
-            const tableElement = document.querySelector(this.elementId);
-            if (tableElement) {
-                tableElement.style.overflow = "hidden";
-                tableElement.style.maxWidth = "1200px";
+            this.table.on("tableBuilt", () => {
+                console.log("Enhanced matchups table built successfully");
                 
-                const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
-                if (tableHolder) {
-                    tableHolder.style.overflowX = "hidden";
-                    tableHolder.style.maxWidth = "100%";
+                const tableElement = document.querySelector(this.elementId);
+                if (tableElement) {
+                    tableElement.style.overflow = "hidden";
+                    tableElement.style.maxWidth = "1200px";
+                    
+                    const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
+                    if (tableHolder) {
+                        tableHolder.style.overflowX = "hidden";
+                        tableHolder.style.maxWidth = "100%";
+                    }
                 }
+            });
+        } catch (error) {
+            console.error('Error initializing Tabulator for matchups table:', error);
+            
+            // Try minimal fallback
+            this.createMinimalFallback();
+        }
+    }
+    
+    // FIX: Add minimal fallback method
+    createMinimalFallback() {
+        try {
+            console.log('Creating minimal matchups table as fallback...');
+            const minimalConfig = {
+                layout: "fitData",
+                placeholder: "Loading matchups data...",
+                columns: [
+                    {title: "Team", field: "Matchup Team", width: 300},
+                    {title: "Game", field: "Matchup Game", width: 300},
+                    {title: "Status", field: "Matchup Lineup Status", width: 200}
+                ],
+                data: []
+            };
+            
+            this.table = new Tabulator(this.elementId, minimalConfig);
+            
+            // Try to reload with full config after delay
+            setTimeout(() => {
+                this.reloadWithFullConfig();
+            }, 1000);
+        } catch (minError) {
+            console.error('Failed to create minimal fallback:', minError);
+        }
+    }
+    
+    // FIX: Add reload method
+    async reloadWithFullConfig() {
+        try {
+            const response = await fetch(this.apiUrl, {
+                headers: this.headers
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                if (this.table) {
+                    this.table.destroy();
+                }
+                
+                // Reinitialize
+                this.initialize();
             }
-        });
+        } catch (error) {
+            console.error('Failed to reload with full config:', error);
+        }
     }
 
     getColumns() {
@@ -334,6 +415,15 @@ export class MatchupsTable extends BaseTable {
     }
 
     createParkFactorsTable(data) {
+        // FIX: Add null check for element
+        const elementId = `park-factors-subtable-${data["Matchup Game ID"]}`;
+        const element = document.getElementById(elementId);
+        
+        if (!element) {
+            console.warn(`Park factors element not found: ${elementId}`);
+            return;
+        }
+        
         if (data._parkFactors && data._parkFactors.length > 0) {
             const splitIdMap = {
                 'A': 'All',
@@ -345,10 +435,6 @@ export class MatchupsTable extends BaseTable {
                 const order = { 'A': 0, 'R': 1, 'L': 2 };
                 return order[a["Park Factor Split ID"]] - order[b["Park Factor Split ID"]];
             });
-
-            // Calculate the total width needed for columns
-            const totalColumnsWidth = Object.values(this.subtableConfig.parkFactorsColumns)
-                .reduce((sum, width) => sum + width, 0);
 
             const columns = [
                 {title: "Split", field: "split", width: this.subtableConfig.parkFactorsColumns.split, headerSort: false, hozAlign: "center"},
@@ -362,32 +448,45 @@ export class MatchupsTable extends BaseTable {
                 {title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, hozAlign: "center", headerSort: false}
             ];
 
-            // FIXED: Use fitColumns layout to prevent overflow
-            new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitColumns",  // Changed from "fitData" to ensure it fits within container
-                width: "100%",         // Use percentage width instead of fixed
-                maxWidth: this.subtableConfig.parkFactorsContainerWidth - 20, // Account for padding
-                data: sortedParkFactors.map(pf => ({
-                    split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
-                    H: pf["Park Factor H"],
-                    "1B": pf["Park Factor 1B"],
-                    "2B": pf["Park Factor 2B"],
-                    "3B": pf["Park Factor 3B"],
-                    HR: pf["Park Factor HR"],
-                    R: pf["Park Factor R"],
-                    BB: pf["Park Factor BB"],
-                    SO: pf["Park Factor SO"]
-                })),
-                columns: columns,
-                height: false,
-                headerHeight: 30,
-                rowHeight: 26,
-                resizableColumns: false
-            });
+            // FIX: Add try-catch for Tabulator creation
+            try {
+                new Tabulator(`#${elementId}`, {
+                    layout: "fitColumns",
+                    width: "100%",
+                    maxWidth: this.subtableConfig.parkFactorsContainerWidth - 20,
+                    data: sortedParkFactors.map(pf => ({
+                        split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
+                        H: pf["Park Factor H"],
+                        "1B": pf["Park Factor 1B"],
+                        "2B": pf["Park Factor 2B"],
+                        "3B": pf["Park Factor 3B"],
+                        HR: pf["Park Factor HR"],
+                        R: pf["Park Factor R"],
+                        BB: pf["Park Factor BB"],
+                        SO: pf["Park Factor SO"]
+                    })),
+                    columns: columns,
+                    height: false,
+                    headerHeight: 30,
+                    rowHeight: 26,
+                    resizableColumns: false
+                });
+            } catch (error) {
+                console.error(`Error creating park factors table:`, error);
+            }
         }
     }
 
     createPitcherStatsTable(data, opposingLocationText) {
+        // FIX: Add null check for element
+        const elementId = `pitcher-stats-subtable-${data["Matchup Game ID"]}`;
+        const element = document.getElementById(elementId);
+        
+        if (!element) {
+            console.warn(`Pitcher stats element not found: ${elementId}`);
+            return;
+        }
+        
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             const pitcherName = data._pitcherStats[0]["Starter Name & Hand"] || "Unknown Pitcher";
             
@@ -431,124 +530,130 @@ export class MatchupsTable extends BaseTable {
                     SO: mainRowData["Starter SO"]
                 }];
 
-                const pitcherTable = new Tabulator(`#pitcher-stats-subtable-${data["Matchup Game ID"]}`, {
-                    layout: "fitColumns",  // Use fitColumns to prevent overflow
-                    width: "100%",
-                    maxWidth: this.subtableConfig.maxTotalWidth,
-                    data: tableData,
-                    columns: [
-                        {
-                            title: "Name", 
-                            field: "name", 
-                            width: this.subtableConfig.statTableColumns.name, 
-                            headerSort: false,
-                            formatter: function(cell) {
-                                const rowData = cell.getRow().getData();
-                                const value = cell.getValue();
-                                
-                                if (rowData._rowType === 'main') {
-                                    const expanded = rowData._isExpanded || false;
-                                    return `<div style="cursor: pointer; display: flex; align-items: center;">
-                                        <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
-                                        <span>${value}</span>
-                                    </div>`;
-                                }
-                                return `<div style="margin-left: 30px;">${value}</div>`;
-                            }
-                        },
-                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                        {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
-                        {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
-                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
-                    ],
-                    height: false,
-                    headerHeight: 30,
-                    rowHeight: 28
-                });
-
-                pitcherTable.on("cellClick", function(e, cell) {
-                    if (cell.getField() === "name") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const row = cell.getRow();
-                        const rowData = row.getData();
-                        
-                        if (rowData._rowType === 'main') {
-                            rowData._isExpanded = !rowData._isExpanded;
-                            row.update(rowData);
-                            
-                            const cellElement = cell.getElement();
-                            const expander = cellElement.querySelector('.subtable-expander');
-                            if (expander) {
-                                expander.innerHTML = rowData._isExpanded ? '−' : '+';
-                            }
-                            
-                            if (rowData._isExpanded) {
-                                const allData = pitcherTable.getData();
-                                
-                                const childRows = [];
-                                ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
-                                    const statData = sortedPitcherStats.find(s => s["Starter Split ID"] === splitId);
-                                    if (statData) {
-                                        childRows.push({
-                                            _id: `${data["Matchup Game ID"]}-child-${index}`,
-                                            _rowType: 'child',
-                                            _parentId: rowData._id,
-                                            _sortOrder: index + 1,
-                                            name: pitcherName,
-                                            split: splitMap[splitId],
-                                            TBF: statData["Starter TBF"],
-                                            "H/TBF": formatRatio(statData["Starter H/TBF"], 3),
-                                            H: statData["Starter H"],
-                                            "1B": statData["Starter 1B"],
-                                            "2B": statData["Starter 2B"],
-                                            "3B": statData["Starter 3B"],
-                                            HR: statData["Starter HR"],
-                                            R: statData["Starter R"],
-                                            ERA: formatDecimal(statData["Starter ERA"], 2),
-                                            BB: statData["Starter BB"],
-                                            SO: statData["Starter SO"]
-                                        });
+                // FIX: Add try-catch for Tabulator creation
+                try {
+                    const pitcherTable = new Tabulator(`#${elementId}`, {
+                        layout: "fitColumns",
+                        width: "100%",
+                        maxWidth: this.subtableConfig.maxTotalWidth,
+                        data: tableData,
+                        columns: [
+                            {
+                                title: "Name", 
+                                field: "name", 
+                                width: this.subtableConfig.statTableColumns.name, 
+                                headerSort: false,
+                                formatter: function(cell) {
+                                    const rowData = cell.getRow().getData();
+                                    const value = cell.getValue();
+                                    
+                                    if (rowData._rowType === 'main') {
+                                        const expanded = rowData._isExpanded || false;
+                                        return `<div style="cursor: pointer; display: flex; align-items: center;">
+                                            <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
+                                            <span>${value}</span>
+                                        </div>`;
                                     }
-                                });
+                                    return `<div style="margin-left: 30px;">${value}</div>`;
+                                }
+                            },
+                            {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
+                            {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
+                            {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
+                            {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                            {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                            {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                            {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                            {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                            {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                            {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
+                            {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                            {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
+                        ],
+                        height: false,
+                        headerHeight: 30,
+                        rowHeight: 28
+                    });
+
+                    pitcherTable.on("cellClick", function(e, cell) {
+                        if (cell.getField() === "name") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            const row = cell.getRow();
+                            const rowData = row.getData();
+                            
+                            if (rowData._rowType === 'main') {
+                                rowData._isExpanded = !rowData._isExpanded;
+                                row.update(rowData);
                                 
-                                const parentIndex = allData.findIndex(d => d._id === rowData._id);
-                                allData.splice(parentIndex + 1, 0, ...childRows);
+                                const cellElement = cell.getElement();
+                                const expander = cellElement.querySelector('.subtable-expander');
+                                if (expander) {
+                                    expander.innerHTML = rowData._isExpanded ? '−' : '+';
+                                }
                                 
-                                pitcherTable.replaceData(allData);
-                                
-                            } else {
-                                const filteredData = pitcherTable.getData().filter(d => 
-                                    !(d._rowType === 'child' && d._parentId === rowData._id)
-                                );
-                                pitcherTable.replaceData(filteredData);
+                                if (rowData._isExpanded) {
+                                    const allData = pitcherTable.getData();
+                                    
+                                    const childRows = [];
+                                    ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
+                                        const statData = sortedPitcherStats.find(s => s["Starter Split ID"] === splitId);
+                                        if (statData) {
+                                            childRows.push({
+                                                _id: `${data["Matchup Game ID"]}-child-${index}`,
+                                                _rowType: 'child',
+                                                _parentId: rowData._id,
+                                                _sortOrder: index + 1,
+                                                name: pitcherName,
+                                                split: splitMap[splitId],
+                                                TBF: statData["Starter TBF"],
+                                                "H/TBF": formatRatio(statData["Starter H/TBF"], 3),
+                                                H: statData["Starter H"],
+                                                "1B": statData["Starter 1B"],
+                                                "2B": statData["Starter 2B"],
+                                                "3B": statData["Starter 3B"],
+                                                HR: statData["Starter HR"],
+                                                R: statData["Starter R"],
+                                                ERA: formatDecimal(statData["Starter ERA"], 2),
+                                                BB: statData["Starter BB"],
+                                                SO: statData["Starter SO"]
+                                            });
+                                        }
+                                    });
+                                    
+                                    const parentIndex = allData.findIndex(d => d._id === rowData._id);
+                                    allData.splice(parentIndex + 1, 0, ...childRows);
+                                    
+                                    pitcherTable.replaceData(allData);
+                                    
+                                } else {
+                                    const filteredData = pitcherTable.getData().filter(d => 
+                                        !(d._rowType === 'child' && d._parentId === rowData._id)
+                                    );
+                                    pitcherTable.replaceData(filteredData);
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                } catch (error) {
+                    console.error(`Error creating pitcher stats table:`, error);
+                }
             }
         }
     }
 
     createBatterMatchupsTable(data) {
+        // FIX: Check if element exists first
+        const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
+        const containerElement = document.getElementById(containerId);
+        
+        if (!containerElement) {
+            console.warn(`Container element not found: ${containerId}`);
+            return;
+        }
+        
         if (data._batterMatchups && data._batterMatchups.length > 0) {
-            const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
-            const containerElement = document.getElementById(containerId);
-            
-            if (!containerElement) {
-                console.error(`Container element not found: ${containerId}`);
-                return;
-            }
-            
             const isTeamAway = this.isTeamAway(data["Matchup Game"]);
             const batterLocationText = isTeamAway ? "Away" : "at Home";
             
@@ -613,114 +718,128 @@ export class MatchupsTable extends BaseTable {
                     }
                 });
 
-            const batterTable = new Tabulator(`#batter-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitColumns",  // Use fitColumns to prevent overflow
-                width: "100%",
-                maxWidth: this.subtableConfig.maxTotalWidth,
-                data: tableData,
-                columns: [
-                    {
-                        title: "Name", 
-                        field: "name", 
-                        width: this.subtableConfig.statTableColumns.name, 
-                        headerSort: false,
-                        formatter: function(cell) {
-                            const rowData = cell.getRow().getData();
-                            const value = cell.getValue();
-                            
-                            if (rowData._rowType === 'main') {
-                                const expanded = rowData._isExpanded || false;
-                                return `<div style="cursor: pointer; display: flex; align-items: center;">
-                                    <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
-                                    <span>${value}</span>
-                                </div>`;
-                            }
-                            return `<div style="margin-left: 30px;">${value}</div>`;
-                        }
-                    },
-                    {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                    {title: "PA", field: "PA", width: this.subtableConfig.statTableColumns.pa, hozAlign: "center", headerSort: false},
-                    {title: "H/PA", field: "H/PA", width: this.subtableConfig.statTableColumns.h_pa, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "RBI", field: "RBI", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
-                ],
-                height: false,
-                headerHeight: 30,
-                rowHeight: 28
-            });
-
-            batterTable.on("cellClick", function(e, cell) {
-                if (cell.getField() === "name") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const row = cell.getRow();
-                    const rowData = row.getData();
-                    
-                    if (rowData._rowType === 'main') {
-                        rowData._isExpanded = !rowData._isExpanded;
-                        row.update(rowData);
-                        
-                        const cellElement = cell.getElement();
-                        const expander = cellElement.querySelector('.subtable-expander');
-                        if (expander) {
-                            expander.innerHTML = rowData._isExpanded ? '−' : '+';
-                        }
-                        
-                        if (rowData._isExpanded) {
-                            const allData = batterTable.getData();
-                            
-                            const childRows = [];
-                            ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
-                                const statData = rowData._childData.find(s => s["Batter Split ID"] === splitId);
-                                if (statData) {
-                                    childRows.push({
-                                        _id: `${data["Matchup Game ID"]}-batter-child-${rowData._batterOrder}-${index}`,
-                                        _rowType: 'child',
-                                        _parentId: rowData._id,
-                                        _sortOrder: rowData._sortOrder + index + 1,
-                                        name: `${rowData.name.replace(/ \d+$/, '')} ${rowData._batterOrder}`,
-                                        split: splitMap[splitId],
-                                        PA: statData["Batter PA"],
-                                        "H/PA": formatRatio(statData["Batter H/PA"], 3),
-                                        H: statData["Batter H"],
-                                        "1B": statData["Batter 1B"],
-                                        "2B": statData["Batter 2B"],
-                                        "3B": statData["Batter 3B"],
-                                        HR: statData["Batter HR"],
-                                        R: statData["Batter R"],
-                                        RBI: statData["Batter RBI"],
-                                        BB: statData["Batter BB"],
-                                        SO: statData["Batter SO"]
-                                    });
+            // FIX: Add try-catch for Tabulator creation
+            try {
+                const batterTable = new Tabulator(`#${containerId}`, {
+                    layout: "fitColumns",
+                    width: "100%",
+                    maxWidth: this.subtableConfig.maxTotalWidth,
+                    data: tableData,
+                    columns: [
+                        {
+                            title: "Name", 
+                            field: "name", 
+                            width: this.subtableConfig.statTableColumns.name, 
+                            headerSort: false,
+                            formatter: function(cell) {
+                                const rowData = cell.getRow().getData();
+                                const value = cell.getValue();
+                                
+                                if (rowData._rowType === 'main') {
+                                    const expanded = rowData._isExpanded || false;
+                                    return `<div style="cursor: pointer; display: flex; align-items: center;">
+                                        <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
+                                        <span>${value}</span>
+                                    </div>`;
                                 }
-                            });
+                                return `<div style="margin-left: 30px;">${value}</div>`;
+                            }
+                        },
+                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
+                        {title: "PA", field: "PA", width: this.subtableConfig.statTableColumns.pa, hozAlign: "center", headerSort: false},
+                        {title: "H/PA", field: "H/PA", width: this.subtableConfig.statTableColumns.h_pa, hozAlign: "center", headerSort: false},
+                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "RBI", field: "RBI", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
+                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
+                    ],
+                    height: false,
+                    headerHeight: 30,
+                    rowHeight: 28
+                });
+
+                batterTable.on("cellClick", function(e, cell) {
+                    if (cell.getField() === "name") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const row = cell.getRow();
+                        const rowData = row.getData();
+                        
+                        if (rowData._rowType === 'main') {
+                            rowData._isExpanded = !rowData._isExpanded;
+                            row.update(rowData);
                             
-                            const parentIndex = allData.findIndex(d => d._id === rowData._id);
-                            allData.splice(parentIndex + 1, 0, ...childRows);
+                            const cellElement = cell.getElement();
+                            const expander = cellElement.querySelector('.subtable-expander');
+                            if (expander) {
+                                expander.innerHTML = rowData._isExpanded ? '−' : '+';
+                            }
                             
-                            batterTable.replaceData(allData);
-                            
-                        } else {
-                            const filteredData = batterTable.getData().filter(d => 
-                                !(d._rowType === 'child' && d._parentId === rowData._id)
-                            );
-                            batterTable.replaceData(filteredData);
+                            if (rowData._isExpanded) {
+                                const allData = batterTable.getData();
+                                
+                                const childRows = [];
+                                ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
+                                    const statData = rowData._childData.find(s => s["Batter Split ID"] === splitId);
+                                    if (statData) {
+                                        childRows.push({
+                                            _id: `${data["Matchup Game ID"]}-batter-child-${rowData._batterOrder}-${index}`,
+                                            _rowType: 'child',
+                                            _parentId: rowData._id,
+                                            _sortOrder: rowData._sortOrder + index + 1,
+                                            name: `${rowData.name.replace(/ \d+$/, '')} ${rowData._batterOrder}`,
+                                            split: splitMap[splitId],
+                                            PA: statData["Batter PA"],
+                                            "H/PA": formatRatio(statData["Batter H/PA"], 3),
+                                            H: statData["Batter H"],
+                                            "1B": statData["Batter 1B"],
+                                            "2B": statData["Batter 2B"],
+                                            "3B": statData["Batter 3B"],
+                                            HR: statData["Batter HR"],
+                                            R: statData["Batter R"],
+                                            RBI: statData["Batter RBI"],
+                                            BB: statData["Batter BB"],
+                                            SO: statData["Batter SO"]
+                                        });
+                                    }
+                                });
+                                
+                                const parentIndex = allData.findIndex(d => d._id === rowData._id);
+                                allData.splice(parentIndex + 1, 0, ...childRows);
+                                
+                                batterTable.replaceData(allData);
+                                
+                            } else {
+                                const filteredData = batterTable.getData().filter(d => 
+                                    !(d._rowType === 'child' && d._parentId === rowData._id)
+                                );
+                                batterTable.replaceData(filteredData);
+                            }
                         }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error(`Error creating batter matchups table:`, error);
+            }
         }
     }
 
     createBullpenMatchupsTable(data, opposingLocationText) {
+        // FIX: Check if element exists first
+        const containerId = `bullpen-matchups-subtable-${data["Matchup Game ID"]}`;
+        const containerElement = document.getElementById(containerId);
+        
+        if (!containerElement) {
+            console.warn(`Container element not found: ${containerId}`);
+            return;
+        }
+        
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
@@ -780,110 +899,115 @@ export class MatchupsTable extends BaseTable {
                 }
             });
 
-            const bullpenTable = new Tabulator(`#bullpen-matchups-subtable-${data["Matchup Game ID"]}`, {
-                layout: "fitColumns",  // Use fitColumns to prevent overflow
-                width: "100%",
-                maxWidth: this.subtableConfig.maxTotalWidth,
-                data: tableData,
-                columns: [
-                    {
-                        title: "Type", 
-                        field: "name", 
-                        width: this.subtableConfig.statTableColumns.name, 
-                        headerSort: false,
-                        formatter: function(cell) {
-                            const rowData = cell.getRow().getData();
-                            const value = cell.getValue();
-                            
-                            if (rowData._rowType === 'main') {
-                                const expanded = rowData._isExpanded || false;
-                                return `<div style="cursor: pointer; display: flex; align-items: center;">
-                                    <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
-                                    <span>${value}</span>
-                                </div>`;
-                            }
-                            return `<div style="margin-left: 30px;">${value}</div>`;
-                        }
-                    },
-                    {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                    {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
-                    {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
-                ],
-                height: false,
-                headerHeight: 30,
-                rowHeight: 28
-            });
-
-            bullpenTable.on("cellClick", function(e, cell) {
-                if (cell.getField() === "name") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const row = cell.getRow();
-                    const rowData = row.getData();
-                    
-                    if (rowData._rowType === 'main') {
-                        rowData._isExpanded = !rowData._isExpanded;
-                        row.update(rowData);
-                        
-                        const cellElement = cell.getElement();
-                        const expander = cellElement.querySelector('.subtable-expander');
-                        if (expander) {
-                            expander.innerHTML = rowData._isExpanded ? '−' : '+';
-                        }
-                        
-                        if (rowData._isExpanded) {
-                            const allData = bullpenTable.getData();
-                            
-                            const childRows = [];
-                            ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
-                                const statData = rowData._childData.find(s => s["Bullpen Split ID"] === splitId);
-                                if (statData) {
-                                    childRows.push({
-                                        _id: `${data["Matchup Game ID"]}-bullpen-child-${rowData._handType}-${index}`,
-                                        _rowType: 'child',
-                                        _parentId: rowData._id,
-                                        _sortOrder: rowData._sortOrder + index + 1,
-                                        name: statData["Bullpen Hand & Number"],
-                                        split: splitMap[splitId],
-                                        TBF: statData["Bullpen TBF"],
-                                        "H/TBF": formatRatio(statData["Bullpen H/TBF"], 3),
-                                        H: statData["Bullpen H"],
-                                        "1B": statData["Bullpen 1B"],
-                                        "2B": statData["Bullpen 2B"],
-                                        "3B": statData["Bullpen 3B"],
-                                        HR: statData["Bullpen HR"],
-                                        R: statData["Bullpen R"],
-                                        ERA: formatDecimal(statData["Bullpen ERA"], 2),
-                                        BB: statData["Bullpen BB"],
-                                        SO: statData["Bullpen SO"]
-                                    });
+            // FIX: Add try-catch for Tabulator creation
+            try {
+                const bullpenTable = new Tabulator(`#${containerId}`, {
+                    layout: "fitColumns",
+                    width: "100%",
+                    maxWidth: this.subtableConfig.maxTotalWidth,
+                    data: tableData,
+                    columns: [
+                        {
+                            title: "Type", 
+                            field: "name", 
+                            width: this.subtableConfig.statTableColumns.name, 
+                            headerSort: false,
+                            formatter: function(cell) {
+                                const rowData = cell.getRow().getData();
+                                const value = cell.getValue();
+                                
+                                if (rowData._rowType === 'main') {
+                                    const expanded = rowData._isExpanded || false;
+                                    return `<div style="cursor: pointer; display: flex; align-items: center;">
+                                        <span style="color: #007bff; font-weight: bold; margin-right: 8px; font-size: 14px;" class="subtable-expander">${expanded ? '−' : '+'}</span>
+                                        <span>${value}</span>
+                                    </div>`;
                                 }
-                            });
+                                return `<div style="margin-left: 30px;">${value}</div>`;
+                            }
+                        },
+                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
+                        {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
+                        {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
+                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
+                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
+                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
+                    ],
+                    height: false,
+                    headerHeight: 30,
+                    rowHeight: 28
+                });
+
+                bullpenTable.on("cellClick", function(e, cell) {
+                    if (cell.getField() === "name") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const row = cell.getRow();
+                        const rowData = row.getData();
+                        
+                        if (rowData._rowType === 'main') {
+                            rowData._isExpanded = !rowData._isExpanded;
+                            row.update(rowData);
                             
-                            const parentIndex = allData.findIndex(d => d._id === rowData._id);
-                            allData.splice(parentIndex + 1, 0, ...childRows);
+                            const cellElement = cell.getElement();
+                            const expander = cellElement.querySelector('.subtable-expander');
+                            if (expander) {
+                                expander.innerHTML = rowData._isExpanded ? '−' : '+';
+                            }
                             
-                            bullpenTable.replaceData(allData);
-                            
-                        } else {
-                            const filteredData = bullpenTable.getData().filter(d => 
-                                !(d._rowType === 'child' && d._parentId === rowData._id)
-                            );
-                            bullpenTable.replaceData(filteredData);
+                            if (rowData._isExpanded) {
+                                const allData = bullpenTable.getData();
+                                
+                                const childRows = [];
+                                ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
+                                    const statData = rowData._childData.find(s => s["Bullpen Split ID"] === splitId);
+                                    if (statData) {
+                                        childRows.push({
+                                            _id: `${data["Matchup Game ID"]}-bullpen-child-${rowData._handType}-${index}`,
+                                            _rowType: 'child',
+                                            _parentId: rowData._id,
+                                            _sortOrder: rowData._sortOrder + index + 1,
+                                            name: statData["Bullpen Hand & Number"],
+                                            split: splitMap[splitId],
+                                            TBF: statData["Bullpen TBF"],
+                                            "H/TBF": formatRatio(statData["Bullpen H/TBF"], 3),
+                                            H: statData["Bullpen H"],
+                                            "1B": statData["Bullpen 1B"],
+                                            "2B": statData["Bullpen 2B"],
+                                            "3B": statData["Bullpen 3B"],
+                                            HR: statData["Bullpen HR"],
+                                            R: statData["Bullpen R"],
+                                            ERA: formatDecimal(statData["Bullpen ERA"], 2),
+                                            BB: statData["Bullpen BB"],
+                                            SO: statData["Bullpen SO"]
+                                        });
+                                    }
+                                });
+                                
+                                const parentIndex = allData.findIndex(d => d._id === rowData._id);
+                                allData.splice(parentIndex + 1, 0, ...childRows);
+                                
+                                bullpenTable.replaceData(allData);
+                                
+                            } else {
+                                const filteredData = bullpenTable.getData().filter(d => 
+                                    !(d._rowType === 'child' && d._parentId === rowData._id)
+                                );
+                                bullpenTable.replaceData(filteredData);
+                            }
                         }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error(`Error creating bullpen matchups table:`, error);
+            }
         }
     }
 
@@ -982,7 +1106,7 @@ export class MatchupsTable extends BaseTable {
 
     // Helper methods
     isTeamAway(matchupGame) {
-        return matchupGame.includes(" @ ");
+        return matchupGame && matchupGame.includes(" @ ");
     }
 
     getOpposingMatchupId(matchupId) {
