@@ -1,6 +1,6 @@
-// components/tabManager.js - FIXED VERSION WITH TAB_STYLES EXPORT
+// components/tabManager.js - FIXED VERSION WITH RESPONSIVE TABS
 
-// Export TAB_STYLES constant
+// Export TAB_STYLES constant with responsive improvements
 export const TAB_STYLES = `
     /* FULL WIDTH TAB CONTAINER */
     .tabs-container {
@@ -13,6 +13,8 @@ export const TAB_STYLES = `
         position: relative !important;
         z-index: 100 !important;
         overflow: hidden !important;
+        /* Ensure tabs don't scale with tables */
+        transform: none !important;
     }
 
     .tab-buttons {
@@ -28,6 +30,8 @@ export const TAB_STYLES = `
         width: 100% !important;
         max-width: 100% !important;
         justify-content: stretch !important; /* Stretch buttons */
+        /* Ensure tabs don't scale with tables */
+        transform: none !important;
     }
 
     /* Make scrollbar visible for tabs */
@@ -74,7 +78,7 @@ export const TAB_STYLES = `
         transition: all 0.2s ease !important;
         text-align: center !important;
         
-        /* Remove any transforms */
+        /* Remove any transforms - IMPORTANT */
         transform: none !important;
     }
     
@@ -116,15 +120,39 @@ export const TAB_STYLES = `
         position: relative !important;
     }
 
-    /* Mobile responsive */
+    /* Mobile responsive - tabs stay normal size */
     @media screen and (max-width: 768px) {
+        .tabs-container {
+            transform: none !important;
+            width: 100% !important;
+        }
+        
         .tab-buttons {
             padding: 4px !important;
+            transform: none !important;
         }
         
         .tab-button {
             padding: 8px 12px !important;
             font-size: 12px !important;
+            min-width: 100px !important;
+            transform: none !important;
+        }
+    }
+    
+    /* Tablet responsive - tabs stay normal size */
+    @media screen and (min-width: 769px) and (max-width: 1199px) {
+        .tabs-container {
+            transform: none !important;
+            width: 100% !important;
+        }
+        
+        .tab-buttons {
+            transform: none !important;
+        }
+        
+        .tab-button {
+            transform: none !important;
         }
     }
 
@@ -150,6 +178,9 @@ export class TabManager {
         
         // Inject styles when TabManager is created
         this.injectStyles();
+        
+        // Add resize observer for responsive handling
+        this.setupResponsiveHandler();
     }
     
     injectStyles() {
@@ -160,6 +191,48 @@ export class TabManager {
             style.textContent = TAB_STYLES;
             document.head.appendChild(style);
         }
+    }
+
+    setupResponsiveHandler() {
+        // Ensure tabs maintain proper sizing on resize
+        const handleResize = () => {
+            const width = window.innerWidth;
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContainer = document.querySelector('.tabs-container');
+            
+            // Ensure tabs never get scaled
+            if (tabContainer) {
+                tabContainer.style.transform = 'none';
+                tabContainer.style.width = '100%';
+            }
+            
+            // Adjust font size based on screen width
+            tabButtons.forEach(button => {
+                button.style.transform = 'none';
+                if (width <= 768) {
+                    button.style.fontSize = '12px';
+                    button.style.padding = '8px 12px';
+                } else {
+                    button.style.fontSize = '13px';
+                    button.style.padding = '12px 8px';
+                }
+            });
+        };
+        
+        // Use ResizeObserver for better performance
+        if (window.ResizeObserver) {
+            const resizeObserver = new ResizeObserver(handleResize);
+            const tabContainer = document.querySelector('.tabs-container');
+            if (tabContainer) {
+                resizeObserver.observe(tabContainer);
+            }
+        }
+        
+        // Also use traditional resize listener as fallback
+        window.addEventListener('resize', handleResize);
+        
+        // Initial call
+        handleResize();
     }
 
     initializeTab(tabId) {
@@ -183,9 +256,15 @@ export class TabManager {
                     }
                     this.tableStates[tabId].initializedAt = Date.now();
                     
+                    // Apply responsive scaling immediately after initialization
+                    if (window.applyResponsiveScaling) {
+                        setTimeout(() => {
+                            window.applyResponsiveScaling();
+                        }, 50);
+                    }
+                    
                     setTimeout(resolve, 100);
                 } else {
-                    this.tabInitialized[tabId] = true;
                     resolve();
                 }
             });
@@ -193,84 +272,95 @@ export class TabManager {
     }
 
     setupTabSwitching() {
-        let switchTimeout;
-        
         document.addEventListener('click', async (e) => {
             if (e.target.classList.contains('tab-button')) {
                 e.preventDefault();
-                e.stopPropagation();
                 
-                if (this.isTransitioning) {
-                    console.log('Tab transition in progress, ignoring click');
-                    return;
-                }
+                if (this.isTransitioning) return;
                 
-                var targetTab = e.target.dataset.tab;
+                const targetTab = e.target.getAttribute('data-tab');
+                if (targetTab === this.currentActiveTab) return;
                 
-                if (targetTab === this.currentActiveTab) {
-                    return;
-                }
+                this.isTransitioning = true;
                 
-                if (switchTimeout) {
-                    clearTimeout(switchTimeout);
-                }
-                
-                console.log(`Saving state for ${this.currentActiveTab} before switching to ${targetTab}`);
-                this.saveCurrentTabState();
-                
-                await new Promise(resolve => setTimeout(resolve, 50));
-                
-                switchTimeout = setTimeout(async () => {
-                    console.log('Switching to tab:', targetTab);
-                    this.isTransitioning = true;
+                try {
+                    // Save current state
+                    this.saveTabState(this.currentActiveTab);
                     
-                    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                    // Hide current table
+                    const currentContainer = document.querySelector(`#${this.getContainerIdForTab(this.currentActiveTab)}`);
+                    if (currentContainer) {
+                        currentContainer.style.display = 'none';
+                        currentContainer.classList.remove('active-table');
+                        currentContainer.classList.add('inactive-table');
+                    }
+                    
+                    // Update active tab button
+                    document.querySelectorAll('.tab-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
                     e.target.classList.add('active');
                     
-                    const currentContainer = document.getElementById(`${this.currentActiveTab}-container`);
-                    if (currentContainer) {
-                        currentContainer.className = 'table-container inactive-table';
-                        currentContainer.style.display = 'none';
-                    }
-                    
+                    // Initialize target tab if needed
                     await this.initializeTab(targetTab);
                     
-                    const targetContainer = document.getElementById(`${targetTab}-container`);
+                    // Show target table
+                    const targetContainer = document.querySelector(`#${this.getContainerIdForTab(targetTab)}`);
                     if (targetContainer) {
-                        targetContainer.className = 'table-container active-table';
                         targetContainer.style.display = 'block';
-                        
-                        const previousTab = this.currentActiveTab;
-                        this.currentActiveTab = targetTab;
-                        
-                        await new Promise(resolve => requestAnimationFrame(resolve));
-                        
-                        console.log(`Restoring state for ${targetTab}`);
+                        targetContainer.classList.add('active-table');
+                        targetContainer.classList.remove('inactive-table');
+                    }
+                    
+                    this.currentActiveTab = targetTab;
+                    
+                    // Wait for display change
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    // Redraw and restore state
+                    const targetTableWrapper = this.tables[targetTab];
+                    if (targetTableWrapper && targetTableWrapper.table) {
+                        targetTableWrapper.table.redraw();
                         this.restoreTabState(targetTab);
                         
-                        setTimeout(() => {
-                            this.isTransitioning = false;
-                        }, 500);
-                    } else {
-                        this.isTransitioning = false;
+                        // Apply responsive scaling after tab switch
+                        if (window.applyResponsiveScaling) {
+                            setTimeout(() => {
+                                window.applyResponsiveScaling();
+                            }, 100);
+                        }
                     }
-                }, 100);
+                    
+                } finally {
+                    this.isTransitioning = false;
+                }
             }
         });
     }
 
-    saveCurrentTabState() {
-        // Implementation remains the same
-        const tableWrapper = this.tables[this.currentActiveTab];
+    getContainerIdForTab(tabId) {
+        const containerMap = {
+            'table0': 'table0-container',
+            'table1': 'table1-container',
+            'table2': 'table2-container',
+            'table3': 'table3-container',
+            'table4': 'table4-container',
+            'table5': 'table5-container',
+            'table6': 'table6-container',
+            'table7': 'table7-container',
+            'table8': 'table8-container',
+            'table9': 'table9-container'
+        };
+        return containerMap[tabId] || `${tabId}-container`;
+    }
+
+    saveTabState(tabId) {
+        const tableWrapper = this.tables[tabId];
         if (!tableWrapper || !tableWrapper.table) return;
         
         const tableHolder = tableWrapper.table.element.querySelector('.tabulator-tableHolder');
         if (tableHolder) {
-            this.scrollPositions[this.currentActiveTab] = tableHolder.scrollTop;
-        }
-        
-        if (tableWrapper.saveState && typeof tableWrapper.saveState === 'function') {
-            tableWrapper.saveState();
+            this.scrollPositions[tabId] = tableHolder.scrollTop;
         }
         
         const expandedRows = [];
@@ -278,7 +368,8 @@ export class TabManager {
         rows.forEach(row => {
             const data = row.getData();
             if (data._expanded) {
-                expandedRows.push(tableWrapper.generateRowId ? tableWrapper.generateRowId(data) : JSON.stringify(data));
+                expandedRows.push(tableWrapper.generateRowId ? 
+                    tableWrapper.generateRowId(data) : JSON.stringify(data));
             }
         });
         
@@ -288,7 +379,6 @@ export class TabManager {
     }
 
     restoreTabState(tabId) {
-        // Implementation remains the same
         const tableWrapper = this.tables[tabId];
         if (!tableWrapper || !tableWrapper.table) return;
         
@@ -342,50 +432,33 @@ export class TabManager {
                     <button class="tab-button" data-tab="table2">Batter Prop Clearances (Alt. View)</button>
                     <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
                     <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
-                    <button class="tab-button" data-tab="table5">Batter Stats</button>
-                    <button class="tab-button" data-tab="table6">Pitcher Stats</button>
+                    <button class="tab-button" data-tab="table5">Model Projected Batter Stats</button>
+                    <button class="tab-button" data-tab="table6">Model Projected Pitcher Stats</button>
                     <button class="tab-button" data-tab="table7">Batter Props</button>
                     <button class="tab-button" data-tab="table8">Pitcher Props</button>
                     <button class="tab-button" data-tab="table9">Game Props</button>
                 </div>
             `;
             
+            // Create table containers wrapper
             var tablesContainer = document.createElement('div');
             tablesContainer.className = 'tables-container';
             tablesContainer.style.cssText = 'width: 100%; position: relative; min-height: 500px;';
             
-            var table0Container = document.createElement('div');
-            table0Container.className = 'table-container active-table';
-            table0Container.id = 'table0-container';
-            table0Container.style.cssText = 'width: 100%; display: block;';
+            // Create containers for all tables
+            for (let i = 0; i <= 9; i++) {
+                var container = document.createElement('div');
+                container.className = i === 0 ? 'table-container active-table' : 'table-container inactive-table';
+                container.id = `table${i}-container`;
+                container.style.cssText = i === 0 ? 'width: 100%; display: block;' : 'width: 100%; display: none;';
+                tablesContainer.appendChild(container);
+            }
             
-            var table1Container = document.createElement('div');
-            table1Container.className = 'table-container inactive-table';
-            table1Container.id = 'table1-container';
-            table1Container.style.cssText = 'width: 100%; display: none;';
-            
-            var table2Container = document.createElement('div');
-            table2Container.className = 'table-container inactive-table';
-            table2Container.id = 'table2-container';
-            table2Container.style.cssText = 'width: 100%; display: none;';
-            
-            var table2Element = document.createElement('div');
-            table2Element.id = 'batter-table-alt';
-            
-            tableElement.parentNode.insertBefore(wrapper, tableElement);
             wrapper.appendChild(tabsContainer);
             wrapper.appendChild(tablesContainer);
             
-            table1Container.appendChild(tableElement);
-            table2Container.appendChild(table2Element);
-            
-            tablesContainer.appendChild(table0Container);
-            tablesContainer.appendChild(table1Container);
-            tablesContainer.appendChild(table2Container);
+            return wrapper;
         }
-    }
-    
-    startPeriodicCleanup() {
-        // Optional: Add periodic cleanup if needed
+        return null;
     }
 }
