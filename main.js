@@ -173,6 +173,185 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('Enhanced lazy loading setup complete - tables will load on demand with advanced caching');
 });
 
+// Add this code to your main.js file after DOMContentLoaded
+
+// Enhanced initialization with immediate responsive scaling
+document.addEventListener('DOMContentLoaded', function() {
+    // ... your existing initialization code ...
+    
+    // Add this new responsive initialization helper
+    initializeResponsiveSystem();
+});
+
+function initializeResponsiveSystem() {
+    // Create a MutationObserver to watch for table creation
+    const tableObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === 1) { // Element node
+                        // Check if a table or subrow was added
+                        if (node.classList && (node.classList.contains('tabulator') || 
+                            node.classList.contains('subrow-container'))) {
+                            // Apply scaling immediately
+                            applyImmediateScaling(node);
+                        }
+                        
+                        // Also check children
+                        const tables = node.querySelectorAll('.tabulator');
+                        const subrows = node.querySelectorAll('.subrow-container');
+                        
+                        tables.forEach(table => applyImmediateScaling(table));
+                        subrows.forEach(subrow => applyImmediateScaling(subrow));
+                    }
+                });
+            }
+        });
+    });
+    
+    // Start observing the document body for changes
+    tableObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    // Function to apply immediate scaling to new elements
+    function applyImmediateScaling(element) {
+        const width = window.innerWidth;
+        let scale = 1;
+        
+        if (width <= 767) {
+            scale = 0.75;
+        } else if (width <= 1199) {
+            scale = 0.85;
+        }
+        
+        // Apply scaling based on element type
+        if (element.classList.contains('tabulator')) {
+            const container = element.closest('.table-container');
+            if (container && scale !== 1) {
+                container.style.transform = `scale(${scale})`;
+                container.style.transformOrigin = 'top left';
+                container.style.width = `${100 / scale}%`;
+            }
+        } else if (element.classList.contains('subrow-container')) {
+            // Subrows inherit parent scaling
+            element.style.width = '100%';
+            element.style.transition = 'none'; // Remove transition for instant scaling
+        }
+        
+        // Apply appropriate view class
+        if (element.classList.contains('tabulator')) {
+            if (width <= 767) {
+                element.classList.add('mobile-view');
+                element.classList.remove('tablet-view', 'desktop-view');
+            } else if (width <= 1199) {
+                element.classList.add('tablet-view');
+                element.classList.remove('mobile-view', 'desktop-view');
+            } else {
+                element.classList.add('desktop-view');
+                element.classList.remove('mobile-view', 'tablet-view');
+            }
+        }
+    }
+    
+    // Enhanced visibility change handler
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && window.applyResponsiveScaling) {
+            setTimeout(() => {
+                window.applyResponsiveScaling();
+            }, 100);
+        }
+    });
+    
+    // Handle tab switching with immediate scaling
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tab-button')) {
+            // Apply scaling multiple times to ensure it takes effect
+            setTimeout(() => {
+                if (window.applyResponsiveScaling) {
+                    window.applyResponsiveScaling();
+                }
+            }, 0);
+            
+            setTimeout(() => {
+                if (window.applyResponsiveScaling) {
+                    window.applyResponsiveScaling();
+                }
+            }, 100);
+            
+            setTimeout(() => {
+                if (window.applyResponsiveScaling) {
+                    window.applyResponsiveScaling();
+                }
+            }, 300);
+        }
+    });
+    
+    // Performance-optimized scroll handler for subrows
+    let scrollTimeout;
+    document.addEventListener('scroll', (e) => {
+        if (e.target.classList && e.target.classList.contains('tabulator-tableHolder')) {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                // Check if any subrows need scaling adjustment
+                const visibleSubrows = e.target.querySelectorAll('.subrow-container');
+                if (visibleSubrows.length > 0 && window.applyResponsiveScaling) {
+                    window.applyResponsiveScaling();
+                }
+            }, 150);
+        }
+    }, true);
+    
+    // Touch event handler for mobile devices
+    let touchTimeout;
+    document.addEventListener('touchend', () => {
+        clearTimeout(touchTimeout);
+        touchTimeout = setTimeout(() => {
+            if (window.applyResponsiveScaling) {
+                window.applyResponsiveScaling();
+            }
+        }, 300);
+    });
+    
+    // Ensure tabs never scale
+    setInterval(() => {
+        const tabContainer = document.querySelector('.tabs-container');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        
+        if (tabContainer) {
+            tabContainer.style.transform = 'none';
+        }
+        
+        tabButtons.forEach(button => {
+            button.style.transform = 'none';
+        });
+    }, 1000);
+}
+
+// Global function to force responsive update
+window.forceResponsiveUpdate = function() {
+    // Remove all transforms first
+    document.querySelectorAll('.table-container, .subrow-container').forEach(el => {
+        el.style.transform = '';
+        el.style.width = '';
+    });
+    
+    // Then reapply
+    setTimeout(() => {
+        if (window.applyResponsiveScaling) {
+            window.applyResponsiveScaling();
+        }
+    }, 50);
+};
+
+// Add this to handle page show events (back/forward navigation)
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+        // Page was restored from cache
+        window.forceResponsiveUpdate();
+    }
+});
 
 // Complete fix - Add this to your main.js to replace the ensureStateMethods function
 
