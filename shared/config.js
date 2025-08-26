@@ -184,7 +184,7 @@ export const CONFIG = {
     
     // Service Worker Configuration
     SW_CONFIG: {
-        enabled: true,
+        enabled: false,
         cacheVersion: 'v1',
         cacheNames: {
             static: 'tabulator-static-v1',
