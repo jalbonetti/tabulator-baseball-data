@@ -1,4 +1,4 @@
-// styles/tableStyles.js - WITH RESTORED TAB STYLING
+// styles/tableStyles.js - COMPLETE FIX FOR RESPONSIVE ISSUES
 import { CONFIG, isMobile, isTablet, getDeviceScale } from '../shared/config.js';
 import { TAB_STYLES } from '../components/tabManager.js';
 
@@ -93,20 +93,38 @@ function injectMinimalStyles() {
             max-width: 100% !important;
         }
         
-        /* Responsive scaling for mobile/tablet - EXCLUDING TAB BUTTONS */
+        /* IMPROVED Responsive scaling - INCLUDING SUBTABLES */
         @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
-            .table-container {
+            .table-container,
+            .subrow-container {
                 transform: scale(${CONFIG.TABLE_DIMENSIONS.mobile.scale});
-                transform-origin: top center;
+                transform-origin: top left;
                 width: ${CONFIG.TABLE_DIMENSIONS.mobile.containerWidth};
+            }
+            
+            /* Ensure subrow containers scale properly */
+            .tabulator-row > .subrow-container {
+                transform: scale(1);
+                width: 100%;
+                margin-left: 0;
+                margin-right: 0;
             }
         }
         
         @media screen and (min-width: ${CONFIG.BREAKPOINTS.mobile + 1}px) and (max-width: ${CONFIG.BREAKPOINTS.tablet}px) {
-            .table-container {
+            .table-container,
+            .subrow-container {
                 transform: scale(${CONFIG.TABLE_DIMENSIONS.tablet.scale});
-                transform-origin: top center;
+                transform-origin: top left;
                 width: ${CONFIG.TABLE_DIMENSIONS.tablet.containerWidth};
+            }
+            
+            /* Ensure subrow containers scale properly */
+            .tabulator-row > .subrow-container {
+                transform: scale(1);
+                width: 100%;
+                margin-left: 0;
+                margin-right: 0;
             }
         }
     `;
@@ -148,100 +166,51 @@ function injectFullStyles() {
             }
         }
         
-        /* Container responsive sizing */
-        .table-wrapper {
+        /* Container responsive settings */
+        .table-container {
             width: 100% !important;
-            max-width: 100vw !important;
-            overflow: hidden !important;
-            margin: 0 auto !important;
+            max-width: 100% !important;
             display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
+            justify-content: center !important;
             position: relative !important;
+            overflow: visible !important;
         }
         
         .tables-container {
             width: 100% !important;
-            max-width: 100vw !important;
-            overflow: hidden !important;
-            position: relative !important;
-        }
-        
-        .table-container {
-            width: 100% !important;
             max-width: 100% !important;
             overflow: hidden !important;
             position: relative !important;
         }
         
-        /* Active/Inactive table states */
-        .table-container.active-table {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
+        /* Fixed width tables with explicit widths per table */
+        #matchups-table { 
+            max-width: 1200px !important;
+            width: 1200px !important;
         }
         
-        .table-container.inactive-table {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
+        #batter-table,
+        #pitcher-table,
+        #mod-batter-stats-table,
+        #mod-pitcher-stats-table,
+        #batter-props-table,
+        #pitcher-props-table,
+        #game-props-table {
+            max-width: 1400px !important;
+            width: 1400px !important;
         }
         
-        /* Base Tabulator responsive */
-        .tabulator {
-            margin: 0 auto !important;
-            font-size: 14px !important;
-            overflow: hidden !important;
-            position: relative !important;
+        #batter-table-alt,
+        #pitcher-table-alt {
+            max-width: 1200px !important;
+            width: 1200px !important;
         }
         
-        .tabulator .tabulator-tableholder {
-            overflow: hidden !important;
-            max-height: 600px !important;
-            position: relative !important;
-        }
-        
-        /* Prevent horizontal scroll */
-        .tabulator .tabulator-table {
-            width: 100% !important;
-            max-width: 100% !important;
-        }
-        
-        /* Fixed table widths for desktop */
-        @media screen and (min-width: ${CONFIG.BREAKPOINTS.desktop}px) {
-            #matchups-table { 
-                max-width: 1200px !important;
-                width: 1200px !important;
-            }
-            
-            #matchups-table .tabulator {
-                max-width: 1200px !important;
-                width: 1200px !important;
-            }
-            
-            #batter-table,
-            #pitcher-table,
-            #mod-batter-stats-table,
-            #mod-pitcher-stats-table,
-            #batter-props-table,
-            #pitcher-props-table,
-            #game-props-table {
-                max-width: 1400px !important;
-                width: 1400px !important;
-            }
-            
-            #batter-table-alt,
-            #pitcher-table-alt {
-                max-width: 1200px !important;
-                width: 1200px !important;
-            }
-        }
-        
-        /* Tablet (768px - 1199px) - Scale tables ONLY, not tabs */
+        /* IMPROVED Tablet (768px - 1199px) - Scale ALL table elements */
         @media screen and (min-width: ${CONFIG.BREAKPOINTS.mobile + 1}px) and (max-width: ${CONFIG.BREAKPOINTS.tablet}px) {
             .table-container {
                 transform: scale(0.85);
-                transform-origin: top center;
+                transform-origin: top left;
                 width: 118%; /* 100 / 0.85 */
                 margin: 0 auto;
             }
@@ -249,19 +218,39 @@ function injectFullStyles() {
             .tabulator {
                 font-size: 14px !important;
             }
+            
+            /* Scale subrows within their parent context */
+            .tabulator-row > .subrow-container {
+                transform: scale(1);
+                width: 100%;
+            }
+            
+            .subrow-container .tabulator {
+                font-size: 12px !important;
+            }
         }
         
-        /* Mobile (< 768px) - Scale tables ONLY, not tabs */
+        /* IMPROVED Mobile (< 768px) - Scale ALL table elements */
         @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
             .table-container {
                 transform: scale(0.75);
-                transform-origin: top center;
+                transform-origin: top left;
                 width: 133%; /* 100 / 0.75 */
                 margin: 0 auto;
             }
             
             .tabulator {
                 font-size: 14px !important;
+            }
+            
+            /* Scale subrows within their parent context */
+            .tabulator-row > .subrow-container {
+                transform: scale(1);
+                width: 100%;
+            }
+            
+            .subrow-container .tabulator {
+                font-size: 11px !important;
             }
         }
         
@@ -325,6 +314,7 @@ function injectFullStyles() {
             max-width: 1120px !important;
             overflow: hidden !important;
             margin: 0 auto !important;
+            transition: none !important; /* Remove transition for instant scaling */
         }
         
         .subrow-container .tabulator {
@@ -375,7 +365,7 @@ function injectFullStyles() {
             max-width: 100% !important;
         }
         
-        /* Custom multiselect overflow fix */
+        /* Custom multiselect dropdown overflow fix */
         .custom-multiselect-dropdown {
             position: fixed !important;
             z-index: 999999 !important;
@@ -387,67 +377,149 @@ function injectFullStyles() {
     document.head.appendChild(style);
     console.log('Complete responsive table styles with restored tab UI injected');
     
-    // Add dynamic resize handler
+    // Add IMPROVED dynamic resize handler
     addResponsiveHandlers();
 }
 
-// Add responsive handlers for dynamic resizing
+// IMPROVED responsive handlers with immediate response
 function addResponsiveHandlers() {
     let resizeTimeout;
+    let lastWidth = window.innerWidth;
     
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            updateTableResponsiveness();
-        }, 250);
-    });
-    
-    // Initial check
-    updateTableResponsiveness();
-}
-
-// Update tables based on current viewport
-function updateTableResponsiveness() {
-    const width = window.innerWidth;
-    const tables = document.querySelectorAll('.tabulator');
-    const scale = getDeviceScale();
-    
-    tables.forEach(table => {
-        const container = table.closest('.table-container');
-        if (container) {
+    // Function to apply responsive scaling
+    const applyResponsiveScaling = () => {
+        const width = window.innerWidth;
+        const scale = getDeviceScale();
+        
+        // Apply to ALL tables AND subrows
+        const tables = document.querySelectorAll('.tabulator');
+        const containers = document.querySelectorAll('.table-container');
+        const subrows = document.querySelectorAll('.subrow-container');
+        
+        // Scale main table containers
+        containers.forEach(container => {
             if (scale !== 1) {
                 container.style.transform = `scale(${scale})`;
-                container.style.transformOrigin = 'top center';
+                container.style.transformOrigin = 'top left';
                 container.style.width = `${100 / scale}%`;
+                container.style.marginLeft = 'auto';
+                container.style.marginRight = 'auto';
             } else {
                 container.style.transform = '';
+                container.style.transformOrigin = '';
                 container.style.width = '';
+                container.style.marginLeft = '';
+                container.style.marginRight = '';
+            }
+        });
+        
+        // Apply scaling to subrows that are INSIDE expanded rows
+        subrows.forEach(subrow => {
+            const parentRow = subrow.closest('.tabulator-row');
+            if (parentRow && parentRow.classList.contains('row-expanded')) {
+                // Subrows inherit parent scaling, no additional transform needed
+                subrow.style.width = '100%';
+            }
+        });
+        
+        // Add appropriate classes to all tables (including subtables)
+        tables.forEach(table => {
+            if (width <= CONFIG.BREAKPOINTS.mobile) {
+                table.classList.add('mobile-view');
+                table.classList.remove('tablet-view', 'desktop-view');
+            } else if (width <= CONFIG.BREAKPOINTS.tablet) {
+                table.classList.add('tablet-view');
+                table.classList.remove('mobile-view', 'desktop-view');
+            } else {
+                table.classList.add('desktop-view');
+                table.classList.remove('mobile-view', 'tablet-view');
+            }
+        });
+        
+        // Force tab buttons to maintain their size
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.style.transform = 'none';
+            button.style.fontSize = width <= CONFIG.BREAKPOINTS.mobile ? '12px' : '13px';
+        });
+        
+        // Trigger redraw for visible tables
+        if (window.tabManager && window.tabManager.currentActiveTab) {
+            const activeTable = window.tabManager.tables[window.tabManager.currentActiveTab];
+            if (activeTable && activeTable.table) {
+                // Immediate redraw without timeout
+                activeTable.table.redraw();
+                
+                // Also redraw any subtables in expanded rows
+                const expandedRows = activeTable.table.getRows().filter(row => {
+                    const data = row.getData();
+                    return data._expanded === true;
+                });
+                
+                expandedRows.forEach(row => {
+                    const rowElement = row.getElement();
+                    const subtables = rowElement.querySelectorAll('.subrow-container .tabulator');
+                    subtables.forEach(subtable => {
+                        if (subtable._tabulator) {
+                            subtable._tabulator.redraw();
+                        }
+                    });
+                });
             }
         }
-        
-        // Add appropriate classes
-        if (width <= CONFIG.BREAKPOINTS.mobile) {
-            table.classList.add('mobile-view');
-            table.classList.remove('tablet-view', 'desktop-view');
-        } else if (width <= CONFIG.BREAKPOINTS.tablet) {
-            table.classList.add('tablet-view');
-            table.classList.remove('mobile-view', 'desktop-view');
-        } else {
-            table.classList.add('desktop-view');
-            table.classList.remove('mobile-view', 'tablet-view');
+    };
+    
+    // Resize observer for more reliable detection
+    const resizeObserver = new ResizeObserver(entries => {
+        const newWidth = window.innerWidth;
+        if (Math.abs(newWidth - lastWidth) > 10) { // Only trigger if significant change
+            lastWidth = newWidth;
+            
+            // Apply immediately
+            applyResponsiveScaling();
+            
+            // Also apply after a short delay for any delayed renders
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(applyResponsiveScaling, 100);
         }
     });
     
-    // Trigger redraw for visible tables
-    if (window.tabManager && window.tabManager.currentActiveTab) {
-        const activeTable = window.tabManager.tables[window.tabManager.currentActiveTab];
-        if (activeTable && activeTable.table) {
-            setTimeout(() => {
-                activeTable.table.redraw();
-            }, 100);
-        }
+    // Observe body for size changes
+    resizeObserver.observe(document.body);
+    
+    // Also use traditional resize listener as backup
+    window.addEventListener('resize', () => {
+        // Immediate application
+        applyResponsiveScaling();
+        
+        // Debounced application for final adjustments
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(applyResponsiveScaling, 100);
+    });
+    
+    // Apply on orientation change (mobile devices)
+    window.addEventListener('orientationchange', () => {
+        setTimeout(applyResponsiveScaling, 0);
+        setTimeout(applyResponsiveScaling, 100);
+        setTimeout(applyResponsiveScaling, 300);
+    });
+    
+    // Initial application - run multiple times to ensure everything is scaled
+    applyResponsiveScaling();
+    setTimeout(applyResponsiveScaling, 0);
+    setTimeout(applyResponsiveScaling, 100);
+    setTimeout(applyResponsiveScaling, 300);
+    
+    // Make function available globally for manual triggering
+    window.applyResponsiveScaling = applyResponsiveScaling;
+}
+
+// Enhanced update function that can be called externally
+export function updateTableResponsiveness() {
+    if (window.applyResponsiveScaling) {
+        window.applyResponsiveScaling();
     }
 }
 
 // Export for use by other modules
-export { updateTableResponsiveness };
+export { addResponsiveHandlers };
