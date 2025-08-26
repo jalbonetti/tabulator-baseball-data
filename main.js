@@ -138,28 +138,163 @@ document.addEventListener('DOMContentLoaded', async function() {
         table9: table9
     });
 
+// COMPLETE REPLACEMENT for the section AFTER tabManager creation
+// This replaces lines approximately 140-160 in your main.js
+
     // Export for debugging - MUST BE INSIDE DOMContentLoaded
     window.tabManager = tabManager;
 
-    // Ensure all tables have the required state preservation methods
-    ensureStateMethods(table0);
-    ensureStateMethods(table1);
-    ensureStateMethods(table2);
-    ensureStateMethods(table3);
-    ensureStateMethods(table4);
-    ensureStateMethods(table5);
-    ensureStateMethods(table6);
-    ensureStateMethods(table7);
-    ensureStateMethods(table8);
-    ensureStateMethods(table9);
+    // Create the complete tab and table structure
+    console.log('Creating tab structure...');
+    
+    // Create main wrapper
+    const tabWrapper = document.createElement('div');
+    tabWrapper.className = 'table-wrapper';
+    tabWrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
+    
+    // Create tabs container with all tab buttons
+    const tabsContainer = document.createElement('div');
+    tabsContainer.className = 'tabs-container';
+    tabsContainer.innerHTML = `
+        <div class="tab-buttons">
+            <button class="tab-button active" data-tab="table0">Matchups</button>
+            <button class="tab-button" data-tab="table1">Batter Prop Clearances</button>
+            <button class="tab-button" data-tab="table2">Batter Prop Clearances (Alt. View)</button>
+            <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
+            <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
+            <button class="tab-button" data-tab="table5">Batter Stats</button>
+            <button class="tab-button" data-tab="table6">Pitcher Stats</button>
+            <button class="tab-button" data-tab="table7">Batter Props</button>
+            <button class="tab-button" data-tab="table8">Pitcher Props</button>
+            <button class="tab-button" data-tab="table9">Game Props</button>
+        </div>
+    `;
+    
+    // Create tables container that will hold all table divs
+    const tablesContainer = document.createElement('div');
+    tablesContainer.className = 'tables-container';
+    tablesContainer.style.cssText = 'width: 100%; position: relative;';
+    
+    // Build the structure
+    tabWrapper.appendChild(tabsContainer);
+    tabWrapper.appendChild(tablesContainer);
+    
+    // Insert into DOM - replace the existing batter-table element
+    if (tableElement && tableElement.parentElement) {
+        tableElement.parentElement.insertBefore(tabWrapper, tableElement);
+        tableElement.style.display = 'none'; // Hide original element
+    } else {
+        document.body.appendChild(tabWrapper);
+    }
+    
+    // Create all table containers and elements
+    // Table 0 - Matchups (Active by default)
+    const matchupsElement = document.createElement('div');
+    matchupsElement.id = 'matchups-table';
+    const table0Container = document.createElement('div');
+    table0Container.className = 'table-container active-table';
+    table0Container.id = 'table0-container';
+    table0Container.style.cssText = 'width: 100%; display: block;';
+    table0Container.appendChild(matchupsElement);
+    tablesContainer.appendChild(table0Container);
+    
+    // Table 1 - Batter Clearances  
+    const table1Container = document.createElement('div');
+    table1Container.className = 'table-container inactive-table';
+    table1Container.id = 'table1-container';
+    table1Container.style.cssText = 'width: 100%; display: none;';
+    if (tableElement) {
+        // Clone the original batter-table element
+        const batterTableClone = tableElement.cloneNode(true);
+        batterTableClone.style.display = '';
+        table1Container.appendChild(batterTableClone);
+    }
+    tablesContainer.appendChild(table1Container);
+    
+    // Table 2 - Batter Alt
+    const batterAltElement = document.createElement('div');
+    batterAltElement.id = 'batter-table-alt';
+    const table2Container = document.createElement('div');
+    table2Container.className = 'table-container inactive-table';
+    table2Container.id = 'table2-container';
+    table2Container.style.cssText = 'width: 100%; display: none;';
+    table2Container.appendChild(batterAltElement);
+    tablesContainer.appendChild(table2Container);
+    
+    // Table 3 - Pitcher Clearances
+    const pitcherElement = document.createElement('div');
+    pitcherElement.id = 'pitcher-table';
+    const table3Container = document.createElement('div');
+    table3Container.className = 'table-container inactive-table';
+    table3Container.id = 'table3-container';
+    table3Container.style.cssText = 'width: 100%; display: none;';
+    table3Container.appendChild(pitcherElement);
+    tablesContainer.appendChild(table3Container);
+    
+    // Table 4 - Pitcher Alt
+    const pitcherAltElement = document.createElement('div');
+    pitcherAltElement.id = 'pitcher-table-alt';
+    const table4Container = document.createElement('div');
+    table4Container.className = 'table-container inactive-table';
+    table4Container.id = 'table4-container';
+    table4Container.style.cssText = 'width: 100%; display: none;';
+    table4Container.appendChild(pitcherAltElement);
+    tablesContainer.appendChild(table4Container);
+    
+    // Table 5 - Mod Batter Stats
+    const modBatterStatsElement = document.createElement('div');
+    modBatterStatsElement.id = 'mod-batter-stats-table';
+    const table5Container = document.createElement('div');
+    table5Container.className = 'table-container inactive-table';
+    table5Container.id = 'table5-container';
+    table5Container.style.cssText = 'width: 100%; display: none;';
+    table5Container.appendChild(modBatterStatsElement);
+    tablesContainer.appendChild(table5Container);
+    
+    // Table 6 - Mod Pitcher Stats
+    const modPitcherStatsElement = document.createElement('div');
+    modPitcherStatsElement.id = 'mod-pitcher-stats-table';
+    const table6Container = document.createElement('div');
+    table6Container.className = 'table-container inactive-table';
+    table6Container.id = 'table6-container';
+    table6Container.style.cssText = 'width: 100%; display: none;';
+    table6Container.appendChild(modPitcherStatsElement);
+    tablesContainer.appendChild(table6Container);
+    
+    // Table 7 - Batter Props
+    const batterPropsElement = document.createElement('div');
+    batterPropsElement.id = 'batter-props-table';
+    const table7Container = document.createElement('div');
+    table7Container.className = 'table-container inactive-table';
+    table7Container.id = 'table7-container';
+    table7Container.style.cssText = 'width: 100%; display: none;';
+    table7Container.appendChild(batterPropsElement);
+    tablesContainer.appendChild(table7Container);
+    
+    // Table 8 - Pitcher Props
+    const pitcherPropsElement = document.createElement('div');
+    pitcherPropsElement.id = 'pitcher-props-table';
+    const table8Container = document.createElement('div');
+    table8Container.className = 'table-container inactive-table';
+    table8Container.id = 'table8-container';
+    table8Container.style.cssText = 'width: 100%; display: none;';
+    table8Container.appendChild(pitcherPropsElement);
+    tablesContainer.appendChild(table8Container);
+    
+    // Table 9 - Game Props
+    const gamePropsElement = document.createElement('div');
+    gamePropsElement.id = 'game-props-table';
+    const table9Container = document.createElement('div');
+    table9Container.className = 'table-container inactive-table';
+    table9Container.id = 'table9-container';
+    table9Container.style.cssText = 'width: 100%; display: none;';
+    table9Container.appendChild(gamePropsElement);
+    tablesContainer.appendChild(table9Container);
+    
+    console.log('Tab structure and all table containers created successfully');
 
-    // Create tab structure
-    tabManager.createTabStructure(tableElement);
-
-    // Create all table elements but don't initialize tables yet
-    createTableElements();
-
-    // NO LONGER CALLING startPeriodicCleanup() here - method doesn't exist
+    // DON'T call createTableElements() - we just created them above
+    // Remove or comment out: createTableElements();
 
     // Add performance monitoring
     if (window.performance && window.performance.mark) {
