@@ -1,4 +1,4 @@
-// main.js - COMPLETE FIXED VERSION WITH STATE PRESERVATION
+// main.js - COMPLETE FIXED VERSION WITH ALL ERROR CORRECTIONS
 import { MatchupsTable } from './tables/combinedMatchupsTable.js';
 import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
@@ -17,28 +17,49 @@ import { SW_CONFIG } from './shared/config.js';
 async function registerServiceWorker() {
     if ('serviceWorker' in navigator && SW_CONFIG.enabled) {
         try {
-            const registration = await navigator.serviceWorker.register('/service-worker.js', {
-                scope: '/'
-            });
+            // Try multiple paths for service worker
+            const paths = [
+                '/service-worker.js',
+                './service-worker.js',
+                'service-worker.js'
+            ];
             
-            console.log('Service Worker registered successfully:', registration);
-            
-            // Check for updates every hour
-            setInterval(() => {
-                registration.update();
-            }, 60 * 60 * 1000);
-            
-            // Send periodic cleanup message
-            setInterval(() => {
-                if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'CLEANUP_CACHE'
+            let registered = false;
+            for (const path of paths) {
+                try {
+                    const registration = await navigator.serviceWorker.register(path, {
+                        scope: '/'
                     });
+                    
+                    console.log('Service Worker registered successfully:', registration);
+                    registered = true;
+                    
+                    // Check for updates every hour
+                    setInterval(() => {
+                        registration.update();
+                    }, 60 * 60 * 1000);
+                    
+                    // Send periodic cleanup message
+                    setInterval(() => {
+                        if (navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({
+                                type: 'CLEANUP_CACHE'
+                            });
+                        }
+                    }, 30 * 60 * 1000); // Every 30 minutes
+                    
+                    break; // Successfully registered, exit loop
+                } catch (err) {
+                    console.log(`Failed to register service worker at ${path}:`, err.message);
                 }
-            }, 30 * 60 * 1000); // Every 30 minutes
+            }
+            
+            if (!registered) {
+                console.log('Service Worker registration skipped - file not found at any path');
+            }
             
         } catch (error) {
-            console.error('Service Worker registration failed:', error);
+            console.log('Service Worker registration failed:', error);
         }
     }
 }
@@ -73,7 +94,7 @@ async function checkDataFreshness() {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('GitHub Pages: DOM ready, initializing modular Tabulator functionality with enhanced caching...');
 
-    // Register Service Worker first
+    // Register Service Worker first (with error handling)
     await registerServiceWorker();
 
     // Inject styles
@@ -138,8 +159,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Create all table elements but don't initialize tables yet
     createTableElements();
 
-    // Start periodic cleanup of unused tabs
-    tabManager.startPeriodicCleanup();
+    // NO LONGER CALLING startPeriodicCleanup() here - method doesn't exist
 
     // Add performance monitoring
     if (window.performance && window.performance.mark) {
@@ -173,12 +193,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('Enhanced lazy loading setup complete - tables will load on demand with advanced caching');
 });
 
-// Add this code to your main.js file after DOMContentLoaded
-
 // Enhanced initialization with immediate responsive scaling
 document.addEventListener('DOMContentLoaded', function() {
-    // ... your existing initialization code ...
-    
     // Add this new responsive initialization helper
     initializeResponsiveSystem();
 });
@@ -191,8 +207,8 @@ function initializeResponsiveSystem() {
                 mutation.addedNodes.forEach((node) => {
                     if (node.nodeType === 1) { // Element node
                         // Check if a table or subrow was added
-                        if (node.classList && (node.classList.contains('tabulator') || 
-                            node.classList.contains('subrow-container'))) {
+                        if ((node.classList && (node.classList.contains('tabulator') || 
+                            node.classList.contains('subrow-container')))) {
                             // Apply scaling immediately
                             applyImmediateScaling(node);
                         }
@@ -354,7 +370,6 @@ window.addEventListener('pageshow', (event) => {
 });
 
 // Complete fix - Add this to your main.js to replace the ensureStateMethods function
-
 function ensureStateMethods(tableInstance) {
     // Store original redraw method if exists
     const originalRedraw = tableInstance.redraw ? tableInstance.redraw.bind(tableInstance) : null;
@@ -429,286 +444,126 @@ function ensureStateMethods(tableInstance) {
                     const id = this.generateRowId ? this.generateRowId(data) : JSON.stringify(data);
                     this.expandedRowsCache.add(id);
                     this.expandedRowsSet.add(id);
-                    
-                    const rowElement = row.getElement();
-                    const hasSubrow = rowElement.querySelector('.subrow-container') !== null;
-                    
-                    this.expandedRowsMetadata.set(id, {
-                        hasSubrow: hasSubrow,
-                        data: data
-                    });
                 }
             });
             
-            console.log(`Saved ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
+            console.log(`State saved: ${this.expandedRowsCache.size} expanded rows`);
         };
     }
     
-    // Enhanced restoreState with filter protection
+    // Enhanced restoreState
     if (!tableInstance.restoreState || typeof tableInstance.restoreState !== 'function') {
         console.log(`Adding restoreState to ${tableInstance.elementId}`);
         
         tableInstance.restoreState = function() {
             if (!this.table) return;
-            if (!this.expandedRowsCache || this.expandedRowsCache.size === 0) {
-                // Still restore scroll position even if no expanded rows
+            
+            console.log(`Restoring state for ${this.elementId}`);
+            
+            // Restore scroll position
+            if (this.lastScrollPosition) {
                 const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                if (tableHolder && this.lastScrollPosition > 0) {
-                    setTimeout(() => {
-                        tableHolder.scrollTop = this.lastScrollPosition;
-                    }, 500);
+                if (tableHolder) {
+                    tableHolder.scrollTop = this.lastScrollPosition;
                 }
-                return;
             }
             
-            console.log(`Restoring ${this.expandedRowsCache.size} expanded rows for ${this.elementId}`);
-            
-            // Store the cache for persistent re-application
-            const persistentExpandedRows = new Set(this.expandedRowsCache);
-            const persistentMetadata = new Map(this.expandedRowsMetadata || new Map());
-            
-            const applyExpansion = (skipReformat = false) => {
-                const rows = this.table.getRows();
-                const rowsToReformat = [];
+            // Restore expanded rows if cache exists
+            if (this.expandedRowsCache && this.expandedRowsCache.size > 0) {
+                console.log(`Restoring ${this.expandedRowsCache.size} expanded rows`);
                 
+                const rows = this.table.getRows();
                 rows.forEach(row => {
                     const data = row.getData();
                     const id = this.generateRowId ? this.generateRowId(data) : JSON.stringify(data);
                     
-                    if (persistentExpandedRows.has(id)) {
-                        if (!data._expanded) {
-                            console.log(`Restoring expanded row: ${id}`);
-                            data._expanded = true;
-                            row.update(data);
-                            
-                            if (!skipReformat) {
-                                const metadata = persistentMetadata.get(id);
-                                rowsToReformat.push({
-                                    row: row,
-                                    hadSubrow: metadata ? metadata.hasSubrow : true
-                                });
-                            }
-                        }
-                        
-                        // Always update expander icon
-                        const cells = row.getCells();
-                        const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
-                        for (let field of nameFields) {
-                            const nameCell = cells.find(cell => cell.getField() === field);
-                            if (nameCell) {
-                                const cellElement = nameCell.getElement();
-                                const expander = cellElement.querySelector('.row-expander');
-                                if (expander && expander.innerHTML !== "−") {
-                                    expander.innerHTML = "−";
-                                }
-                                break;
-                            }
-                        }
+                    if (this.expandedRowsCache.has(id) && !data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        row.reformat();
                     }
                 });
-                
-                if (!skipReformat && rowsToReformat.length > 0) {
-                    // Reformat expanded rows
-                    setTimeout(() => {
-                        rowsToReformat.forEach(({row, hadSubrow}) => {
-                            const rowElement = row.getElement();
-                            const existingSubrow = rowElement.querySelector('.subrow-container');
-                            if (existingSubrow) {
-                                existingSubrow.remove();
-                            }
-                            
-                            row.reformat();
-                            
-                            if (hadSubrow) {
-                                setTimeout(() => {
-                                    const newSubrow = rowElement.querySelector('.subrow-container');
-                                    if (!newSubrow) {
-                                        console.log('Forcing second reformat');
-                                        row.reformat();
-                                    }
-                                }, 100);
-                            }
-                        });
-                        
-                        setTimeout(() => {
-                            rowsToReformat.forEach(({row}) => {
-                                row.normalizeHeight();
-                            });
-                        }, 200);
-                    }, 100);
-                }
-            };
-            
-            // Apply expansion immediately
-            requestAnimationFrame(() => {
-                applyExpansion();
-                
-                // Set up persistent reapplication after any data changes
-                let reapplyCount = 0;
-                const maxReapplies = 10;
-                
-                const reapplyExpansion = () => {
-                    if (reapplyCount < maxReapplies) {
-                        reapplyCount++;
-                        console.log(`Reapplying expansion (attempt ${reapplyCount})`);
-                        applyExpansion(true); // Skip reformat on reapplies
-                    }
-                };
-                
-                // Listen for various events that might reset the state
-                const events = ["dataFiltered", "dataLoaded", "renderComplete"];
-                const handlers = [];
-                
-                events.forEach(eventName => {
-                    const handler = () => {
-                        setTimeout(reapplyExpansion, 200);
-                    };
-                    handlers.push({event: eventName, handler: handler});
-                    this.table.on(eventName, handler);
-                });
-                
-                // Apply multiple times to catch late updates
-                setTimeout(() => applyExpansion(), 500);
-                setTimeout(() => applyExpansion(true), 1000);
-                setTimeout(() => applyExpansion(true), 1500);
-                setTimeout(() => applyExpansion(true), 2000);
-                
-                // Clean up listeners after 5 seconds
-                setTimeout(() => {
-                    handlers.forEach(({event, handler}) => {
-                        this.table.off(event, handler);
-                    });
-                }, 5000);
-                
-                // Restore scroll position
-                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-                if (tableHolder && this.lastScrollPosition > 0) {
-                    setTimeout(() => {
-                        tableHolder.scrollTop = this.lastScrollPosition;
-                    }, 400);
-                }
-            });
-        };
-    }
-    
-    // Ensure generateRowId exists
-    if (!tableInstance.generateRowId || typeof tableInstance.generateRowId !== 'function') {
-        tableInstance.generateRowId = function(data) {
-            // For Matchups table
-            if (data["Matchup Game ID"]) {
-                return `matchup_${data["Matchup Game ID"]}`;
-            } 
-            // For Batter tables
-            else if (data["Batter Name"]) {
-                let id = `batter_${data["Batter Name"]}_${data["Batter Team"]}`;
-                if (data["Batter Prop Type"]) id += `_${data["Batter Prop Type"]}`;
-                if (data["Batter Prop Value"]) id += `_${data["Batter Prop Value"]}`;
-                if (data["Batter Prop Split ID"]) id += `_${data["Batter Prop Split ID"]}`;
-                if (data["Batter Stat Type"]) id += `_${data["Batter Stat Type"]}`;
-                return id;
             }
-            // For Pitcher tables
-            else if (data["Pitcher Name"]) {
-                let id = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"]}`;
-                if (data["Pitcher Prop Type"]) id += `_${data["Pitcher Prop Type"]}`;
-                if (data["Pitcher Prop Value"]) id += `_${data["Pitcher Prop Value"]}`;
-                if (data["Pitcher Prop Split ID"]) id += `_${data["Pitcher Prop Split ID"]}`;
-                if (data["Pitcher Stat Type"]) id += `_${data["Pitcher Stat Type"]}`;
-                return id;
-            }
-            // Fallback
-            return JSON.stringify(Object.keys(data).slice(0, 5).map(k => data[k]));
-        };
-    }
-    
-    // Ensure getTabulator exists
-    if (!tableInstance.getTabulator || typeof tableInstance.getTabulator !== 'function') {
-        tableInstance.getTabulator = function() {
-            return this.table;
         };
     }
 }
 
+// Create table elements (moved from global scope)
 function createTableElements() {
-    // Create matchups table element
-    var matchupsTableElement = document.createElement('div');
-    matchupsTableElement.id = 'matchups-table';
-
-    // Create pitcher table elements
-    var pitcherTableElement = document.createElement('div');
-    pitcherTableElement.id = 'pitcher-table';
+    // Create elements for table0 (Matchups - now default active)
+    var matchupsElement = document.createElement('div');
+    matchupsElement.id = 'matchups-table';
     
-    var pitcherTableAltElement = document.createElement('div');
-    pitcherTableAltElement.id = 'pitcher-table-alt';
+    var table0Container = document.createElement('div');
+    table0Container.className = 'table-container active-table';
+    table0Container.id = 'table0-container';
+    table0Container.style.cssText = 'width: 100%; display: block;';
+    table0Container.appendChild(matchupsElement);
 
-    // Create mod batter stats table element
-    var modBatterStatsElement = document.createElement('div');
-    modBatterStatsElement.id = 'mod-batter-stats-table';
-
-    // Create mod pitcher stats table element
-    var modPitcherStatsElement = document.createElement('div');
-    modPitcherStatsElement.id = 'mod-pitcher-stats-table';
-
-    // Create props table elements
-    var batterPropsElement = document.createElement('div');
-    batterPropsElement.id = 'batter-props-table';
-
-    var pitcherPropsElement = document.createElement('div');
-    pitcherPropsElement.id = 'pitcher-props-table';
-
-    var gamePropsElement = document.createElement('div');
-    gamePropsElement.id = 'game-props-table';
-
-    // Add matchups table container
-    var table0Container = document.getElementById('table0-container');
-    if (!table0Container) {
-        table0Container = document.createElement('div');
-        table0Container.className = 'table-container active-table';
-        table0Container.id = 'table0-container';
-        table0Container.style.cssText = 'width: 100%; display: block;';
-    }
-    table0Container.appendChild(matchupsTableElement);
-
-    // Add pitcher tables to the DOM (hidden initially)
+    // Create elements for table3
+    var pitcherElement = document.createElement('div');
+    pitcherElement.id = 'pitcher-table';
+    
     var table3Container = document.createElement('div');
     table3Container.className = 'table-container inactive-table';
     table3Container.id = 'table3-container';
     table3Container.style.cssText = 'width: 100%; display: none;';
-    table3Container.appendChild(pitcherTableElement);
+    table3Container.appendChild(pitcherElement);
 
+    // Create elements for table4
+    var pitcherAltElement = document.createElement('div');
+    pitcherAltElement.id = 'pitcher-table-alt';
+    
     var table4Container = document.createElement('div');
     table4Container.className = 'table-container inactive-table';
     table4Container.id = 'table4-container';
     table4Container.style.cssText = 'width: 100%; display: none;';
-    table4Container.appendChild(pitcherTableAltElement);
+    table4Container.appendChild(pitcherAltElement);
 
-    // Add mod batter stats table container
+    // Create elements for table5
+    var modBatterStatsElement = document.createElement('div');
+    modBatterStatsElement.id = 'mod-batter-stats-table';
+    
     var table5Container = document.createElement('div');
     table5Container.className = 'table-container inactive-table';
     table5Container.id = 'table5-container';
     table5Container.style.cssText = 'width: 100%; display: none;';
     table5Container.appendChild(modBatterStatsElement);
 
-    // Add mod pitcher stats table container
+    // Create elements for table6
+    var modPitcherStatsElement = document.createElement('div');
+    modPitcherStatsElement.id = 'mod-pitcher-stats-table';
+    
     var table6Container = document.createElement('div');
     table6Container.className = 'table-container inactive-table';
     table6Container.id = 'table6-container';
     table6Container.style.cssText = 'width: 100%; display: none;';
     table6Container.appendChild(modPitcherStatsElement);
 
-    // Add props table containers
+    // Create elements for table7
+    var batterPropsElement = document.createElement('div');
+    batterPropsElement.id = 'batter-props-table';
+    
     var table7Container = document.createElement('div');
     table7Container.className = 'table-container inactive-table';
     table7Container.id = 'table7-container';
     table7Container.style.cssText = 'width: 100%; display: none;';
     table7Container.appendChild(batterPropsElement);
 
+    // Create elements for table8
+    var pitcherPropsElement = document.createElement('div');
+    pitcherPropsElement.id = 'pitcher-props-table';
+    
     var table8Container = document.createElement('div');
     table8Container.className = 'table-container inactive-table';
     table8Container.id = 'table8-container';
     table8Container.style.cssText = 'width: 100%; display: none;';
     table8Container.appendChild(pitcherPropsElement);
 
+    // Create elements for table9
+    var gamePropsElement = document.createElement('div');
+    gamePropsElement.id = 'game-props-table';
+    
     var table9Container = document.createElement('div');
     table9Container.className = 'table-container inactive-table';
     table9Container.id = 'table9-container';
