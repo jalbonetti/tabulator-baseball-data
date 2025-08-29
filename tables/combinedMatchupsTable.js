@@ -49,26 +49,78 @@ export class MatchupsTable extends BaseTable {
     initialize() {
         console.log('Initializing enhanced matchups table...');
         
-        // IMMEDIATELY inject scrollbar fix before anything else
-        const preInitStyle = document.createElement('style');
-        preInitStyle.innerHTML = `
-            /* Force scrollbars to show on matchups table */
-            #matchups-table .tabulator-tableHolder {
-                overflow-y: scroll !important;
-            }
-            #matchups-table .tabulator-tableHolder::-webkit-scrollbar {
-                width: 16px !important;
-                display: block !important;
-            }
-            #matchups-table .tabulator-tableHolder::-webkit-scrollbar-track {
-                background: #ddd !important;
-            }
-            #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb {
-                background: #666 !important;
-                border-radius: 8px !important;
-            }
-        `;
-        document.head.appendChild(preInitStyle);
+        // OVERRIDE the global scrollbar hiding from tableStyles.js for ALL tables
+        if (!document.getElementById('global-scrollbar-override')) {
+            const overrideScrollbarHiding = document.createElement('style');
+            overrideScrollbarHiding.id = 'global-scrollbar-override';
+            overrideScrollbarHiding.innerHTML = `
+                /* CRITICAL: Override tableStyles.js scrollbar hiding for ALL tables */
+                .tabulator-tableHolder {
+                    overflow-y: auto !important;
+                    overflow-x: hidden !important;
+                    -ms-overflow-style: auto !important;
+                    scrollbar-width: auto !important;
+                }
+                
+                .tabulator-tableHolder::-webkit-scrollbar {
+                    width: 12px !important;
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                }
+                
+                .tabulator-tableHolder::-webkit-scrollbar-track {
+                    background: #f1f1f1 !important;
+                    border: 1px solid #ddd !important;
+                }
+                
+                .tabulator-tableHolder::-webkit-scrollbar-thumb {
+                    background: #888 !important;
+                    border-radius: 6px !important;
+                }
+                
+                .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
+                    background: #555 !important;
+                }
+                
+                /* Keep horizontal scrollbars hidden */
+                .tabulator-tableHolder::-webkit-scrollbar:horizontal {
+                    display: none !important;
+                    height: 0 !important;
+                }
+                
+                /* Firefox scrollbar support */
+                @-moz-document url-prefix() {
+                    .tabulator-tableHolder {
+                        scrollbar-width: thin !important;
+                        scrollbar-color: #888 #f1f1f1 !important;
+                    }
+                }
+                
+                /* Restore alternating row colors for all tables */
+                .tabulator-row.tabulator-row-even {
+                    background-color: #f9f9f9 !important;
+                }
+                
+                .tabulator-row.tabulator-row-odd {
+                    background-color: white !important;
+                }
+                
+                /* Keep subtables white */
+                .subrow-container {
+                    background-color: white !important;
+                }
+                
+                /* Specific fixes for matchups table */
+                #matchups-table .subrow-container {
+                    background: transparent !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                }
+            `;
+            // Add to body for maximum priority over head styles
+            document.body.appendChild(overrideScrollbarHiding);
+        }
         
         // Add loading indicator
         const element = document.querySelector(this.elementId);
@@ -210,70 +262,17 @@ export class MatchupsTable extends BaseTable {
         this.table.on("tableBuilt", () => {
             console.log("Matchups table built successfully");
             
-            // ULTRA-AGGRESSIVE SCROLLBAR FIX
+            // Force scrollbar visibility after table is built
             setTimeout(() => {
-                const tableElement = document.querySelector(this.elementId);
-                if (tableElement) {
-                    tableElement.style.overflow = "hidden";
-                    tableElement.style.maxWidth = "1200px";
-                    
-                    const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
-                    if (tableHolder) {
-                        // Remove any existing inline styles first
-                        tableHolder.removeAttribute('style');
-                        
-                        // Force scrollbar with inline styles
-                        tableHolder.style.overflowY = "scroll";
-                        tableHolder.style.overflowX = "hidden";
-                        tableHolder.style.maxWidth = "100%";
-                        
-                        // Create a style element specifically for this table's scrollbar
-                        const scrollbarId = 'matchups-scrollbar-override';
-                        let scrollbarStyle = document.getElementById(scrollbarId);
-                        if (!scrollbarStyle) {
-                            scrollbarStyle = document.createElement('style');
-                            scrollbarStyle.id = scrollbarId;
-                            scrollbarStyle.innerHTML = `
-                                /* Override ALL scrollbar hiding */
-                                #matchups-table .tabulator-tableHolder {
-                                    overflow-y: scroll !important;
-                                    -webkit-overflow-scrolling: touch !important;
-                                }
-                                
-                                #matchups-table .tabulator-tableHolder::-webkit-scrollbar {
-                                    width: 15px !important;
-                                    display: block !important;
-                                    opacity: 1 !important;
-                                    visibility: visible !important;
-                                    background: #f0f0f0 !important;
-                                }
-                                
-                                #matchups-table .tabulator-tableHolder::-webkit-scrollbar-track {
-                                    background: #f0f0f0 !important;
-                                    border: 1px solid #ddd !important;
-                                }
-                                
-                                #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb {
-                                    background: #888 !important;
-                                    border-radius: 0 !important;
-                                    border: 1px solid #666 !important;
-                                }
-                                
-                                #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
-                                    background: #555 !important;
-                                }
-                                
-                                /* Firefox scrollbar */
-                                #matchups-table .tabulator-tableHolder {
-                                    scrollbar-width: auto !important;
-                                    scrollbar-color: #888 #f0f0f0 !important;
-                                }
-                            `;
-                            document.body.appendChild(scrollbarStyle);
-                        }
-                    }
+                const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+                if (tableHolder) {
+                    // Clear any conflicting styles
+                    tableHolder.style.overflowY = "scroll";
+                    tableHolder.style.overflowX = "hidden";
+                    tableHolder.style.scrollbarWidth = "auto";
+                    tableHolder.style.msOverflowStyle = "auto";
                 }
-            }, 100);
+            }, 200);
         });
     }
 
@@ -531,11 +530,12 @@ export class MatchupsTable extends BaseTable {
             if (data._expanded && !rowElement.querySelector('.subrow-container')) {
                 const holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
-                // COMPLETELY REMOVE all grey backgrounds
+                // Keep the container transparent but the inner content white
                 holderEl.style.cssText = "padding: 0 !important; background: transparent !important; background-color: transparent !important; max-width: 100%; overflow: hidden;";
                 
                 const subtableEl = document.createElement("div");
-                subtableEl.style.cssText = "max-width: 100%; overflow: hidden; padding: 10px; background: white !important; background-color: white !important;";
+                // White background only for the actual content
+                subtableEl.style.cssText = "max-width: 100%; overflow: hidden; padding: 10px; background: white !important; background-color: white !important; border-top: 2px solid #e0e0e0;";
                 holderEl.appendChild(subtableEl);
                 rowElement.appendChild(holderEl);
                 
@@ -694,7 +694,13 @@ export class MatchupsTable extends BaseTable {
                 return;
             }
             
-            const pitcherName = data._pitcherStats[0]["Starter Name"];
+            // Get pitcher name - check multiple possible fields
+            const pitcherName = data._pitcherStats[0]["Starter Name"] || 
+                               data._pitcherStats[0]["Pitcher Name"] || 
+                               data._pitcherStats[0]["Name"] || 
+                               "Unknown Pitcher";
+            
+            console.log(`Creating pitcher table for: ${pitcherName}`, data._pitcherStats[0]);
             
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
@@ -863,7 +869,7 @@ export class MatchupsTable extends BaseTable {
             const battersByOrder = {};
             data._batterMatchups.forEach(batter => {
                 const nameHandSpot = batter["Batter Name & Hand & Spot"];
-                const match = nameHandSpot.match(/(.+?)\s+(\d+)$/);
+                const match = nameHandSpot ? nameHandSpot.match(/(.+?)\s+(\d+)$/) : null;
                 if (match) {
                     const batterName = match[1];
                     const battingOrder = parseInt(match[2]);
@@ -876,6 +882,8 @@ export class MatchupsTable extends BaseTable {
                         };
                     }
                     battersByOrder[battingOrder].splits.push(batter);
+                } else {
+                    console.warn(`Could not parse batter name from: ${nameHandSpot}`);
                 }
             });
             
@@ -1020,6 +1028,12 @@ export class MatchupsTable extends BaseTable {
     createBullpenMatchupsTable(data, opposingPitcherLocation) {
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             const containerId = `bullpen-matchups-subtable-${data["Matchup Game ID"]}`;
+            const containerElement = document.getElementById(containerId);
+            
+            if (!containerElement) {
+                console.error(`Bullpen container not found: ${containerId}`);
+                return;
+            }
             
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
@@ -1033,7 +1047,11 @@ export class MatchupsTable extends BaseTable {
             
             const bullpenPitchers = {};
             data._bullpenMatchups.forEach(pitcher => {
-                const pitcherName = pitcher["Bullpen Name"];
+                // Check multiple possible field names for the pitcher name
+                const pitcherName = pitcher["Bullpen Name"] || 
+                                   pitcher["Pitcher Name"] || 
+                                   pitcher["Name"] || 
+                                   "Unknown Pitcher";
                 
                 if (!bullpenPitchers[pitcherName]) {
                     bullpenPitchers[pitcherName] = {
@@ -1043,6 +1061,8 @@ export class MatchupsTable extends BaseTable {
                 }
                 bullpenPitchers[pitcherName].splits.push(pitcher);
             });
+            
+            console.log(`Creating bullpen table with ${Object.keys(bullpenPitchers).length} pitchers`);
             
             const tableData = [];
             Object.keys(bullpenPitchers).forEach((pitcherName, index) => {
