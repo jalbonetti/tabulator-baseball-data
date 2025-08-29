@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION WITH ERROR HANDLING
+// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -13,35 +13,17 @@ export class MatchupsTable extends BaseTable {
         this.batterMatchupsCache = new Map();
         this.bullpenMatchupsCache = new Map();
         
-        // FIXED: Restored proper container sizes and column widths
         this.subtableConfig = {
-            parkFactorsContainerWidth: 550,  // Increased from 480
-            weatherContainerWidth: 550,      // Increased from 480
-            containerGap: 20,                 // Reduced gap to fit better
-            maxTotalWidth: 1120,              // Increased to accommodate larger containers
-            
-            parkFactorsColumns: {
-                split: 90,  // Increased from 90
-                H: 55,       // Increased from 50
-                "1B": 55,    // Increased from 50
-                "2B": 55,    // Increased from 50
-                "3B": 55,    // Increased from 50
-                HR: 55,      // Increased from 50
-                R: 55,       // Increased from 50
-                BB: 55,      // Increased from 50
-                SO: 55       // Increased from 50
-            },
-            
             statTableColumns: {
-                name: 300,      // Increased from 280
-                split: 160,     // Increased from 160
-                tbf_pa: 60,     // Increased from 60
-                ratio: 60,      // Increased from 70
-                stat: 60,       // Increased from 50
-                era_rbi: 60,    // Increased from 60
-                so: 60,         // Increased from 60
-                h_pa: 60,       // Increased from 70
-                pa: 60          // Increased from 60
+                name: 300,
+                split: 160,
+                tbf_pa: 60,
+                ratio: 60,
+                stat: 60,
+                era_rbi: 60,
+                so: 60,
+                h_pa: 60,
+                pa: 60
             }
         };
     }
@@ -49,16 +31,14 @@ export class MatchupsTable extends BaseTable {
     initialize() {
         console.log('Initializing enhanced matchups table...');
         
-        // FIX: Check if element exists, create if it doesn't
+        // Check if element exists, create if it doesn't
         let element = document.querySelector(this.elementId);
         if (!element) {
             console.warn(`Element ${this.elementId} not found, creating it...`);
             
-            // Create the element
             const newElement = document.createElement('div');
             newElement.id = this.elementId.replace('#', '');
             
-            // Find appropriate container - check multiple possible locations
             const container = document.querySelector('.table-container.active-table') || 
                             document.querySelector('#table0-container') ||
                             document.querySelector('.tables-container') ||
@@ -87,7 +67,6 @@ export class MatchupsTable extends BaseTable {
             `;
             element.appendChild(loadingDiv);
             
-            // Add spinner animation if not already present
             if (!document.querySelector('#matchups-spinner-style')) {
                 const style = document.createElement('style');
                 style.id = 'matchups-spinner-style';
@@ -104,14 +83,14 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             columns: this.getColumns(),
-            width: "1200px",
-            maxWidth: "1200px",
+            width: "100%",
+            maxWidth: "100%",
             height: "600px",
             layout: "fitData",
             placeholder: "Loading matchups data...",
             headerVisible: true,
             headerHozAlign: "center",
-            renderVertical: "basic",
+            renderVertical: "virtual",
             renderHorizontal: "basic",
             layoutColumnsOnNewData: false,
             virtualDomBuffer: 100,
@@ -130,7 +109,6 @@ export class MatchupsTable extends BaseTable {
                 });
                 this.matchupsData = data;
                 
-                // Remove loading indicator
                 const element = document.querySelector(this.elementId);
                 if (element) {
                     const loadingDiv = element.querySelector('.loading-indicator');
@@ -142,7 +120,6 @@ export class MatchupsTable extends BaseTable {
             ajaxError: (error) => {
                 console.error("Error loading Matchups data:", error);
                 
-                // Update loading indicator to show error
                 const element = document.querySelector(this.elementId);
                 if (element) {
                     const loadingDiv = element.querySelector('.loading-indicator');
@@ -157,7 +134,6 @@ export class MatchupsTable extends BaseTable {
             }
         };
 
-        // FIX: Add try-catch for Tabulator initialization
         try {
             this.table = new Tabulator(this.elementId, config);
             this.setupRowExpansion();
@@ -167,25 +143,20 @@ export class MatchupsTable extends BaseTable {
                 
                 const tableElement = document.querySelector(this.elementId);
                 if (tableElement) {
-                    tableElement.style.overflow = "hidden";
-                    tableElement.style.maxWidth = "1200px";
-                    
                     const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
                     if (tableHolder) {
-                        tableHolder.style.overflowX = "hidden";
-                        tableHolder.style.maxWidth = "100%";
+                        tableHolder.style.overflowY = "auto";
+                        tableHolder.style.overflowX = "auto";
+                        tableHolder.style.maxHeight = "600px";
                     }
                 }
             });
         } catch (error) {
             console.error('Error initializing Tabulator for matchups table:', error);
-            
-            // Try minimal fallback
             this.createMinimalFallback();
         }
     }
     
-    // FIX: Add minimal fallback method
     createMinimalFallback() {
         try {
             console.log('Creating minimal matchups table as fallback...');
@@ -202,7 +173,6 @@ export class MatchupsTable extends BaseTable {
             
             this.table = new Tabulator(this.elementId, minimalConfig);
             
-            // Try to reload with full config after delay
             setTimeout(() => {
                 this.reloadWithFullConfig();
             }, 1000);
@@ -211,7 +181,6 @@ export class MatchupsTable extends BaseTable {
         }
     }
     
-    // FIX: Add reload method
     async reloadWithFullConfig() {
         try {
             const response = await fetch(this.apiUrl, {
@@ -225,7 +194,6 @@ export class MatchupsTable extends BaseTable {
                     this.table.destroy();
                 }
                 
-                // Reinitialize
                 this.initialize();
             }
         } catch (error) {
@@ -250,12 +218,14 @@ export class MatchupsTable extends BaseTable {
                 headerFilterPlaceholder: "Search teams...",
                 sorter: "string",
                 resizable: false,
+                hozAlign: "left",
+                headerHozAlign: "center",
                 formatter: (cell, formatterParams, onRendered) => {
                     const value = cell.getValue();
                     const row = cell.getRow();
                     const expanded = row.getData()._expanded || false;
                     
-                    const teamName = value; // Keep full team name
+                    const teamName = value;
                     
                     onRendered(function() {
                         try {
@@ -300,13 +270,16 @@ export class MatchupsTable extends BaseTable {
                 width: 340,
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
-                resizable: false
+                resizable: false,
+                hozAlign: "center",
+                headerHozAlign: "center"
             },
             {
                 title: "Spread", 
                 field: "Matchup Spread",
                 width: 110,
                 hozAlign: "center",
+                headerHozAlign: "center",
                 headerSort: false,
                 resizable: false
             },
@@ -315,6 +288,7 @@ export class MatchupsTable extends BaseTable {
                 field: "Matchup Total",
                 width: 110,
                 hozAlign: "center",
+                headerHozAlign: "center",
                 headerSort: false,
                 resizable: false
             },
@@ -323,6 +297,7 @@ export class MatchupsTable extends BaseTable {
                 field: "Matchup Lineup Status",
                 width: 250,
                 hozAlign: "center",
+                headerHozAlign: "center",
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
                 resizable: false,
@@ -357,21 +332,20 @@ export class MatchupsTable extends BaseTable {
         }
         
         const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
-        const totalWidth = this.subtableConfig.maxTotalWidth;
 
         let tableHTML = `
-            <div style="display: flex; justify-content: center; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; margin-left: auto; margin-right: auto; clear: both;">
+            <div style="display: flex; justify-content: flex-start; gap: 20px; margin-bottom: 20px; padding: 0 10px;">
                 <!-- Park Factors Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; min-width: ${this.subtableConfig.parkFactorsContainerWidth}px; max-width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
-                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
+                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
 
                 <!-- Weather Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
+                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
-                    <div style="font-size: 12px; color: #333;">
-                        ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; word-wrap: break-word;">${w}</div>`).join('')}
+                    <div style="color: #333;">
+                        ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px; line-height: 1.4;">${w}</div>`).join('')}
                     </div>
                 </div>
             </div>
@@ -379,27 +353,27 @@ export class MatchupsTable extends BaseTable {
 
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
+                <div style="margin-top: 20px; padding: 0 10px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Starting Pitcher</h4>
-                    <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
+                    <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
             `;
         }
 
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
+                <div style="margin-top: 20px; padding: 0 10px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
-                    <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
+                    <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
             `;
         }
 
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
+                <div style="margin-top: 20px; padding: 0 10px;">
                     <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Bullpen</h4>
-                    <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
+                    <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%;"></div>
                 </div>
             `;
         }
@@ -415,7 +389,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     createParkFactorsTable(data) {
-        // FIX: Add null check for element
         const elementId = `park-factors-subtable-${data["Matchup Game ID"]}`;
         const element = document.getElementById(elementId);
         
@@ -437,23 +410,21 @@ export class MatchupsTable extends BaseTable {
             });
 
             const columns = [
-                {title: "Split", field: "split", width: this.subtableConfig.parkFactorsColumns.split, headerSort: false, hozAlign: "center"},
-                {title: "H", field: "H", width: this.subtableConfig.parkFactorsColumns.H, hozAlign: "center", headerSort: false},
-                {title: "1B", field: "1B", width: this.subtableConfig.parkFactorsColumns["1B"], hozAlign: "center", headerSort: false},
-                {title: "2B", field: "2B", width: this.subtableConfig.parkFactorsColumns["2B"], hozAlign: "center", headerSort: false},
-                {title: "3B", field: "3B", width: this.subtableConfig.parkFactorsColumns["3B"], hozAlign: "center", headerSort: false},
-                {title: "HR", field: "HR", width: this.subtableConfig.parkFactorsColumns.HR, hozAlign: "center", headerSort: false},
-                {title: "R", field: "R", width: this.subtableConfig.parkFactorsColumns.R, hozAlign: "center", headerSort: false},
-                {title: "BB", field: "BB", width: this.subtableConfig.parkFactorsColumns.BB, hozAlign: "center", headerSort: false},
-                {title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, hozAlign: "center", headerSort: false}
+                {title: "Split", field: "split", width: 70, headerSort: false, hozAlign: "center", headerHozAlign: "center"},
+                {title: "H", field: "H", width: 45, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                {title: "1B", field: "1B", width: 45, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                {title: "2B", field: "2B", width: 45, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                {title: "3B", field: "3B", width: 45, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                {title: "HR", field: "HR", width: 45, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                {title: "R", field: "R", width: 45, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                {title: "BB", field: "BB", width: 45, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                {title: "SO", field: "SO", width: 45, hozAlign: "center", headerSort: false, headerHozAlign: "center"}
             ];
 
-            // FIX: Add try-catch for Tabulator creation
             try {
                 new Tabulator(`#${elementId}`, {
-                    layout: "fitColumns",
-                    width: "100%",
-                    maxWidth: this.subtableConfig.parkFactorsContainerWidth - 20,
+                    layout: "fitData",
+                    width: "auto",
                     data: sortedParkFactors.map(pf => ({
                         split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
                         H: pf["Park Factor H"],
@@ -478,7 +449,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     createPitcherStatsTable(data, opposingLocationText) {
-        // FIX: Add null check for element
         const elementId = `pitcher-stats-subtable-${data["Matchup Game ID"]}`;
         const element = document.getElementById(elementId);
         
@@ -530,12 +500,11 @@ export class MatchupsTable extends BaseTable {
                     SO: mainRowData["Starter SO"]
                 }];
 
-                // FIX: Add try-catch for Tabulator creation
                 try {
                     const pitcherTable = new Tabulator(`#${elementId}`, {
                         layout: "fitColumns",
-                        width: "100%",
-                        maxWidth: this.subtableConfig.maxTotalWidth,
+                        width: "99%",
+                        maxWidth: "1100px",
                         data: tableData,
                         columns: [
                             {
@@ -543,6 +512,8 @@ export class MatchupsTable extends BaseTable {
                                 field: "name", 
                                 width: this.subtableConfig.statTableColumns.name, 
                                 headerSort: false,
+                                hozAlign: "left",
+                                headerHozAlign: "center",
                                 formatter: function(cell) {
                                     const rowData = cell.getRow().getData();
                                     const value = cell.getValue();
@@ -557,18 +528,18 @@ export class MatchupsTable extends BaseTable {
                                     return `<div style="margin-left: 30px;">${value}</div>`;
                                 }
                             },
-                            {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                            {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
-                            {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
-                            {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                            {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                            {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                            {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                            {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                            {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                            {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                            {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                            {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
+                            {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false, hozAlign: "center", headerHozAlign: "center"},
+                            {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                            {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false, headerHozAlign: "center"}
                         ],
                         height: false,
                         headerHeight: 30,
@@ -644,7 +615,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     createBatterMatchupsTable(data) {
-        // FIX: Check if element exists first
         const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
         const containerElement = document.getElementById(containerId);
         
@@ -718,12 +688,11 @@ export class MatchupsTable extends BaseTable {
                     }
                 });
 
-            // FIX: Add try-catch for Tabulator creation
             try {
                 const batterTable = new Tabulator(`#${containerId}`, {
                     layout: "fitColumns",
-                    width: "100%",
-                    maxWidth: this.subtableConfig.maxTotalWidth,
+                    width: "99%",
+                    maxWidth: "1100px",
                     data: tableData,
                     columns: [
                         {
@@ -731,6 +700,8 @@ export class MatchupsTable extends BaseTable {
                             field: "name", 
                             width: this.subtableConfig.statTableColumns.name, 
                             headerSort: false,
+                            hozAlign: "left",
+                            headerHozAlign: "center",
                             formatter: function(cell) {
                                 const rowData = cell.getRow().getData();
                                 const value = cell.getValue();
@@ -745,18 +716,18 @@ export class MatchupsTable extends BaseTable {
                                 return `<div style="margin-left: 30px;">${value}</div>`;
                             }
                         },
-                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                        {title: "PA", field: "PA", width: this.subtableConfig.statTableColumns.pa, hozAlign: "center", headerSort: false},
-                        {title: "H/PA", field: "H/PA", width: this.subtableConfig.statTableColumns.h_pa, hozAlign: "center", headerSort: false},
-                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "RBI", field: "RBI", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
+                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false, hozAlign: "center", headerHozAlign: "center"},
+                        {title: "PA", field: "PA", width: this.subtableConfig.statTableColumns.pa, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "H/PA", field: "H/PA", width: this.subtableConfig.statTableColumns.h_pa, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "RBI", field: "RBI", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false, headerHozAlign: "center"}
                     ],
                     height: false,
                     headerHeight: 30,
@@ -831,7 +802,6 @@ export class MatchupsTable extends BaseTable {
     }
 
     createBullpenMatchupsTable(data, opposingLocationText) {
-        // FIX: Check if element exists first
         const containerId = `bullpen-matchups-subtable-${data["Matchup Game ID"]}`;
         const containerElement = document.getElementById(containerId);
         
@@ -899,12 +869,11 @@ export class MatchupsTable extends BaseTable {
                 }
             });
 
-            // FIX: Add try-catch for Tabulator creation
             try {
                 const bullpenTable = new Tabulator(`#${containerId}`, {
                     layout: "fitColumns",
-                    width: "100%",
-                    maxWidth: this.subtableConfig.maxTotalWidth,
+                    width: "99%",
+                    maxWidth: "1100px",
                     data: tableData,
                     columns: [
                         {
@@ -912,6 +881,8 @@ export class MatchupsTable extends BaseTable {
                             field: "name", 
                             width: this.subtableConfig.statTableColumns.name, 
                             headerSort: false,
+                            hozAlign: "left",
+                            headerHozAlign: "center",
                             formatter: function(cell) {
                                 const rowData = cell.getRow().getData();
                                 const value = cell.getValue();
@@ -926,18 +897,18 @@ export class MatchupsTable extends BaseTable {
                                 return `<div style="margin-left: 30px;">${value}</div>`;
                             }
                         },
-                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                        {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
-                        {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
-                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
+                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false, hozAlign: "center", headerHozAlign: "center"},
+                        {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false, headerHozAlign: "center"},
+                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false, headerHozAlign: "center"}
                     ],
                     height: false,
                     headerHeight: 30,
@@ -1011,7 +982,7 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // Override setupRowExpansion to handle async data fetching
+    // Row expansion setup method
     setupRowExpansion() {
         const self = this;
         
@@ -1031,7 +1002,6 @@ export class MatchupsTable extends BaseTable {
                 
                 const scrollPos = this.getTableScrollPosition();
                 
-                // Fetch data if not already fetched
                 if (!data._expanded && !data._dataFetched) {
                     const cellElement = cell.getElement();
                     const expanderIcon = cellElement.querySelector('.row-expander');
@@ -1057,10 +1027,8 @@ export class MatchupsTable extends BaseTable {
                     }
                 }
                 
-                // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update global state
                 const rowId = self.generateRowId(data);
                 const globalState = self.getGlobalState();
                 
@@ -1249,13 +1217,13 @@ export class MatchupsTable extends BaseTable {
                 const holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
                 holderEl.style.padding = "10px";
-                holderEl.style.background = "white";
+                holderEl.style.background = "white";  // Changed from "#f8f9fa"
                 holderEl.style.maxWidth = "100%";
-                holderEl.style.overflow = "hidden";
+                holderEl.style.overflow = "visible";
                 
                 const subtableEl = document.createElement("div");
                 subtableEl.style.maxWidth = "100%";
-                subtableEl.style.overflow = "hidden";
+                subtableEl.style.overflow = "visible";
                 holderEl.appendChild(subtableEl);
                 rowElement.appendChild(holderEl);
                 
@@ -1271,7 +1239,6 @@ export class MatchupsTable extends BaseTable {
 
     // Override destroy method to properly clean up
     destroy() {
-        // Remove any loading indicators
         const element = document.querySelector(this.elementId);
         if (element) {
             const loadingDiv = element.querySelector('.loading-indicator');
@@ -1280,7 +1247,6 @@ export class MatchupsTable extends BaseTable {
             }
         }
         
-        // Call parent destroy
         super.destroy();
     }
 
