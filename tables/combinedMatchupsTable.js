@@ -49,79 +49,6 @@ export class MatchupsTable extends BaseTable {
     initialize() {
         console.log('Initializing enhanced matchups table...');
         
-        // OVERRIDE the global scrollbar hiding from tableStyles.js for ALL tables
-        if (!document.getElementById('global-scrollbar-override')) {
-            const overrideScrollbarHiding = document.createElement('style');
-            overrideScrollbarHiding.id = 'global-scrollbar-override';
-            overrideScrollbarHiding.innerHTML = `
-                /* CRITICAL: Override tableStyles.js scrollbar hiding for ALL tables */
-                .tabulator-tableHolder {
-                    overflow-y: auto !important;
-                    overflow-x: hidden !important;
-                    -ms-overflow-style: auto !important;
-                    scrollbar-width: auto !important;
-                }
-                
-                .tabulator-tableHolder::-webkit-scrollbar {
-                    width: 12px !important;
-                    display: block !important;
-                    visibility: visible !important;
-                    opacity: 1 !important;
-                }
-                
-                .tabulator-tableHolder::-webkit-scrollbar-track {
-                    background: #f1f1f1 !important;
-                    border: 1px solid #ddd !important;
-                }
-                
-                .tabulator-tableHolder::-webkit-scrollbar-thumb {
-                    background: #888 !important;
-                    border-radius: 6px !important;
-                }
-                
-                .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
-                    background: #555 !important;
-                }
-                
-                /* Keep horizontal scrollbars hidden */
-                .tabulator-tableHolder::-webkit-scrollbar:horizontal {
-                    display: none !important;
-                    height: 0 !important;
-                }
-                
-                /* Firefox scrollbar support */
-                @-moz-document url-prefix() {
-                    .tabulator-tableHolder {
-                        scrollbar-width: thin !important;
-                        scrollbar-color: #888 #f1f1f1 !important;
-                    }
-                }
-                
-                /* Restore alternating row colors for all tables */
-                .tabulator-row.tabulator-row-even {
-                    background-color: #f9f9f9 !important;
-                }
-                
-                .tabulator-row.tabulator-row-odd {
-                    background-color: white !important;
-                }
-                
-                /* Keep subtables white */
-                .subrow-container {
-                    background-color: white !important;
-                }
-                
-                /* Specific fixes for matchups table */
-                #matchups-table .subrow-container {
-                    background: transparent !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                }
-            `;
-            // Add to body for maximum priority over head styles
-            document.body.appendChild(overrideScrollbarHiding);
-        }
-        
         // Add loading indicator
         const element = document.querySelector(this.elementId);
         if (element && !element.querySelector('.loading-indicator')) {
@@ -261,18 +188,6 @@ export class MatchupsTable extends BaseTable {
         
         this.table.on("tableBuilt", () => {
             console.log("Matchups table built successfully");
-            
-            // Force scrollbar visibility after table is built
-            setTimeout(() => {
-                const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
-                if (tableHolder) {
-                    // Clear any conflicting styles
-                    tableHolder.style.overflowY = "scroll";
-                    tableHolder.style.overflowX = "hidden";
-                    tableHolder.style.scrollbarWidth = "auto";
-                    tableHolder.style.msOverflowStyle = "auto";
-                }
-            }, 200);
         });
     }
 
@@ -530,12 +445,12 @@ export class MatchupsTable extends BaseTable {
             if (data._expanded && !rowElement.querySelector('.subrow-container')) {
                 const holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
-                // Keep the container transparent but the inner content white
-                holderEl.style.cssText = "padding: 0 !important; background: transparent !important; background-color: transparent !important; max-width: 100%; overflow: hidden;";
+                // Keep container clean with no padding or background
+                holderEl.style.cssText = "padding: 0; background: transparent; max-width: 100%; overflow: hidden;";
                 
                 const subtableEl = document.createElement("div");
                 // White background only for the actual content
-                subtableEl.style.cssText = "max-width: 100%; overflow: hidden; padding: 10px; background: white !important; background-color: white !important; border-top: 2px solid #e0e0e0;";
+                subtableEl.style.cssText = "max-width: 100%; overflow: hidden; padding: 10px; background: white; border-top: 2px solid #e0e0e0;";
                 holderEl.appendChild(subtableEl);
                 rowElement.appendChild(holderEl);
                 
