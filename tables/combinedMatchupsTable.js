@@ -49,6 +49,27 @@ export class MatchupsTable extends BaseTable {
     initialize() {
         console.log('Initializing enhanced matchups table...');
         
+        // IMMEDIATELY inject scrollbar fix before anything else
+        const preInitStyle = document.createElement('style');
+        preInitStyle.innerHTML = `
+            /* Force scrollbars to show on matchups table */
+            #matchups-table .tabulator-tableHolder {
+                overflow-y: scroll !important;
+            }
+            #matchups-table .tabulator-tableHolder::-webkit-scrollbar {
+                width: 16px !important;
+                display: block !important;
+            }
+            #matchups-table .tabulator-tableHolder::-webkit-scrollbar-track {
+                background: #ddd !important;
+            }
+            #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb {
+                background: #666 !important;
+                border-radius: 8px !important;
+            }
+        `;
+        document.head.appendChild(preInitStyle);
+        
         // Add loading indicator
         const element = document.querySelector(this.elementId);
         if (element && !element.querySelector('.loading-indicator')) {
@@ -160,7 +181,6 @@ export class MatchupsTable extends BaseTable {
             virtualDom: true,
             virtualDomBuffer: 200,
             initialSort: [
-                {column: "Matchup Team", dir: "asc"},
                 {column: "Matchup Game", dir: "asc"}
             ],
             rowFormatter: this.createRowFormatter(),
@@ -190,36 +210,70 @@ export class MatchupsTable extends BaseTable {
         this.table.on("tableBuilt", () => {
             console.log("Matchups table built successfully");
             
-            const tableElement = document.querySelector(this.elementId);
-            if (tableElement) {
-                tableElement.style.overflow = "hidden";
-                tableElement.style.maxWidth = "1200px";
-                
-                const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
-                if (tableHolder) {
-                    // FORCE scrollbar visibility and proper scrolling
-                    tableHolder.style.cssText = "overflow-y: scroll !important; overflow-x: hidden !important; max-width: 100%; scrollbar-width: auto !important; -ms-overflow-style: auto !important;";
+            // ULTRA-AGGRESSIVE SCROLLBAR FIX
+            setTimeout(() => {
+                const tableElement = document.querySelector(this.elementId);
+                if (tableElement) {
+                    tableElement.style.overflow = "hidden";
+                    tableElement.style.maxWidth = "1200px";
                     
-                    // Force scrollbar to always show even if content fits
-                    tableHolder.style.minHeight = "100px";
+                    const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
+                    if (tableHolder) {
+                        // Remove any existing inline styles first
+                        tableHolder.removeAttribute('style');
+                        
+                        // Force scrollbar with inline styles
+                        tableHolder.style.overflowY = "scroll";
+                        tableHolder.style.overflowX = "hidden";
+                        tableHolder.style.maxWidth = "100%";
+                        
+                        // Create a style element specifically for this table's scrollbar
+                        const scrollbarId = 'matchups-scrollbar-override';
+                        let scrollbarStyle = document.getElementById(scrollbarId);
+                        if (!scrollbarStyle) {
+                            scrollbarStyle = document.createElement('style');
+                            scrollbarStyle.id = scrollbarId;
+                            scrollbarStyle.innerHTML = `
+                                /* Override ALL scrollbar hiding */
+                                #matchups-table .tabulator-tableHolder {
+                                    overflow-y: scroll !important;
+                                    -webkit-overflow-scrolling: touch !important;
+                                }
+                                
+                                #matchups-table .tabulator-tableHolder::-webkit-scrollbar {
+                                    width: 15px !important;
+                                    display: block !important;
+                                    opacity: 1 !important;
+                                    visibility: visible !important;
+                                    background: #f0f0f0 !important;
+                                }
+                                
+                                #matchups-table .tabulator-tableHolder::-webkit-scrollbar-track {
+                                    background: #f0f0f0 !important;
+                                    border: 1px solid #ddd !important;
+                                }
+                                
+                                #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb {
+                                    background: #888 !important;
+                                    border-radius: 0 !important;
+                                    border: 1px solid #666 !important;
+                                }
+                                
+                                #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
+                                    background: #555 !important;
+                                }
+                                
+                                /* Firefox scrollbar */
+                                #matchups-table .tabulator-tableHolder {
+                                    scrollbar-width: auto !important;
+                                    scrollbar-color: #888 #f0f0f0 !important;
+                                }
+                            `;
+                            document.body.appendChild(scrollbarStyle);
+                        }
+                    }
                 }
-                
-                // Additional forced scrollbar styling
-                const forceScrollbarStyle = document.createElement('style');
-                forceScrollbarStyle.textContent = `
-                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar {
-                        width: 12px !important;
-                        display: block !important;
-                    }
-                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar-track {
-                        background: #ddd !important;
-                    }
-                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb {
-                        background: #666 !important;
-                    }
-                `;
-                document.head.appendChild(forceScrollbarStyle);
-            }
+            }, 100);
         });
     }
 
@@ -570,11 +624,19 @@ export class MatchupsTable extends BaseTable {
             this.createPitcherStatsTable(data, opposingPitcherLocation);
             this.createBatterMatchupsTable(data);
             this.createBullpenMatchupsTable(data, opposingPitcherLocation);
-        }, 50);
+        }, 100);
     }
 
     createParkFactorsTable(data) {
         if (data._parkFactors && data._parkFactors.length > 0) {
+            const containerId = `park-factors-subtable-${data["Matchup Game ID"]}`;
+            const containerElement = document.getElementById(containerId);
+            
+            if (!containerElement) {
+                console.error(`Park factors container not found: ${containerId}`);
+                return;
+            }
+            
             const splitIdMap = {
                 'A': 'All',
                 'R': 'Righties',
@@ -598,7 +660,7 @@ export class MatchupsTable extends BaseTable {
                 {title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, hozAlign: "center", headerSort: false}
             ];
 
-            new Tabulator(`#park-factors-subtable-${data["Matchup Game ID"]}`, {
+            new Tabulator(`#${containerId}`, {
                 layout: "fitColumns",
                 width: "100%",
                 data: sortedParkFactors.map(pf => ({
@@ -617,12 +679,21 @@ export class MatchupsTable extends BaseTable {
                 headerHeight: 30,
                 rowHeight: 28
             });
+        } else {
+            console.log(`No park factors data for game ${data["Matchup Game ID"]}`);
         }
     }
 
     createPitcherStatsTable(data, opposingPitcherLocation) {
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             const containerId = `pitcher-stats-subtable-${data["Matchup Game ID"]}`;
+            const containerElement = document.getElementById(containerId);
+            
+            if (!containerElement) {
+                console.error(`Pitcher stats container not found: ${containerId}`);
+                return;
+            }
+            
             const pitcherName = data._pitcherStats[0]["Starter Name"];
             
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
