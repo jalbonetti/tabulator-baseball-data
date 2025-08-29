@@ -1249,7 +1249,7 @@ export class MatchupsTable extends BaseTable {
                 const holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
                 holderEl.style.padding = "10px";
-                holderEl.style.background = "#f8f9fa";
+                holderEl.style.background = "white";
                 holderEl.style.maxWidth = "100%";
                 holderEl.style.overflow = "hidden";
                 
