@@ -62,7 +62,7 @@ export class MatchupsTable extends BaseTable {
             `;
             element.appendChild(loadingDiv);
             
-            // Add spinner animation if not already present
+            // Add spinner animation and comprehensive fixes if not already present
             if (!document.querySelector('#matchups-spinner-style')) {
                 const style = document.createElement('style');
                 style.id = 'matchups-spinner-style';
@@ -72,38 +72,69 @@ export class MatchupsTable extends BaseTable {
                         100% { transform: rotate(360deg); }
                     }
                     
-                    /* FIXED: Add visible scrollbars for main table */
+                    /* FORCE visible scrollbars for main table with higher specificity */
                     #matchups-table .tabulator-tableHolder {
-                        overflow-y: auto !important;
+                        overflow-y: scroll !important;
                         overflow-x: hidden !important;
-                        scrollbar-width: thin !important;
+                        scrollbar-width: auto !important;
                         -ms-overflow-style: auto !important;
                     }
                     
                     #matchups-table .tabulator-tableHolder::-webkit-scrollbar {
-                        width: 8px !important;
+                        width: 12px !important;
+                        height: 12px !important;
                         display: block !important;
+                        visibility: visible !important;
+                        opacity: 1 !important;
                     }
                     
                     #matchups-table .tabulator-tableHolder::-webkit-scrollbar-track {
                         background: #f1f1f1 !important;
-                        border-radius: 4px !important;
+                        border-radius: 6px !important;
+                        visibility: visible !important;
                     }
                     
                     #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb {
-                        background: #888 !important;
-                        border-radius: 4px !important;
+                        background: #666 !important;
+                        border-radius: 6px !important;
+                        visibility: visible !important;
+                        min-height: 30px !important;
                     }
                     
                     #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
-                        background: #555 !important;
+                        background: #333 !important;
                     }
                     
-                    /* FIXED: Remove grey background overflow from subtables */
-                    .subrow-container {
+                    /* COMPLETELY REMOVE grey background from expanded rows */
+                    #matchups-table .tabulator-row.tabulator-row-even,
+                    #matchups-table .tabulator-row.tabulator-row-odd {
+                        background-color: white !important;
+                    }
+                    
+                    #matchups-table .subrow-container {
                         background: transparent !important;
+                        background-color: transparent !important;
                         padding: 0 !important;
                         margin: 0 !important;
+                    }
+                    
+                    #matchups-table .tabulator-cell {
+                        background-color: white !important;
+                    }
+                    
+                    /* Center all headers */
+                    #matchups-table .tabulator-header .tabulator-col-title {
+                        text-align: center !important;
+                    }
+                    
+                    #matchups-table h4, #matchups-table h5 {
+                        text-align: center !important;
+                    }
+                    
+                    /* Increase weather text size */
+                    #matchups-table .weather-text {
+                        font-size: 14px !important;
+                        line-height: 1.6 !important;
                     }
                 `;
                 document.head.appendChild(style);
@@ -166,11 +197,28 @@ export class MatchupsTable extends BaseTable {
                 
                 const tableHolder = tableElement.querySelector('.tabulator-tableHolder');
                 if (tableHolder) {
-                    // FIXED: Enable scrolling with visible scrollbar
-                    tableHolder.style.overflowY = "auto";
-                    tableHolder.style.overflowX = "hidden";
-                    tableHolder.style.maxWidth = "100%";
+                    // FORCE scrollbar visibility and proper scrolling
+                    tableHolder.style.cssText = "overflow-y: scroll !important; overflow-x: hidden !important; max-width: 100%; scrollbar-width: auto !important; -ms-overflow-style: auto !important;";
+                    
+                    // Force scrollbar to always show even if content fits
+                    tableHolder.style.minHeight = "100px";
                 }
+                
+                // Additional forced scrollbar styling
+                const forceScrollbarStyle = document.createElement('style');
+                forceScrollbarStyle.textContent = `
+                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar {
+                        width: 12px !important;
+                        display: block !important;
+                    }
+                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar-track {
+                        background: #ddd !important;
+                    }
+                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb {
+                        background: #666 !important;
+                    }
+                `;
+                document.head.appendChild(forceScrollbarStyle);
             }
         });
     }
@@ -324,6 +372,7 @@ export class MatchupsTable extends BaseTable {
                 width: 340,
                 headerFilter: true,
                 headerFilterPlaceholder: "Search teams...",
+                headerHozAlign: "center",
                 sorter: "string",
                 resizable: false,
                 formatter: (cell, formatterParams, onRendered) => {
@@ -376,6 +425,7 @@ export class MatchupsTable extends BaseTable {
                 width: 340,
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
+                headerHozAlign: "center",
                 resizable: false
             },
             {
@@ -383,6 +433,7 @@ export class MatchupsTable extends BaseTable {
                 field: "Matchup Spread",
                 width: 110,
                 hozAlign: "center",
+                headerHozAlign: "center",
                 headerSort: false,
                 resizable: false
             },
@@ -391,6 +442,7 @@ export class MatchupsTable extends BaseTable {
                 field: "Matchup Total",
                 width: 110,
                 hozAlign: "center",
+                headerHozAlign: "center",
                 headerSort: false,
                 resizable: false
             },
@@ -399,6 +451,7 @@ export class MatchupsTable extends BaseTable {
                 field: "Matchup Lineup Status",
                 width: 250,
                 hozAlign: "center",
+                headerHozAlign: "center",
                 headerFilter: createCustomMultiSelect,
                 headerSort: false,
                 resizable: false,
@@ -424,17 +477,11 @@ export class MatchupsTable extends BaseTable {
             if (data._expanded && !rowElement.querySelector('.subrow-container')) {
                 const holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
-                // FIXED: Removed grey background and reduced padding
-                holderEl.style.padding = "0";
-                holderEl.style.background = "transparent";
-                holderEl.style.maxWidth = "100%";
-                holderEl.style.overflow = "hidden";
+                // COMPLETELY REMOVE all grey backgrounds
+                holderEl.style.cssText = "padding: 0 !important; background: transparent !important; background-color: transparent !important; max-width: 100%; overflow: hidden;";
                 
                 const subtableEl = document.createElement("div");
-                subtableEl.style.maxWidth = "100%";
-                subtableEl.style.overflow = "hidden";
-                subtableEl.style.padding = "10px";
-                subtableEl.style.background = "#ffffff";
+                subtableEl.style.cssText = "max-width: 100%; overflow: hidden; padding: 10px; background: white !important; background-color: white !important;";
                 holderEl.appendChild(subtableEl);
                 rowElement.appendChild(holderEl);
                 
@@ -479,11 +526,11 @@ export class MatchupsTable extends BaseTable {
                     <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
 
-                <!-- Weather Section - FIXED visibility -->
+                <!-- Weather Section - FIXED visibility and text size -->
                 <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; display: block;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
-                    <div style="font-size: 12px; color: #333; display: block;">
-                        ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; word-wrap: break-word;">${w}</div>`).join('')}
+                    <div class="weather-text" style="font-size: 14px !important; line-height: 1.6 !important; color: #333; display: block;">
+                        ${weatherData.map(w => `<div style="padding: 10px 12px; border-bottom: 1px solid #eee; word-wrap: break-word; font-size: 14px !important;">${w}</div>`).join('')}
                     </div>
                 </div>
             </div>
