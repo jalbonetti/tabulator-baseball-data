@@ -133,35 +133,23 @@ export class MatchupsTable extends BaseTable {
                 {column: "Matchup Game", dir: "asc"}
             ],
             rowFormatter: this.createRowFormatter(),
-            // Override the base ajaxResponse to handle additional data fetching
-            ajaxResponse: async (url, params, response) => {
-                try {
-                    console.log('Processing matchups data...');
-                    const data = await response.json();
-                    this.matchupsData = data;
-                    
-                    console.log(`Fetching additional data for ${data.length} matchups...`);
-                    await this.fetchAllAdditionalData(data);
-                    
-                    // Remove loading indicator
-                    const loadingDiv = document.querySelector(`${this.elementId} .loading-indicator`);
-                    if (loadingDiv) {
-                        loadingDiv.remove();
-                    }
-                    
-                    console.log('All matchups data loaded successfully');
-                    return data;
-                } catch (error) {
-                    console.error('Error processing matchups data:', error);
-                    
-                    // Remove loading indicator on error
-                    const loadingDiv = document.querySelector(`${this.elementId} .loading-indicator`);
-                    if (loadingDiv) {
-                        loadingDiv.remove();
-                    }
-                    
-                    throw error;
+            // Override the ajaxRequestFunc to fetch additional data
+            ajaxRequestFunc: async (url, config, params) => {
+                // Call the parent's ajaxRequestFunc to get the main data with caching
+                const parentFunc = baseConfig.ajaxRequestFunc;
+                const data = await parentFunc.call(this, url, config, params);
+                
+                console.log(`Fetching additional data for ${data.length} matchups...`);
+                await this.fetchAllAdditionalData(data);
+                
+                // Remove loading indicator
+                const loadingDiv = document.querySelector(`${this.elementId} .loading-indicator`);
+                if (loadingDiv) {
+                    loadingDiv.remove();
                 }
+                
+                console.log('All matchups data loaded successfully');
+                return data;
             }
         };
 
