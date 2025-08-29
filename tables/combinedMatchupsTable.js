@@ -110,8 +110,11 @@ export class MatchupsTable extends BaseTable {
             }
         }
         
+        // Get base config from parent class
+        const baseConfig = this.getBaseConfig();
+        
         const config = {
-            ...this.tableConfig,
+            ...baseConfig,
             columns: this.getColumns(),
             width: "1200px",
             maxWidth: "1200px",
@@ -130,12 +133,7 @@ export class MatchupsTable extends BaseTable {
                 {column: "Matchup Game", dir: "asc"}
             ],
             rowFormatter: this.createRowFormatter(),
-            ajaxRequestFunc: this.customAjaxRequest.bind(this),
-            ajaxURL: `${API_CONFIG.baseURL}${this.endpoint}`,
-            ajaxConfig: {
-                method: "GET",
-                headers: API_CONFIG.headers
-            },
+            // Override the base ajaxResponse to handle additional data fetching
             ajaxResponse: async (url, params, response) => {
                 try {
                     console.log('Processing matchups data...');
