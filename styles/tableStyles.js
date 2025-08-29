@@ -1,4 +1,4 @@
-// styles/tableStyles.js - COMPLETE FIX FOR RESPONSIVE ISSUES
+// styles/tableStyles.js - FIXED WITH VERTICAL SCROLLBARS
 import { CONFIG, isMobile, isTablet, getDeviceScale } from '../shared/config.js';
 import { TAB_STYLES } from '../components/tabManager.js';
 
@@ -23,23 +23,61 @@ function injectMinimalStyles() {
         
         ${TAB_STYLES}
         
-        /* Remove ALL scrollbars */
-        * {
-            -ms-overflow-style: none !important;
-            scrollbar-width: none !important;
+        /* FIXED: Show vertical scrollbars, hide horizontal */
+        .tabulator .tabulator-tableHolder {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            max-width: 100% !important;
+            -ms-overflow-style: auto !important;
+            scrollbar-width: thin !important;
         }
         
-        *::-webkit-scrollbar {
+        /* Show vertical scrollbars */
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar {
+            width: 12px !important;
+            display: block !important;
+        }
+        
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
+            background: #f1f1f1 !important;
+            border-radius: 6px !important;
+        }
+        
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
+            background: #888 !important;
+            border-radius: 6px !important;
+        }
+        
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
+            background: #555 !important;
+        }
+        
+        /* Hide horizontal scrollbars specifically */
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar:horizontal {
             display: none !important;
-            width: 0 !important;
             height: 0 !important;
+        }
+        
+        /* Alternating row colors */
+        .tabulator-row.tabulator-row-even {
+            background-color: #f9f9f9 !important;
+        }
+        
+        .tabulator-row.tabulator-row-odd {
+            background-color: white !important;
+        }
+        
+        /* Keep expanded rows/subtables white */
+        .subrow-container {
+            background-color: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
         
         /* Fixed table widths */
         #matchups-table .tabulator { 
             max-width: 1200px !important;
             width: 1200px !important;
-            overflow: hidden !important;
         }
         
         #batter-table .tabulator { 
@@ -87,10 +125,59 @@ function injectMinimalStyles() {
             width: 1400px !important;
         }
         
-        /* Prevent overflow on all table containers */
-        .tabulator .tabulator-tableHolder {
+        /* Text alignment fixes */
+        .tabulator .tabulator-cell[tabulator-field="Batter Name"],
+        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"] {
+            text-align: left !important;
+        }
+        
+        /* Subtable responsive - prevent overflow */
+        .subrow-container {
+            width: 100% !important;
+            max-width: 1120px !important;
             overflow: hidden !important;
+            margin: 0 auto !important;
+            transition: none !important;
+        }
+        
+        .subrow-container .tabulator {
+            font-size: 11px !important;
+            min-width: auto !important;
+            overflow: hidden !important;
+        }
+        
+        /* Fix for Webflow containers */
+        .w-container {
             max-width: 100% !important;
+            overflow: hidden !important;
+        }
+        
+        /* Ensure proper stacking context */
+        .tabulator {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .tabulator .tabulator-header {
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* Matchups table specific fixes */
+        #matchups-table .subrow-container {
+            max-width: 1120px !important;
+        }
+        
+        #matchups-table .tabulator-row {
+            max-width: 100% !important;
+        }
+        
+        /* Custom multiselect dropdown overflow fix */
+        .custom-multiselect-dropdown {
+            position: fixed !important;
+            z-index: 999999 !important;
+            max-height: 300px !important;
+            overflow-y: auto !important;
         }
         
         /* IMPROVED Responsive scaling - INCLUDING SUBTABLES */
@@ -129,6 +216,7 @@ function injectMinimalStyles() {
         }
     `;
     document.head.appendChild(style);
+    console.log('Minimal table styles with VERTICAL SCROLLBARS injected');
 }
 
 function injectFullStyles() {
@@ -142,242 +230,223 @@ function injectFullStyles() {
         
         ${TAB_STYLES}
         
-        /* Remove ALL scrollbars globally */
-        * {
-            -ms-overflow-style: none !important;
-            scrollbar-width: none !important;
+        /* FIXED: Show vertical scrollbars, hide horizontal */
+        .tabulator .tabulator-tableHolder {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -ms-overflow-style: auto !important;
+            scrollbar-width: thin !important;
         }
         
-        *::-webkit-scrollbar {
+        /* Show vertical scrollbars */
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar {
+            width: 12px !important;
+            display: block !important;
+        }
+        
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
+            background: #f1f1f1 !important;
+            border-radius: 6px !important;
+        }
+        
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
+            background: #888 !important;
+            border-radius: 6px !important;
+        }
+        
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
+            background: #555 !important;
+        }
+        
+        /* Hide horizontal scrollbars */
+        .tabulator .tabulator-tableHolder::-webkit-scrollbar:horizontal {
             display: none !important;
-            width: 0 !important;
             height: 0 !important;
         }
         
-        body {
-            overflow-x: hidden !important;
-            position: relative !important;
-        }
-        
-        /* Enable pinch-to-zoom on mobile */
-        @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
-            body {
-                touch-action: pan-x pan-y pinch-zoom !important;
-            }
-        }
-        
-        /* Container responsive settings */
-        .table-container {
-            width: 100% !important;
-            max-width: 100% !important;
-            display: flex !important;
-            justify-content: center !important;
-            position: relative !important;
-            overflow: visible !important;
-        }
-        
-        .tables-container {
-            width: 100% !important;
-            max-width: 100% !important;
-            overflow: hidden !important;
-            position: relative !important;
-        }
-        
-        /* Fixed width tables with explicit widths per table */
-        #matchups-table { 
-            max-width: 1200px !important;
-            width: 1200px !important;
-        }
-        
-        #batter-table,
-        #pitcher-table,
-        #mod-batter-stats-table,
-        #mod-pitcher-stats-table,
-        #batter-props-table,
-        #pitcher-props-table,
-        #game-props-table {
-            max-width: 1400px !important;
-            width: 1400px !important;
-        }
-        
-        #batter-table-alt,
-        #pitcher-table-alt {
-            max-width: 1200px !important;
-            width: 1200px !important;
-        }
-        
-        /* IMPROVED Tablet (768px - 1199px) - Scale ALL table elements */
-        @media screen and (min-width: ${CONFIG.BREAKPOINTS.mobile + 1}px) and (max-width: ${CONFIG.BREAKPOINTS.tablet}px) {
-            .table-container {
-                transform: scale(0.85);
-                transform-origin: top left;
-                width: 118%; /* 100 / 0.85 */
-                margin: 0 auto;
-            }
-            
-            .tabulator {
-                font-size: 14px !important;
-            }
-            
-            /* Scale subrows within their parent context */
-            .tabulator-row > .subrow-container {
-                transform: scale(1);
-                width: 100%;
-            }
-            
-            .subrow-container .tabulator {
-                font-size: 12px !important;
-            }
-        }
-        
-        /* IMPROVED Mobile (< 768px) - Scale ALL table elements */
-        @media screen and (max-width: ${CONFIG.BREAKPOINTS.mobile}px) {
-            .table-container {
-                transform: scale(0.75);
-                transform-origin: top left;
-                width: 133%; /* 100 / 0.75 */
-                margin: 0 auto;
-            }
-            
-            .tabulator {
-                font-size: 14px !important;
-            }
-            
-            /* Scale subrows within their parent context */
-            .tabulator-row > .subrow-container {
-                transform: scale(1);
-                width: 100%;
-            }
-            
-            .subrow-container .tabulator {
-                font-size: 11px !important;
-            }
-        }
-        
-        /* Ultra-wide screens */
-        @media screen and (min-width: ${CONFIG.BREAKPOINTS.ultrawide}px) {
-            .tabulator {
-                font-size: 16px !important;
-            }
-            
-            .tabulator .tabulator-header {
-                font-size: 14px !important;
-            }
-            
-            .tabulator .tabulator-cell {
-                padding: 8px 10px !important;
-            }
-        }
-        
-        /* Prevent column resizing */
-        .tabulator-col-resize-handle {
-            display: none !important;
-        }
-        
         /* Alternating row colors */
-        .tabulator .tabulator-tableHolder .tabulator-table .tabulator-row:nth-child(even) {
-            background-color: #f8f9fa !important;
+        .tabulator-row.tabulator-row-even {
+            background-color: #f9f9f9 !important;
         }
         
-        .tabulator .tabulator-tableHolder .tabulator-table .tabulator-row:nth-child(odd) {
-            background-color: #ffffff !important;
+        .tabulator-row.tabulator-row-odd {
+            background-color: white !important;
         }
         
-        .tabulator .tabulator-tableHolder .tabulator-table .tabulator-row:hover {
-            background-color: #e9ecef !important;
-        }
-        
-        /* Center header text */
-        .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
-            text-align: center !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            min-height: 40px !important;
-        }
-        
-        /* Center cell content by default */
-        .tabulator .tabulator-cell {
-            text-align: center !important;
-        }
-        
-        /* Left align name columns */
-        .tabulator .tabulator-cell[tabulator-field="Matchup Team"],
-        .tabulator .tabulator-cell[tabulator-field="Batter Name"],
-        .tabulator .tabulator-cell[tabulator-field="Pitcher Name"] {
-            text-align: left !important;
-        }
-        
-        /* Subtable responsive - prevent overflow */
+        /* Keep expanded rows/subtables white */
         .subrow-container {
-            width: 100% !important;
-            max-width: 1120px !important;
-            overflow: hidden !important;
-            margin: 0 auto !important;
-            transition: none !important; /* Remove transition for instant scaling */
+            background-color: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
         
-        .subrow-container .tabulator {
-            font-size: 11px !important;
-            min-width: auto !important;
-            overflow: hidden !important;
+        /* Base reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
-        /* Fix for Webflow containers */
-        .w-container {
-            max-width: 100% !important;
-            overflow: hidden !important;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            overflow-x: hidden;
         }
         
-        /* Ensure proper stacking context */
+        /* Table container styling */
+        .table-container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        /* Tabulator overrides */
         .tabulator {
-            position: relative;
-            z-index: 1;
+            font-size: 12px;
+            border: none !important;
+            background: transparent;
         }
         
         .tabulator .tabulator-header {
+            background: #f8f9fa !important;
+            border-bottom: 2px solid #dee2e6 !important;
+            font-weight: 600;
+        }
+        
+        .tabulator .tabulator-header .tabulator-col {
+            background: transparent !important;
+            border-right: 1px solid #dee2e6 !important;
+        }
+        
+        .tabulator .tabulator-header .tabulator-col:last-child {
+            border-right: none !important;
+        }
+        
+        .tabulator .tabulator-header .tabulator-col-title {
+            padding: 8px !important;
+            font-size: 11px !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .tabulator .tabulator-cell {
+            padding: 6px 8px !important;
+            border-right: 1px solid #e9ecef !important;
+        }
+        
+        .tabulator .tabulator-cell:last-child {
+            border-right: none !important;
+        }
+        
+        .tabulator-row {
+            border-bottom: 1px solid #e9ecef !important;
+        }
+        
+        .tabulator-row:hover {
+            background-color: #f0f8ff !important;
+        }
+        
+        /* Custom multiselect styling */
+        .custom-multiselect {
             position: relative;
-            z-index: 2;
+            width: 100%;
         }
         
-        /* Background image support for dead space */
-        .table-wrapper::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 100%;
-            background-image: var(--table-bg-image, none);
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            z-index: -1;
-            pointer-events: none;
+        .custom-multiselect-button {
+            width: 100%;
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            background: white;
+            cursor: pointer;
+            font-size: 11px;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
-        /* Matchups table specific fixes */
-        #matchups-table .subrow-container {
-            max-width: 1120px !important;
+        .custom-multiselect-button:hover {
+            background: #f8f9fa;
+            border-color: #007bff;
         }
         
-        #matchups-table .tabulator-row {
-            max-width: 100% !important;
-        }
-        
-        /* Custom multiselect dropdown overflow fix */
         .custom-multiselect-dropdown {
-            position: fixed !important;
-            z-index: 999999 !important;
-            max-height: 300px !important;
-            overflow-y: auto !important;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 250px;
+            overflow-y: auto;
+            background: white;
+            border: 2px solid #007bff;
+            border-top: none;
+            z-index: 9999;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
+        
+        .custom-multiselect-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .custom-multiselect-option:hover {
+            background: #f8f9fa;
+        }
+        
+        .custom-multiselect-option.selected {
+            background: #007bff;
+            color: white;
+        }
+        
+        .custom-multiselect-option.select-all {
+            font-weight: bold;
+            background: #e9ecef;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        /* Subtable styling */
+        .subrow-container {
+            padding: 15px !important;
+            background: #f8f9fa !important;
+            border-top: 2px solid #007bff !important;
+        }
+        
+        .subtable-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .subtable-container > div {
+            flex: 1;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        
+        .subtable-container h4 {
+            margin: 0 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 13px;
+            color: #495057;
+        }
+        
+        /* Responsive design handled by CONFIG settings */
     `;
     
     document.head.appendChild(style);
-    console.log('Complete responsive table styles with restored tab UI injected');
+    console.log('Complete responsive table styles with VERTICAL SCROLLBARS injected');
     
-    // Add IMPROVED dynamic resize handler
+    // Add dynamic resize handlers
     addResponsiveHandlers();
 }
 
@@ -386,85 +455,36 @@ function addResponsiveHandlers() {
     let resizeTimeout;
     let lastWidth = window.innerWidth;
     
-    // Function to apply responsive scaling
     const applyResponsiveScaling = () => {
-        const width = window.innerWidth;
+        const currentWidth = window.innerWidth;
         const scale = getDeviceScale();
         
-        // Apply to ALL tables AND subrows
-        const tables = document.querySelectorAll('.tabulator');
-        const containers = document.querySelectorAll('.table-container');
-        const subrows = document.querySelectorAll('.subrow-container');
+        // Apply scaling to all table containers
+        document.querySelectorAll('.table-container').forEach(container => {
+            container.style.transform = `scale(${scale})`;
+            container.style.transformOrigin = 'top left';
+            container.style.width = scale < 1 ? `${100 / scale}%` : '100%';
+        });
         
-        // Scale main table containers
-        containers.forEach(container => {
-            if (scale !== 1) {
-                container.style.transform = `scale(${scale})`;
-                container.style.transformOrigin = 'top left';
-                container.style.width = `${100 / scale}%`;
-                container.style.marginLeft = 'auto';
-                container.style.marginRight = 'auto';
-            } else {
-                container.style.transform = '';
-                container.style.transformOrigin = '';
-                container.style.width = '';
-                container.style.marginLeft = '';
-                container.style.marginRight = '';
+        // Also scale subtable containers
+        document.querySelectorAll('.subrow-container').forEach(container => {
+            const parentScale = parseFloat(container.closest('.table-container')?.style.transform?.match(/scale\(([\d.]+)\)/)?.[1] || 1);
+            if (parentScale < 1) {
+                container.style.fontSize = `${11 * parentScale}px`;
             }
         });
         
-        // Apply scaling to subrows that are INSIDE expanded rows
-        subrows.forEach(subrow => {
-            const parentRow = subrow.closest('.tabulator-row');
-            if (parentRow && parentRow.classList.contains('row-expanded')) {
-                // Subrows inherit parent scaling, no additional transform needed
-                subrow.style.width = '100%';
-            }
-        });
-        
-        // Add appropriate classes to all tables (including subtables)
-        tables.forEach(table => {
-            if (width <= CONFIG.BREAKPOINTS.mobile) {
-                table.classList.add('mobile-view');
-                table.classList.remove('tablet-view', 'desktop-view');
-            } else if (width <= CONFIG.BREAKPOINTS.tablet) {
-                table.classList.add('tablet-view');
-                table.classList.remove('mobile-view', 'desktop-view');
-            } else {
-                table.classList.add('desktop-view');
-                table.classList.remove('mobile-view', 'tablet-view');
-            }
-        });
-        
-        // Force tab buttons to maintain their size
-        const tabButtons = document.querySelectorAll('.tab-button');
-        tabButtons.forEach(button => {
-            button.style.transform = 'none';
-            button.style.fontSize = width <= CONFIG.BREAKPOINTS.mobile ? '12px' : '13px';
+        // Adjust font sizes for better readability
+        document.querySelectorAll('.tabulator').forEach(table => {
+            const baseSize = isMobile() ? 11 : isTablet() ? 12 : 13;
+            table.style.fontSize = `${baseSize}px`;
         });
         
         // Trigger redraw for visible tables
         if (window.tabManager && window.tabManager.currentActiveTab) {
             const activeTable = window.tabManager.tables[window.tabManager.currentActiveTab];
             if (activeTable && activeTable.table) {
-                // Immediate redraw without timeout
                 activeTable.table.redraw();
-                
-                // Also redraw any subtables in expanded rows
-                const expandedRows = activeTable.table.getRows().filter(row => {
-                    const data = row.getData();
-                    return data._expanded === true;
-                });
-                
-                expandedRows.forEach(row => {
-                    const rowElement = row.getElement();
-                    const subtables = rowElement.querySelectorAll('.subrow-container .tabulator');
-                    subtables.forEach(subtable => {
-                        if (subtable._tabulator) {
-                            subtable._tabulator.redraw();
-                        }
-                    });
-                });
             }
         }
     };
@@ -472,13 +492,9 @@ function addResponsiveHandlers() {
     // Resize observer for more reliable detection
     const resizeObserver = new ResizeObserver(entries => {
         const newWidth = window.innerWidth;
-        if (Math.abs(newWidth - lastWidth) > 10) { // Only trigger if significant change
+        if (Math.abs(newWidth - lastWidth) > 10) {
             lastWidth = newWidth;
-            
-            // Apply immediately
             applyResponsiveScaling();
-            
-            // Also apply after a short delay for any delayed renders
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(applyResponsiveScaling, 100);
         }
@@ -487,39 +503,30 @@ function addResponsiveHandlers() {
     // Observe body for size changes
     resizeObserver.observe(document.body);
     
-    // Also use traditional resize listener as backup
+    // Also use traditional resize listener
     window.addEventListener('resize', () => {
-        // Immediate application
         applyResponsiveScaling();
-        
-        // Debounced application for final adjustments
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(applyResponsiveScaling, 100);
     });
     
-    // Apply on orientation change (mobile devices)
+    // Apply on orientation change
     window.addEventListener('orientationchange', () => {
-        setTimeout(applyResponsiveScaling, 0);
         setTimeout(applyResponsiveScaling, 100);
-        setTimeout(applyResponsiveScaling, 300);
     });
     
-    // Initial application - run multiple times to ensure everything is scaled
+    // Initial application
     applyResponsiveScaling();
-    setTimeout(applyResponsiveScaling, 0);
     setTimeout(applyResponsiveScaling, 100);
-    setTimeout(applyResponsiveScaling, 300);
     
-    // Make function available globally for manual triggering
+    // Make function available globally
     window.applyResponsiveScaling = applyResponsiveScaling;
 }
 
-// Enhanced update function that can be called externally
+// Export for use by other modules
+export { addResponsiveHandlers };
 export function updateTableResponsiveness() {
     if (window.applyResponsiveScaling) {
         window.applyResponsiveScaling();
     }
 }
-
-// Export for use by other modules
-export { addResponsiveHandlers };
