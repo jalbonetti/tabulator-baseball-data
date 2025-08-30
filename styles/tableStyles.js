@@ -1,4 +1,4 @@
-// styles/tableStyles.js - FIXED WITH VERTICAL SCROLLBARS
+// styles/tableStyles.js - COMPLETE FIXED VERSION WITH VERTICAL SCROLLBARS
 import { CONFIG, isMobile, isTablet, getDeviceScale } from '../shared/config.js';
 import { TAB_STYLES } from '../components/tabManager.js';
 
@@ -23,29 +23,50 @@ function injectMinimalStyles() {
         
         ${TAB_STYLES}
         
-        /* FIXED: Show vertical scrollbars, hide horizontal */
+        /* CRITICAL FIX 1: Restore alternating row colors using nth-child */
+        .tabulator-row:nth-child(even):not(.tabulator-row-moving):not(.tabulator-group) {
+            background-color: #f9f9f9 !important;
+        }
+        
+        .tabulator-row:nth-child(odd):not(.tabulator-row-moving):not(.tabulator-group) {
+            background-color: white !important;
+        }
+        
+        /* Keep expanded rows/subtables with transparent background */
+        .subrow-container {
+            background-color: transparent !important;
+            padding: 10px 20px !important;
+            margin: 0 !important;
+        }
+        
+        /* CRITICAL FIX 2: Force vertical scrollbar to always be visible */
         .tabulator .tabulator-tableHolder {
-            overflow-y: auto !important;
+            overflow-y: scroll !important;  /* Changed from auto to scroll */
             overflow-x: hidden !important;
             max-width: 100% !important;
             -ms-overflow-style: auto !important;
-            scrollbar-width: thin !important;
+            scrollbar-width: auto !important;  /* Changed from thin to auto */
         }
         
-        /* Show vertical scrollbars */
+        /* Ensure scrollbar is always visible and prominent */
         .tabulator .tabulator-tableHolder::-webkit-scrollbar {
-            width: 12px !important;
+            width: 14px !important;  /* Wider for better visibility */
             display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
         
         .tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
-            background: #f1f1f1 !important;
-            border-radius: 6px !important;
+            background: #e0e0e0 !important;  /* Darker track */
+            border-radius: 7px !important;
+            border: 1px solid #ccc !important;
         }
         
         .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
             background: #888 !important;
-            border-radius: 6px !important;
+            border-radius: 7px !important;
+            border: 1px solid #666 !important;
+            min-height: 40px !important;  /* Minimum thumb size */
         }
         
         .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
@@ -58,77 +79,102 @@ function injectMinimalStyles() {
             height: 0 !important;
         }
         
-        /* Alternating row colors */
-        .tabulator-row.tabulator-row-even {
-            background-color: #f9f9f9 !important;
-        }
-        
-        .tabulator-row.tabulator-row-odd {
-            background-color: white !important;
-        }
-        
-        /* Keep expanded rows/subtables white */
-        .subrow-container {
-            background-color: white !important;
+        /* CRITICAL FIX 3: Remove grey space around tables */
+        .table-container {
             padding: 0 !important;
             margin: 0 !important;
+            background: transparent !important;
         }
         
-        /* Fixed table widths */
+        .tabulator {
+            border: none !important;
+            background: white !important;
+        }
+        
+        /* Fixed table widths without extra spacing */
         #matchups-table .tabulator { 
             max-width: 1200px !important;
-            width: 1200px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #batter-table .tabulator { 
             max-width: 1400px !important;
-            width: 1400px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #batter-table-alt .tabulator { 
             max-width: 1200px !important;
-            width: 1200px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #pitcher-table .tabulator { 
             max-width: 1400px !important;
-            width: 1400px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #pitcher-table-alt .tabulator { 
             max-width: 1200px !important;
-            width: 1200px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #mod-batter-stats-table .tabulator { 
             max-width: 1400px !important;
-            width: 1400px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #mod-pitcher-stats-table .tabulator { 
             max-width: 1400px !important;
-            width: 1400px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #batter-props-table .tabulator { 
             max-width: 1400px !important;
-            width: 1400px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #pitcher-props-table .tabulator { 
             max-width: 1400px !important;
-            width: 1400px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         #game-props-table .tabulator { 
             max-width: 1400px !important;
-            width: 1400px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
         }
         
         /* Text alignment fixes */
         .tabulator .tabulator-cell[tabulator-field="Batter Name"],
         .tabulator .tabulator-cell[tabulator-field="Pitcher Name"] {
             text-align: left !important;
+        }
+        
+        /* CRITICAL FIX 4: Subtable font size consistency */
+        .subrow-container .tabulator {
+            font-size: 12px !important;  /* Increased from 11px */
+            line-height: 1.4 !important;
+            min-width: auto !important;
+            overflow: hidden !important;
+            transform: none !important;  /* Remove any scaling */
+        }
+        
+        .subrow-container .tabulator .tabulator-cell {
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+        }
+        
+        .subrow-container .tabulator .tabulator-header {
+            font-size: 12px !important;
+            font-weight: 600 !important;
         }
         
         /* Subtable responsive - prevent overflow */
@@ -140,16 +186,16 @@ function injectMinimalStyles() {
             transition: none !important;
         }
         
-        .subrow-container .tabulator {
-            font-size: 11px !important;
-            min-width: auto !important;
-            overflow: hidden !important;
-        }
-        
         /* Fix for Webflow containers */
         .w-container {
             max-width: 100% !important;
-            overflow: hidden !important;
+            padding: 0 !important;
+            background: transparent !important;
+        }
+        
+        /* Center all headers */
+        .tabulator .tabulator-header .tabulator-col-title {
+            text-align: center !important;
         }
         
         /* Ensure proper stacking context */
@@ -216,7 +262,7 @@ function injectMinimalStyles() {
         }
     `;
     document.head.appendChild(style);
-    console.log('Minimal table styles with VERTICAL SCROLLBARS injected');
+    console.log('Minimal table styles with FIXED VERTICAL SCROLLBARS and alternating rows injected');
 }
 
 function injectFullStyles() {
@@ -230,28 +276,33 @@ function injectFullStyles() {
         
         ${TAB_STYLES}
         
-        /* FIXED: Show vertical scrollbars, hide horizontal */
+        /* FIXED: Force vertical scrollbars to always show */
         .tabulator .tabulator-tableHolder {
-            overflow-y: auto !important;
+            overflow-y: scroll !important;  /* Changed from auto to scroll */
             overflow-x: hidden !important;
             -ms-overflow-style: auto !important;
-            scrollbar-width: thin !important;
+            scrollbar-width: auto !important;  /* Changed from thin to auto */
         }
         
-        /* Show vertical scrollbars */
+        /* Show vertical scrollbars with better visibility */
         .tabulator .tabulator-tableHolder::-webkit-scrollbar {
-            width: 12px !important;
+            width: 14px !important;
             display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
         
         .tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
-            background: #f1f1f1 !important;
-            border-radius: 6px !important;
+            background: #e0e0e0 !important;
+            border-radius: 7px !important;
+            border: 1px solid #ccc !important;
         }
         
         .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
             background: #888 !important;
-            border-radius: 6px !important;
+            border-radius: 7px !important;
+            border: 1px solid #666 !important;
+            min-height: 40px !important;
         }
         
         .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
@@ -264,19 +315,19 @@ function injectFullStyles() {
             height: 0 !important;
         }
         
-        /* Alternating row colors */
-        .tabulator-row.tabulator-row-even {
+        /* Alternating row colors using nth-child */
+        .tabulator-row:nth-child(even):not(.tabulator-row-moving) {
             background-color: #f9f9f9 !important;
         }
         
-        .tabulator-row.tabulator-row-odd {
+        .tabulator-row:nth-child(odd):not(.tabulator-row-moving) {
             background-color: white !important;
         }
         
-        /* Keep expanded rows/subtables white */
+        /* Keep expanded rows/subtables transparent */
         .subrow-container {
-            background-color: white !important;
-            padding: 0 !important;
+            background-color: transparent !important;
+            padding: 10px 20px !important;
             margin: 0 !important;
         }
         
@@ -294,85 +345,145 @@ function injectFullStyles() {
             overflow-x: hidden;
         }
         
-        /* Table container styling */
+        /* Table container styling - no grey padding */
         .table-container {
-            width: 100%;
             max-width: 1400px;
             margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 20px;
-        }
-        
-        /* Tabulator overrides */
-        .tabulator {
-            font-size: 12px;
-            border: none !important;
+            padding: 0;
             background: transparent;
         }
         
+        /* Main Tabulator styling */
+        .tabulator {
+            font-size: 13px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        /* Header styling */
         .tabulator .tabulator-header {
-            background: #f8f9fa !important;
-            border-bottom: 2px solid #dee2e6 !important;
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            border-bottom: 2px solid #007bff;
             font-weight: 600;
+            font-size: 12px;
         }
         
         .tabulator .tabulator-header .tabulator-col {
-            background: transparent !important;
-            border-right: 1px solid #dee2e6 !important;
+            background: transparent;
+            border-right: 1px solid #dee2e6;
         }
         
         .tabulator .tabulator-header .tabulator-col:last-child {
-            border-right: none !important;
+            border-right: none;
+        }
+        
+        .tabulator .tabulator-header .tabulator-col-content {
+            padding: 10px 8px;
         }
         
         .tabulator .tabulator-header .tabulator-col-title {
-            padding: 8px !important;
-            font-size: 11px !important;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            white-space: normal;
+            text-align: center;
+            line-height: 1.2;
         }
         
+        /* Cell styling */
         .tabulator .tabulator-cell {
-            padding: 6px 8px !important;
-            border-right: 1px solid #e9ecef !important;
+            padding: 8px;
+            border-right: 1px solid #e9ecef;
+            text-align: center;
         }
         
         .tabulator .tabulator-cell:last-child {
-            border-right: none !important;
+            border-right: none;
         }
         
-        .tabulator-row {
-            border-bottom: 1px solid #e9ecef !important;
+        /* Row styling with proper alternating colors */
+        .tabulator .tabulator-row {
+            border-bottom: 1px solid #e9ecef;
+            min-height: 40px;
         }
         
-        .tabulator-row:hover {
+        .tabulator .tabulator-row:hover:not(.tabulator-row-moving) {
+            background-color: #e7f3ff !important;
+        }
+        
+        /* Selected row */
+        .tabulator .tabulator-row.tabulator-selected {
+            background-color: #007bff !important;
+        }
+        
+        .tabulator .tabulator-row.tabulator-selected .tabulator-cell {
+            color: white;
+        }
+        
+        /* Expanded row indicator */
+        .tabulator .tabulator-row.tabulator-row-expanded {
             background-color: #f0f8ff !important;
         }
         
-        /* Custom multiselect styling */
+        /* Footer styling */
+        .tabulator-footer {
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            padding: 10px;
+            font-size: 12px;
+        }
+        
+        /* Loading indicator */
+        .tabulator-loading {
+            background: rgba(255,255,255,0.9);
+        }
+        
+        .tabulator-loading-message {
+            font-size: 14px;
+            color: #007bff;
+        }
+        
+        /* Custom header filter (if any) */
+        .tabulator-header-filter {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #999;
+            padding: 4px;
+            font-size: 12px;
+        }
+        
+        /* Sort arrows */
+        .tabulator-arrow {
+            border-color: #666;
+        }
+        
+        .tabulator-arrow.asc {
+            border-bottom-color: #007bff;
+        }
+        
+        .tabulator-arrow.desc {
+            border-top-color: #007bff;
+        }
+        
+        /* Custom multi-select styles */
         .custom-multiselect {
             position: relative;
+            display: inline-block;
             width: 100%;
         }
         
-        .custom-multiselect-button {
-            width: 100%;
-            padding: 4px 8px;
-            border: 1px solid #ccc;
+        .custom-multiselect-header {
+            padding: 5px;
             background: white;
+            border: 1px solid #007bff;
             cursor: pointer;
             font-size: 11px;
-            text-align: left;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            text-align: center;
+            user-select: none;
         }
         
-        .custom-multiselect-button:hover {
+        .custom-multiselect-header:hover {
             background: #f8f9fa;
-            border-color: #007bff;
         }
         
         .custom-multiselect-dropdown {
@@ -380,7 +491,7 @@ function injectFullStyles() {
             top: 100%;
             left: 0;
             right: 0;
-            max-height: 250px;
+            max-height: 200px;
             overflow-y: auto;
             background: white;
             border: 2px solid #007bff;
@@ -414,7 +525,7 @@ function injectFullStyles() {
         /* Subtable styling */
         .subrow-container {
             padding: 15px !important;
-            background: #f8f9fa !important;
+            background: transparent !important;
             border-top: 2px solid #007bff !important;
         }
         
@@ -440,11 +551,26 @@ function injectFullStyles() {
             color: #495057;
         }
         
+        /* Fixed subtable text scaling */
+        .subrow-container .tabulator {
+            font-size: 12px !important;
+            transform: none !important;
+        }
+        
+        .subrow-container .tabulator .tabulator-cell {
+            font-size: 12px !important;
+            padding: 4px 8px !important;
+        }
+        
+        .subrow-container .tabulator .tabulator-header {
+            font-size: 12px !important;
+        }
+        
         /* Responsive design handled by CONFIG settings */
     `;
     
     document.head.appendChild(style);
-    console.log('Complete responsive table styles with VERTICAL SCROLLBARS injected');
+    console.log('Complete responsive table styles with FIXED VERTICAL SCROLLBARS and alternating rows injected');
     
     // Add dynamic resize handlers
     addResponsiveHandlers();
@@ -470,7 +596,7 @@ function addResponsiveHandlers() {
         document.querySelectorAll('.subrow-container').forEach(container => {
             const parentScale = parseFloat(container.closest('.table-container')?.style.transform?.match(/scale\(([\d.]+)\)/)?.[1] || 1);
             if (parentScale < 1) {
-                container.style.fontSize = `${11 * parentScale}px`;
+                container.style.fontSize = `${12 * parentScale}px`;  /* Fixed to 12px base */
             }
         });
         
