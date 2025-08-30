@@ -49,6 +49,39 @@ export class MatchupsTable extends BaseTable {
     initialize() {
         console.log('Initializing enhanced matchups table...');
         
+        // SIMPLE FIX: Force scrollbars and row colors to show
+        if (!document.getElementById('force-scrollbars-and-colors')) {
+            const fix = document.createElement('style');
+            fix.id = 'force-scrollbars-and-colors';
+            fix.innerHTML = `
+                .tabulator .tabulator-tableHolder {
+                    overflow-y: auto !important;
+                    overflow-x: hidden !important;
+                }
+                .tabulator .tabulator-tableHolder::-webkit-scrollbar {
+                    width: 12px !important;
+                    display: block !important;
+                }
+                .tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
+                    background: #f1f1f1 !important;
+                }
+                .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
+                    background: #888 !important;
+                    border-radius: 6px !important;
+                }
+                .tabulator-row.tabulator-row-even {
+                    background-color: #f5f5f5 !important;
+                }
+                .tabulator-row.tabulator-row-odd {
+                    background-color: #ffffff !important;
+                }
+                .subrow-container {
+                    background-color: #f8f9fa !important;
+                }
+            `;
+            document.body.appendChild(fix);
+        }
+        
         // Add loading indicator
         const element = document.querySelector(this.elementId);
         if (element && !element.querySelector('.loading-indicator')) {
@@ -169,7 +202,6 @@ export class MatchupsTable extends BaseTable {
                 const parentFunc = baseConfig.ajaxRequestFunc;
                 const data = await parentFunc.call(this, url, config, params);
                 
-                console.log(`Fetching additional data for ${data.length} matchups...`);
                 await this.fetchAllAdditionalData(data);
                 
                 // Remove loading indicator
@@ -178,7 +210,6 @@ export class MatchupsTable extends BaseTable {
                     loadingDiv.remove();
                 }
                 
-                console.log('All matchups data loaded successfully');
                 return data;
             }
         };
@@ -445,12 +476,14 @@ export class MatchupsTable extends BaseTable {
             if (data._expanded && !rowElement.querySelector('.subrow-container')) {
                 const holderEl = document.createElement("div");
                 holderEl.classList.add('subrow-container');
-                // Keep container clean with no padding or background
-                holderEl.style.cssText = "padding: 0; background: transparent; max-width: 100%; overflow: hidden;";
+                holderEl.style.padding = "10px";
+                holderEl.style.background = "#f8f9fa";
+                holderEl.style.maxWidth = "100%";
+                holderEl.style.overflow = "hidden";
                 
                 const subtableEl = document.createElement("div");
-                // White background only for the actual content
-                subtableEl.style.cssText = "max-width: 100%; overflow: hidden; padding: 10px; background: white; border-top: 2px solid #e0e0e0;";
+                subtableEl.style.maxWidth = "100%";
+                subtableEl.style.overflow = "hidden";
                 holderEl.appendChild(subtableEl);
                 rowElement.appendChild(holderEl);
                 
@@ -495,11 +528,11 @@ export class MatchupsTable extends BaseTable {
                     <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
                 </div>
 
-                <!-- Weather Section - FIXED visibility and text size -->
+                <!-- Weather Section -->
                 <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; display: block;">
                     <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
-                    <div class="weather-text" style="font-size: 14px !important; line-height: 1.6 !important; color: #333; display: block;">
-                        ${weatherData.map(w => `<div style="padding: 10px 12px; border-bottom: 1px solid #eee; word-wrap: break-word; font-size: 14px !important;">${w}</div>`).join('')}
+                    <div style="font-size: 12px; color: #333; display: block;">
+                        ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; word-wrap: break-word;">${w}</div>`).join('')}
                     </div>
                 </div>
             </div>
@@ -539,7 +572,7 @@ export class MatchupsTable extends BaseTable {
             this.createPitcherStatsTable(data, opposingPitcherLocation);
             this.createBatterMatchupsTable(data);
             this.createBullpenMatchupsTable(data, opposingPitcherLocation);
-        }, 100);
+        }, 50);
     }
 
     createParkFactorsTable(data) {
@@ -594,8 +627,6 @@ export class MatchupsTable extends BaseTable {
                 headerHeight: 30,
                 rowHeight: 28
             });
-        } else {
-            console.log(`No park factors data for game ${data["Matchup Game ID"]}`);
         }
     }
 
@@ -609,13 +640,19 @@ export class MatchupsTable extends BaseTable {
                 return;
             }
             
-            // Get pitcher name - check multiple possible fields
+            // DEBUG: Log the actual fields available to find the correct name field
+            if (data._pitcherStats[0]) {
+                console.log("PITCHER FIELDS AVAILABLE:", Object.keys(data._pitcherStats[0]));
+            }
+            
+            // Try multiple possible field names
             const pitcherName = data._pitcherStats[0]["Starter Name"] || 
                                data._pitcherStats[0]["Pitcher Name"] || 
-                               data._pitcherStats[0]["Name"] || 
+                               data._pitcherStats[0]["Name"] ||
+                               data._pitcherStats[0]["Player Name"] ||
+                               data._pitcherStats[0]["Player"] ||
+                               data._pitcherStats[0]["Starter"] ||
                                "Unknown Pitcher";
-            
-            console.log(`Creating pitcher table for: ${pitcherName}`, data._pitcherStats[0]);
             
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
@@ -797,8 +834,6 @@ export class MatchupsTable extends BaseTable {
                         };
                     }
                     battersByOrder[battingOrder].splits.push(batter);
-                } else {
-                    console.warn(`Could not parse batter name from: ${nameHandSpot}`);
                 }
             });
             
@@ -961,11 +996,21 @@ export class MatchupsTable extends BaseTable {
             };
             
             const bullpenPitchers = {};
+            
+            // DEBUG: Log first record to see available fields
+            if (data._bullpenMatchups.length > 0) {
+                console.log("BULLPEN FIELDS AVAILABLE:", Object.keys(data._bullpenMatchups[0]));
+            }
+            
             data._bullpenMatchups.forEach(pitcher => {
-                // Check multiple possible field names for the pitcher name
+                // Try multiple possible field names
                 const pitcherName = pitcher["Bullpen Name"] || 
                                    pitcher["Pitcher Name"] || 
-                                   pitcher["Name"] || 
+                                   pitcher["Name"] ||
+                                   pitcher["Player Name"] ||
+                                   pitcher["Player"] ||
+                                   pitcher["Reliever Name"] ||
+                                   pitcher["Reliever"] ||
                                    "Unknown Pitcher";
                 
                 if (!bullpenPitchers[pitcherName]) {
@@ -976,8 +1021,6 @@ export class MatchupsTable extends BaseTable {
                 }
                 bullpenPitchers[pitcherName].splits.push(pitcher);
             });
-            
-            console.log(`Creating bullpen table with ${Object.keys(bullpenPitchers).length} pitchers`);
             
             const tableData = [];
             Object.keys(bullpenPitchers).forEach((pitcherName, index) => {
