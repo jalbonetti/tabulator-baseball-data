@@ -113,17 +113,29 @@ export class MatchupsTable extends BaseTable {
                     background: transparent !important;
                 }
                 
-                /* Fix subtable scaling */
+                /* FIX SUBTABLE FONT SIZE - MATCH MAIN TABLE */
                 .subrow-container table,
                 .subrow-container .tabulator {
                     transform: none !important;
-                    font-size: 12px !important;
+                    font-size: inherit !important;  /* MATCH PARENT TABLE SIZE */
                 }
                 
-                /* Ensure expanded row containers are transparent */
+                .subrow-container .tabulator .tabulator-cell {
+                    font-size: 13px !important;  /* SAME AS MAIN TABLE */
+                    padding: 8px !important;
+                }
+                
+                .subrow-container .tabulator .tabulator-header {
+                    font-size: 12px !important;
+                    font-weight: 600 !important;
+                }
+                
+                /* Ensure expanded row containers are properly styled */
                 .subrow-container {
-                    background: transparent !important;
-                    padding: 10px 20px !important;
+                    background: #f8f9fa !important;
+                    padding: 15px !important;
+                    margin: 0 !important;
+                    width: 100% !important;
                 }
                 
                 /* Center all headers */
@@ -155,6 +167,7 @@ export class MatchupsTable extends BaseTable {
 
     getTableConfig() {
         const baseConfig = super.getBaseConfig();  // FIXED: Use getBaseConfig() not getTableConfig()
+        const self = this;
         
         return {
             ...baseConfig,
@@ -167,9 +180,28 @@ export class MatchupsTable extends BaseTable {
                 this.dataLoaded = true;
                 this.attachEventHandlers();
                 
-                if (this.pendingStateRestore) {
-                    this.restoreState();
-                    this.pendingStateRestore = false;
+                // Restore state after data loads
+                if (this.pendingStateRestore || this.expandedRows.size > 0 || this.expandedRowsCache.size > 0) {
+                    setTimeout(() => {
+                        this.restoreState();
+                        this.pendingStateRestore = false;
+                    }, 100);
+                }
+            },
+            dataProcessing: () => {
+                console.log(`Data processing for ${self.elementId}`);
+                // Save state before processing
+                if (!self.isRestoringState) {
+                    self.saveTemporaryExpandedState();
+                }
+            },
+            dataProcessed: () => {
+                console.log(`Data processed for ${self.elementId}`);
+                // Restore after processing
+                if (self.temporaryExpandedRows.size > 0) {
+                    setTimeout(() => {
+                        self.restoreTemporaryExpandedState();
+                    }, 50);
                 }
             },
             dataProcessing: () => {
@@ -226,7 +258,8 @@ export class MatchupsTable extends BaseTable {
                 field: "Matchup Game",
                 width: 340,
                 headerFilter: createCustomMultiSelect,
-                headerSort: false
+                headerSort: false,
+                hozAlign: "center"
             },
             {
                 title: "Spread",
@@ -338,9 +371,9 @@ export class MatchupsTable extends BaseTable {
         const isAway = this.isTeamAway(data["Matchup Game"]);
         const opposingPitcherLocation = isAway ? "@" : "Home";
         
-        // Create main container structure
+        // Create main container structure with centered layout
         container.innerHTML = `
-            <div style="display: flex; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 15px;">
+            <div style="display: flex; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 15px; justify-content: center;">
                 <div id="park-factors-container-${data["Matchup Game ID"]}" style="flex: 0 0 ${this.subtableConfig.parkFactorsContainerWidth}px;"></div>
                 <div id="weather-container-${data["Matchup Game ID"]}" style="flex: 0 0 ${this.subtableConfig.weatherContainerWidth}px;"></div>
             </div>
@@ -501,11 +534,12 @@ export class MatchupsTable extends BaseTable {
         
         if (!containerElement) return;
         
+        // Get weather data from the main record
         const weatherData = [
-            { label: "Temperature", value: data["Temperature"] || "-" },
-            { label: "Wind Speed", value: data["Wind Speed"] || "-" },
-            { label: "Wind Direction", value: data["Wind Direction"] || "-" },
-            { label: "Conditions", value: data["Weather Conditions"] || "-" },
+            { label: "Temperature", value: data["Matchup Weather 1"] || data["Temperature"] || "-" },
+            { label: "Wind Speed", value: data["Matchup Weather 2"] || data["Wind Speed"] || "-" },
+            { label: "Wind Direction", value: data["Matchup Weather 3"] || data["Wind Direction"] || "-" },
+            { label: "Conditions", value: data["Matchup Weather 4"] || data["Weather Conditions"] || "-" },
             { label: "Ballpark", value: data["Matchup Ballpark"] || "-" }
         ];
         
@@ -761,7 +795,7 @@ export class MatchupsTable extends BaseTable {
                 batterGroups[nameField].splits.push(batter);
             });
             
-            // Create table data
+            // Create table data - show all batters
             const tableData = [];
             Object.keys(batterGroups).forEach((batterName, index) => {
                 const batterData = batterGroups[batterName];
@@ -789,6 +823,8 @@ export class MatchupsTable extends BaseTable {
                 }
             });
             
+            console.log(`Creating batter table with ${tableData.length} batters`);
+            
             if (tableData.length > 0) {
                 new Tabulator(`#${containerId}`, {
                     layout: "fitData",
@@ -798,7 +834,21 @@ export class MatchupsTable extends BaseTable {
                             title: "Name",
                             field: "name",
                             width: 200,
-                            headerSort: false
+                            headerSort: false,
+                            formatter: function(cell) {
+                                const value = cell.getValue();
+                                const rowData = cell.getRow().getData();
+                                
+                                if (rowData._rowType === 'main') {
+                                    return `<div style="cursor: pointer;">
+                                        <span class="subtable-expander" style="margin-right: 8px; font-weight: bold; color: #007bff;">
+                                            ${rowData._isExpanded ? '−' : '+'}
+                                        </span>
+                                        <span>${value}</span>
+                                    </div>`;
+                                }
+                                return `<div style="padding-left: 28px;">${value}</div>`;
+                            }
                         },
                         {
                             title: "Split",
@@ -877,6 +927,14 @@ export class MatchupsTable extends BaseTable {
                     headerHeight: 30,
                     rowHeight: 28
                 });
+            } else {
+                containerElement.innerHTML = '<div style="padding: 10px;">No batter data available</div>';
+            }
+        } else {
+            const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
+            const containerElement = document.getElementById(containerId);
+            if (containerElement) {
+                containerElement.innerHTML = '<div style="padding: 10px;">No batter matchups data available</div>';
             }
         }
     }
@@ -1134,7 +1192,7 @@ export class MatchupsTable extends BaseTable {
         // Save scroll position
         this.lastScrollPosition = this.getTableScrollPosition();
         
-        // Save expanded rows
+        // Clear and rebuild expanded rows set
         this.expandedRows.clear();
         const rows = this.table.getRows();
         rows.forEach(row => {
@@ -1143,10 +1201,19 @@ export class MatchupsTable extends BaseTable {
                 const id = this.generateRowId(data);
                 this.expandedRows.add(id);
                 this.expandedRowsCache.set(id, true);
+                
+                // Also save the row data for state restoration
+                const rowElement = row.getElement();
+                const hasSubtable = rowElement.nextSibling && 
+                                   rowElement.nextSibling.classList && 
+                                   rowElement.nextSibling.classList.contains('subrow-container');
+                if (hasSubtable) {
+                    console.log(`Preserving expanded state for row: ${id}`);
+                }
             }
         });
         
-        console.log(`State saved: ${this.expandedRows.size} expanded rows`);
+        console.log(`State saved: ${this.expandedRows.size} expanded rows, scroll: ${this.lastScrollPosition}`);
     }
 
     restoreState() {
@@ -1169,10 +1236,33 @@ export class MatchupsTable extends BaseTable {
                 const data = row.getData();
                 const id = this.generateRowId(data);
                 
-                if (rowsToExpand.has(id) && !data._expanded) {
-                    data._expanded = true;
-                    row.update(data);
-                    row.reformat();
+                if (rowsToExpand.has(id)) {
+                    if (!data._expanded) {
+                        // Set expanded flag
+                        data._expanded = true;
+                        row.update(data);
+                        
+                        // Update visual state
+                        const rowElement = row.getElement();
+                        rowElement.classList.add('row-expanded');
+                        
+                        // Update expander icon
+                        const expander = rowElement.querySelector('.row-expander');
+                        if (expander) {
+                            expander.innerHTML = '−';
+                        }
+                        
+                        // Check if subtable exists and show it
+                        const existingSubrow = rowElement.nextSibling;
+                        if (existingSubrow && existingSubrow.classList && existingSubrow.classList.contains('subrow-container')) {
+                            existingSubrow.style.display = 'block';
+                        } else {
+                            // Create subtable if it doesn't exist
+                            setTimeout(() => {
+                                this.toggleRow(row);
+                            }, 100);
+                        }
+                    }
                 }
             });
         }
@@ -1229,6 +1319,21 @@ export class MatchupsTable extends BaseTable {
         // Add any additional event handlers specific to matchups table
         console.log('Matchups table event handlers attached');
         
+        // Save state when tab is hidden
+        if (window.tabManager) {
+            const originalSaveState = window.tabManager.saveTabState;
+            if (originalSaveState) {
+                window.tabManager.saveTabState = (tabId) => {
+                    if (tabId === 'table0') {
+                        this.saveState();
+                    }
+                    if (typeof originalSaveState === 'function') {
+                        originalSaveState.call(window.tabManager, tabId);
+                    }
+                };
+            }
+        }
+        
         // Handle window resize
         window.addEventListener('resize', () => {
             if (this.table) {
@@ -1237,6 +1342,20 @@ export class MatchupsTable extends BaseTable {
         });
     }
 
+    // Public methods for tab manager integration
+    onTabHidden() {
+        this.saveState();
+    }
+    
+    onTabShown() {
+        setTimeout(() => {
+            this.restoreState();
+            if (this.table) {
+                this.table.redraw();
+            }
+        }, 100);
+    }
+    
     // Override parent's redraw method to preserve state
     redraw(force) {
         this.saveState();
