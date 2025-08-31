@@ -1,513 +1,233 @@
-// main.js - COMPLETE FIXED VERSION WITH ALL ERROR CORRECTIONS
+// main.js - UPDATED WITH MATCHUPS TABLE INTEGRATION - ALL ISSUES FIXED
+import { injectStyles } from './styles/tableStyles.js';
 import { MatchupsTable } from './tables/combinedMatchupsTable.js';
 import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
 import { PitcherClearancesTable } from './tables/pitcherClearancesTable.js';
 import { PitcherClearancesAltTable } from './tables/pitcherClearancesAltTable.js';
-import { ModBatterStatsTable } from './tables/modBatterStats.js';
-import { ModPitcherStatsTable } from './tables/modPitcherStats.js';
-import { BatterPropsTable } from './tables/batterProps.js';
-import { PitcherPropsTable } from './tables/pitcherProps.js';
-import { GamePropsTable } from './tables/gameProps.js';
-import { TabManager, TAB_STYLES } from './components/tabManager.js';
-import { injectStyles } from './styles/tableStyles.js';
-import { SW_CONFIG } from './shared/config.js';
+import { BatterStatsTable } from './tables/batterStatsTable.js';
+import { PitcherStatsTable } from './tables/pitcherStatsTable.js';
+import { TabManager } from './components/tabManager.js';
 
-// Register Service Worker for advanced caching
-async function registerServiceWorker() {
-    if ('serviceWorker' in navigator && SW_CONFIG.enabled) {
-        try {
-            // Try multiple paths for service worker
-            const paths = [
-                '/service-worker.js',
-                './service-worker.js',
-                'service-worker.js'
-            ];
-            
-            let registered = false;
-            for (const path of paths) {
-                try {
-                    const registration = await navigator.serviceWorker.register(path, {
-                        scope: '/'
-                    });
-                    
-                    console.log('Service Worker registered successfully:', registration);
-                    registered = true;
-                    
-                    // Check for updates every hour
-                    setInterval(() => {
-                        registration.update();
-                    }, 60 * 60 * 1000);
-                    
-                    // Send periodic cleanup message
-                    setInterval(() => {
-                        if (navigator.serviceWorker.controller) {
-                            navigator.serviceWorker.controller.postMessage({
-                                type: 'CLEANUP_CACHE'
-                            });
-                        }
-                    }, 30 * 60 * 1000); // Every 30 minutes
-                    
-                    break; // Successfully registered, exit loop
-                } catch (err) {
-                    console.log(`Failed to register service worker at ${path}:`, err.message);
-                }
-            }
-            
-            if (!registered) {
-                console.log('Service Worker registration skipped - file not found at any path');
-            }
-            
-        } catch (error) {
-            console.log('Service Worker registration failed:', error);
-        }
-    }
-}
+// Global state for expanded rows - shared across all tables
+window.globalExpandedState = window.globalExpandedState || new Map();
 
-// Check if data needs refresh based on cache age
-async function checkDataFreshness() {
-    if ('caches' in window) {
-        try {
-            const cache = await caches.open('tabulator-api-v1');
-            const keys = await cache.keys();
-            
-            for (const request of keys) {
-                const response = await cache.match(request);
-                const cachedAt = response.headers.get('sw-cached-at');
-                
-                if (cachedAt) {
-                    const age = Date.now() - parseInt(cachedAt);
-                    
-                    // If cache is older than 15 minutes, trigger background refresh
-                    if (age > 15 * 60 * 1000) {
-                        console.log('Cache is stale, triggering refresh for:', request.url);
-                        fetch(request.url).catch(() => {}); // Silent background refresh
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error checking cache freshness:', error);
-        }
-    }
-}
-
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('GitHub Pages: DOM ready, initializing modular Tabulator functionality with enhanced caching...');
-
-    // Register Service Worker first (with error handling)
-    await registerServiceWorker();
-
-    // Inject styles
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("DOM loaded - initializing enhanced table system with matchups fixes");
+    
+    // Inject styles first
     injectStyles();
-
-    // Check data freshness
-    checkDataFreshness();
-
-    // Check if required element exists
-    var tableElement = document.getElementById('batter-table');
-    if (!tableElement) {
-        console.error("Element 'batter-table' not found!");
-        return;
-    } else {
-        console.log("Found batter-table element, proceeding with initialization...");
-    }
-
-    // Create table instances but DON'T initialize them yet (lazy loading)
-    const table0 = new MatchupsTable("#matchups-table");
-    const table1 = new BatterClearancesTable("#batter-table");
-    const table2 = new BatterClearancesAltTable("#batter-table-alt");
-    const table3 = new PitcherClearancesTable("#pitcher-table");
-    const table4 = new PitcherClearancesAltTable("#pitcher-table-alt");
-    const table5 = new ModBatterStatsTable("#mod-batter-stats-table");
-    const table6 = new ModPitcherStatsTable("#mod-pitcher-stats-table");
-    const table7 = new BatterPropsTable("#batter-props-table");
-    const table8 = new PitcherPropsTable("#pitcher-props-table");
-    const table9 = new GamePropsTable("#game-props-table");
-
-    // Initialize tab manager with table instances
-    const tabManager = new TabManager({
-        table0: table0,
-        table1: table1,
-        table2: table2,
-        table3: table3,
-        table4: table4,
-        table5: table5,
-        table6: table6,
-        table7: table7,
-        table8: table8,
-        table9: table9
-    });
-
-// COMPLETE REPLACEMENT for the section AFTER tabManager creation
-// This replaces lines approximately 140-160 in your main.js
-
-    // Export for debugging - MUST BE INSIDE DOMContentLoaded
-    window.tabManager = tabManager;
-
-    // Create the complete tab and table structure
-    console.log('Creating tab structure...');
     
-    // Create main wrapper
-    const tabWrapper = document.createElement('div');
-    tabWrapper.className = 'table-wrapper';
-    tabWrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 0 auto;';
+    // Initialize global state management
+    initializeGlobalState();
     
-    // Create tabs container with all tab buttons
-    const tabsContainer = document.createElement('div');
-    tabsContainer.className = 'tabs-container';
-    tabsContainer.innerHTML = `
-        <div class="tab-buttons">
-            <button class="tab-button active" data-tab="table0">Matchups</button>
-            <button class="tab-button" data-tab="table1">Batter Prop Clearances</button>
-            <button class="tab-button" data-tab="table2">Batter Prop Clearances (Alt. View)</button>
-            <button class="tab-button" data-tab="table3">Pitcher Prop Clearances</button>
-            <button class="tab-button" data-tab="table4">Pitcher Prop Clearances (Alt. View)</button>
-            <button class="tab-button" data-tab="table5">Batter Stats</button>
-            <button class="tab-button" data-tab="table6">Pitcher Stats</button>
-            <button class="tab-button" data-tab="table7">Batter Props</button>
-            <button class="tab-button" data-tab="table8">Pitcher Props</button>
-            <button class="tab-button" data-tab="table9">Game Props</button>
-        </div>
-    `;
+    // Table instances storage
+    const tableInstances = {};
     
-    // Create tables container that will hold all table divs
-    const tablesContainer = document.createElement('div');
-    tablesContainer.className = 'tables-container';
-    tablesContainer.style.cssText = 'width: 100%; position: relative;';
-    
-    // Build the structure
-    tabWrapper.appendChild(tabsContainer);
-    tabWrapper.appendChild(tablesContainer);
-    
-    // Insert into DOM - replace the existing batter-table element
-    if (tableElement && tableElement.parentElement) {
-        tableElement.parentElement.insertBefore(tabWrapper, tableElement);
-        tableElement.style.display = 'none'; // Hide original element
-    } else {
-        document.body.appendChild(tabWrapper);
-    }
-    
-    // Create all table containers and elements
-    // Table 0 - Matchups (Active by default)
-    const matchupsElement = document.createElement('div');
-    matchupsElement.id = 'matchups-table';
-    const table0Container = document.createElement('div');
-    table0Container.className = 'table-container active-table';
-    table0Container.id = 'table0-container';
-    table0Container.style.cssText = 'width: 100%; display: block;';
-    table0Container.appendChild(matchupsElement);
-    tablesContainer.appendChild(table0Container);
-    
-    // Table 1 - Batter Clearances  
-    const table1Container = document.createElement('div');
-    table1Container.className = 'table-container inactive-table';
-    table1Container.id = 'table1-container';
-    table1Container.style.cssText = 'width: 100%; display: none;';
-    if (tableElement) {
-        // Clone the original batter-table element
-        const batterTableClone = tableElement.cloneNode(true);
-        batterTableClone.style.display = '';
-        table1Container.appendChild(batterTableClone);
-    }
-    tablesContainer.appendChild(table1Container);
-    
-    // Table 2 - Batter Alt
-    const batterAltElement = document.createElement('div');
-    batterAltElement.id = 'batter-table-alt';
-    const table2Container = document.createElement('div');
-    table2Container.className = 'table-container inactive-table';
-    table2Container.id = 'table2-container';
-    table2Container.style.cssText = 'width: 100%; display: none;';
-    table2Container.appendChild(batterAltElement);
-    tablesContainer.appendChild(table2Container);
-    
-    // Table 3 - Pitcher Clearances
-    const pitcherElement = document.createElement('div');
-    pitcherElement.id = 'pitcher-table';
-    const table3Container = document.createElement('div');
-    table3Container.className = 'table-container inactive-table';
-    table3Container.id = 'table3-container';
-    table3Container.style.cssText = 'width: 100%; display: none;';
-    table3Container.appendChild(pitcherElement);
-    tablesContainer.appendChild(table3Container);
-    
-    // Table 4 - Pitcher Alt
-    const pitcherAltElement = document.createElement('div');
-    pitcherAltElement.id = 'pitcher-table-alt';
-    const table4Container = document.createElement('div');
-    table4Container.className = 'table-container inactive-table';
-    table4Container.id = 'table4-container';
-    table4Container.style.cssText = 'width: 100%; display: none;';
-    table4Container.appendChild(pitcherAltElement);
-    tablesContainer.appendChild(table4Container);
-    
-    // Table 5 - Mod Batter Stats
-    const modBatterStatsElement = document.createElement('div');
-    modBatterStatsElement.id = 'mod-batter-stats-table';
-    const table5Container = document.createElement('div');
-    table5Container.className = 'table-container inactive-table';
-    table5Container.id = 'table5-container';
-    table5Container.style.cssText = 'width: 100%; display: none;';
-    table5Container.appendChild(modBatterStatsElement);
-    tablesContainer.appendChild(table5Container);
-    
-    // Table 6 - Mod Pitcher Stats
-    const modPitcherStatsElement = document.createElement('div');
-    modPitcherStatsElement.id = 'mod-pitcher-stats-table';
-    const table6Container = document.createElement('div');
-    table6Container.className = 'table-container inactive-table';
-    table6Container.id = 'table6-container';
-    table6Container.style.cssText = 'width: 100%; display: none;';
-    table6Container.appendChild(modPitcherStatsElement);
-    tablesContainer.appendChild(table6Container);
-    
-    // Table 7 - Batter Props
-    const batterPropsElement = document.createElement('div');
-    batterPropsElement.id = 'batter-props-table';
-    const table7Container = document.createElement('div');
-    table7Container.className = 'table-container inactive-table';
-    table7Container.id = 'table7-container';
-    table7Container.style.cssText = 'width: 100%; display: none;';
-    table7Container.appendChild(batterPropsElement);
-    tablesContainer.appendChild(table7Container);
-    
-    // Table 8 - Pitcher Props
-    const pitcherPropsElement = document.createElement('div');
-    pitcherPropsElement.id = 'pitcher-props-table';
-    const table8Container = document.createElement('div');
-    table8Container.className = 'table-container inactive-table';
-    table8Container.id = 'table8-container';
-    table8Container.style.cssText = 'width: 100%; display: none;';
-    table8Container.appendChild(pitcherPropsElement);
-    tablesContainer.appendChild(table8Container);
-    
-    // Table 9 - Game Props
-    const gamePropsElement = document.createElement('div');
-    gamePropsElement.id = 'game-props-table';
-    const table9Container = document.createElement('div');
-    table9Container.className = 'table-container inactive-table';
-    table9Container.id = 'table9-container';
-    table9Container.style.cssText = 'width: 100%; display: none;';
-    table9Container.appendChild(gamePropsElement);
-    tablesContainer.appendChild(table9Container);
-    
-    console.log('Tab structure and all table containers created successfully');
-
-    // DON'T call createTableElements() - we just created them above
-    // Remove or comment out: createTableElements();
-
-    // Add performance monitoring
-    if (window.performance && window.performance.mark) {
-        window.performance.mark('tables-initialized');
+    try {
+        // FIXED: Initialize Matchups table with proper state management
+        if (document.getElementById('table0')) {
+            console.log("Initializing Matchups table with all fixes...");
+            const matchupsTable = new MatchupsTable('#table0');
+            
+            // Add enhanced state management methods
+            enhanceTableInstance(matchupsTable);
+            
+            matchupsTable.initialize();
+            tableInstances.matchups = matchupsTable;
+            
+            console.log("Matchups table initialized with state preservation");
+        }
         
-        // Log performance metrics
-        window.performance.measure('init-time', 'navigationStart', 'tables-initialized');
-        const measure = window.performance.getEntriesByName('init-time')[0];
-        console.log(`Tables initialized in ${measure.duration.toFixed(2)}ms`);
+        // Initialize other tables with existing working state management
+        if (document.getElementById('table1')) {
+            console.log("Initializing Batter Clearances table...");
+            const batterClearancesTable = new BatterClearancesTable('#table1');
+            enhanceTableInstance(batterClearancesTable);
+            batterClearancesTable.initialize();
+            tableInstances.batterClearances = batterClearancesTable;
+        }
+        
+        if (document.getElementById('table2')) {
+            console.log("Initializing Batter Clearances Alt table...");
+            const batterClearancesAltTable = new BatterClearancesAltTable('#table2');
+            enhanceTableInstance(batterClearancesAltTable);
+            batterClearancesAltTable.initialize();
+            tableInstances.batterClearancesAlt = batterClearancesAltTable;
+        }
+        
+        if (document.getElementById('table3')) {
+            console.log("Initializing Pitcher Clearances table...");
+            const pitcherClearancesTable = new PitcherClearancesTable('#table3');
+            enhanceTableInstance(pitcherClearancesTable);
+            pitcherClearancesTable.initialize();
+            tableInstances.pitcherClearances = pitcherClearancesTable;
+        }
+        
+        if (document.getElementById('table4')) {
+            console.log("Initializing Pitcher Clearances Alt table...");
+            const pitcherClearancesAltTable = new PitcherClearancesAltTable('#table4');
+            enhanceTableInstance(pitcherClearancesAltTable);
+            pitcherClearancesAltTable.initialize();
+            tableInstances.pitcherClearancesAlt = pitcherClearancesAltTable;
+        }
+        
+        if (document.getElementById('table5')) {
+            console.log("Initializing Batter Stats table...");
+            const batterStatsTable = new BatterStatsTable('#table5');
+            enhanceTableInstance(batterStatsTable);
+            batterStatsTable.initialize();
+            tableInstances.batterStats = batterStatsTable;
+        }
+        
+        if (document.getElementById('table6')) {
+            console.log("Initializing Pitcher Stats table...");
+            const pitcherStatsTable = new PitcherStatsTable('#table6');
+            enhanceTableInstance(pitcherStatsTable);
+            pitcherStatsTable.initialize();
+            tableInstances.pitcherStats = pitcherStatsTable;
+        }
+        
+        // Initialize tab manager after all tables are created
+        console.log("Initializing tab manager with enhanced state management...");
+        const tabManager = new TabManager();
+        const tableMap = {
+            'table0': tableInstances.matchups,
+            'table1': tableInstances.batterClearances,
+            'table2': tableInstances.batterClearancesAlt,
+            'table3': tableInstances.pitcherClearances,
+            'table4': tableInstances.pitcherClearancesAlt,
+            'table5': tableInstances.batterStats,
+            'table6': tableInstances.pitcherStats
+        };
+        
+        tabManager.initialize(tableMap);
+        window.tabManager = tabManager;
+        
+        // FIXED: Ensure matchups table integrates properly with tab manager
+        setupMatchupsTableIntegration(tableInstances.matchups, tabManager);
+        
+        console.log("All tables initialized successfully with state preservation");
+        
+    } catch (error) {
+        console.error("Error initializing tables:", error);
     }
-
-    // Monitor memory usage for large datasets
-    if (performance.memory) {
-        setInterval(() => {
-            const used = (performance.memory.usedJSHeapSize / 1048576).toFixed(2);
-            const total = (performance.memory.totalJSHeapSize / 1048576).toFixed(2);
-            console.log(`Memory usage: ${used}MB / ${total}MB`);
-        }, 30000); // Every 30 seconds
-    }
-
-    // Add global error handler for network issues
-    window.addEventListener('online', () => {
-        console.log('Connection restored - refreshing stale data');
-        checkDataFreshness();
-    });
-
-    window.addEventListener('offline', () => {
-        console.log('Connection lost - using cached data');
-    });
-
-    console.log('Enhanced lazy loading setup complete - tables will load on demand with advanced caching');
 });
 
-// Enhanced initialization with immediate responsive scaling
-document.addEventListener('DOMContentLoaded', function() {
-    // Add this new responsive initialization helper
-    initializeResponsiveSystem();
-});
-
-function initializeResponsiveSystem() {
-    // Create a MutationObserver to watch for table creation
-    const tableObserver = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.type === 'childList') {
-                mutation.addedNodes.forEach((node) => {
-                    if (node.nodeType === 1) { // Element node
-                        // Check if a table or subrow was added
-                        if ((node.classList && (node.classList.contains('tabulator') || 
-                            node.classList.contains('subrow-container')))) {
-                            // Apply scaling immediately
-                            applyImmediateScaling(node);
-                        }
-                        
-                        // Also check children
-                        const tables = node.querySelectorAll('.tabulator');
-                        const subrows = node.querySelectorAll('.subrow-container');
-                        
-                        tables.forEach(table => applyImmediateScaling(table));
-                        subrows.forEach(subrow => applyImmediateScaling(subrow));
+// FIXED: Setup specific integration for matchups table with tab manager
+function setupMatchupsTableIntegration(matchupsTable, tabManager) {
+    if (!matchupsTable) return;
+    
+    console.log("Setting up matchups table integration with tab manager");
+    
+    // Hook into tab manager's tab switching for matchups table
+    const originalSwitchTab = tabManager.switchTab;
+    if (originalSwitchTab) {
+        tabManager.switchTab = function(targetTab) {
+            // Save matchups table state when switching away from it
+            if (this.currentActiveTab === 'table0' && matchupsTable) {
+                console.log("Saving matchups table state before tab switch");
+                matchupsTable.saveState();
+            }
+            
+            // Call original switch tab
+            const result = originalSwitchTab.call(this, targetTab);
+            
+            // Restore matchups table state when switching to it
+            if (targetTab === 'table0' && matchupsTable) {
+                console.log("Restoring matchups table state after tab switch");
+                setTimeout(() => {
+                    matchupsTable.restoreState();
+                    if (matchupsTable.table) {
+                        matchupsTable.table.redraw();
                     }
-                });
+                }, 150);
             }
-        });
-    });
-    
-    // Start observing the document body for changes
-    tableObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-    
-    // Function to apply immediate scaling to new elements
-    function applyImmediateScaling(element) {
-        const width = window.innerWidth;
-        let scale = 1;
-        
-        if (width <= 767) {
-            scale = 0.75;
-        } else if (width <= 1199) {
-            scale = 0.85;
-        }
-        
-        // Apply scaling based on element type
-        if (element.classList.contains('tabulator')) {
-            const container = element.closest('.table-container');
-            if (container && scale !== 1) {
-                container.style.transform = `scale(${scale})`;
-                container.style.transformOrigin = 'top left';
-                container.style.width = `${100 / scale}%`;
-            }
-        } else if (element.classList.contains('subrow-container')) {
-            // Subrows inherit parent scaling
-            element.style.width = '100%';
-            element.style.transition = 'none'; // Remove transition for instant scaling
-        }
-        
-        // Apply appropriate view class
-        if (element.classList.contains('tabulator')) {
-            if (width <= 767) {
-                element.classList.add('mobile-view');
-                element.classList.remove('tablet-view', 'desktop-view');
-            } else if (width <= 1199) {
-                element.classList.add('tablet-view');
-                element.classList.remove('mobile-view', 'desktop-view');
-            } else {
-                element.classList.add('desktop-view');
-                element.classList.remove('mobile-view', 'tablet-view');
-            }
-        }
+            
+            return result;
+        };
     }
     
-    // Enhanced visibility change handler
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && window.applyResponsiveScaling) {
-            setTimeout(() => {
-                window.applyResponsiveScaling();
-            }, 100);
-        }
-    });
-    
-    // Handle tab switching with immediate scaling
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('tab-button')) {
-            // Apply scaling multiple times to ensure it takes effect
-            setTimeout(() => {
-                if (window.applyResponsiveScaling) {
-                    window.applyResponsiveScaling();
-                }
-            }, 0);
-            
-            setTimeout(() => {
-                if (window.applyResponsiveScaling) {
-                    window.applyResponsiveScaling();
-                }
-            }, 100);
-            
-            setTimeout(() => {
-                if (window.applyResponsiveScaling) {
-                    window.applyResponsiveScaling();
-                }
-            }, 300);
-        }
-    });
-    
-    // Performance-optimized scroll handler for subrows
-    let scrollTimeout;
-    document.addEventListener('scroll', (e) => {
-        if (e.target.classList && e.target.classList.contains('tabulator-tableHolder')) {
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                // Check if any subrows need scaling adjustment
-                const visibleSubrows = e.target.querySelectorAll('.subrow-container');
-                if (visibleSubrows.length > 0 && window.applyResponsiveScaling) {
-                    window.applyResponsiveScaling();
-                }
-            }, 150);
-        }
-    }, true);
-    
-    // Touch event handler for mobile devices
-    let touchTimeout;
-    document.addEventListener('touchend', () => {
-        clearTimeout(touchTimeout);
-        touchTimeout = setTimeout(() => {
-            if (window.applyResponsiveScaling) {
-                window.applyResponsiveScaling();
+    // Add matchups-specific event handlers
+    if (matchupsTable.table) {
+        matchupsTable.table.on("dataLoaded", () => {
+            console.log("Matchups data loaded - checking for state restoration");
+            if (matchupsTable.expandedRowsCache.size > 0 || matchupsTable.expandedRowsSet.size > 0) {
+                setTimeout(() => {
+                    matchupsTable.restoreState();
+                }, 200);
             }
-        }, 300);
-    });
-    
-    // Ensure tabs never scale
-    setInterval(() => {
-        const tabContainer = document.querySelector('.tabs-container');
-        const tabButtons = document.querySelectorAll('.tab-button');
-        
-        if (tabContainer) {
-            tabContainer.style.transform = 'none';
-        }
-        
-        tabButtons.forEach(button => {
-            button.style.transform = 'none';
         });
-    }, 1000);
+    }
 }
 
-// Global function to force responsive update
-window.forceResponsiveUpdate = function() {
-    // Remove all transforms first
-    document.querySelectorAll('.table-container, .subrow-container').forEach(el => {
-        el.style.transform = '';
-        el.style.width = '';
-    });
-    
-    // Then reapply
-    setTimeout(() => {
-        if (window.applyResponsiveScaling) {
-            window.applyResponsiveScaling();
-        }
-    }, 50);
-};
-
-// Add this to handle page show events (back/forward navigation)
-window.addEventListener('pageshow', (event) => {
-    if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
-        // Page was restored from cache
-        window.forceResponsiveUpdate();
+function initializeGlobalState() {
+    // Initialize global expanded state if it doesn't exist
+    if (!window.globalExpandedState) {
+        window.globalExpandedState = new Map();
+        console.log("Initialized global expanded state");
     }
-});
+    
+    // Initialize global state management functions
+    window.getGlobalExpandedState = function() {
+        return window.globalExpandedState;
+    };
+    
+    window.setGlobalExpandedState = function(state) {
+        window.globalExpandedState = state;
+    };
+    
+    window.clearGlobalExpandedState = function() {
+        window.globalExpandedState.clear();
+        console.log("Cleared global expanded state");
+    };
+}
 
-// Complete fix - Add this to your main.js to replace the ensureStateMethods function
-function ensureStateMethods(tableInstance) {
-    // Store original redraw method if exists
-    const originalRedraw = tableInstance.redraw ? tableInstance.redraw.bind(tableInstance) : null;
+function enhanceTableInstance(tableInstance) {
+    if (!tableInstance) return;
+    
+    console.log(`Enhancing table instance: ${tableInstance.elementId}`);
+    
+    // Ensure global state access methods exist
+    if (!tableInstance.getGlobalState) {
+        tableInstance.getGlobalState = function() {
+            if (!window.globalExpandedState) {
+                window.globalExpandedState = new Map();
+            }
+            return window.globalExpandedState;
+        };
+    }
+    
+    if (!tableInstance.setGlobalState) {
+        tableInstance.setGlobalState = function(state) {
+            window.globalExpandedState = state;
+        };
+    }
+    
+    // Initialize state management properties if they don't exist
+    if (!tableInstance.expandedRowsCache) {
+        tableInstance.expandedRowsCache = new Set();
+    }
+    
+    if (!tableInstance.expandedRowsSet) {
+        tableInstance.expandedRowsSet = new Set();
+    }
+    
+    if (!tableInstance.expandedRowsMetadata) {
+        tableInstance.expandedRowsMetadata = new Map();
+    }
+    
+    if (!tableInstance.temporaryExpandedRows) {
+        tableInstance.temporaryExpandedRows = new Set();
+    }
+    
+    if (!tableInstance.lastScrollPosition) {
+        tableInstance.lastScrollPosition = 0;
+    }
+    
+    // Store original redraw method
+    const originalRedraw = tableInstance.redraw ? 
+        tableInstance.redraw.bind(tableInstance) : null;
     
     // Override redraw to preserve expanded state
     tableInstance.redraw = function(force) {
@@ -612,137 +332,147 @@ function ensureStateMethods(tableInstance) {
                     const data = row.getData();
                     const id = this.generateRowId ? this.generateRowId(data) : JSON.stringify(data);
                     
-                    if (this.expandedRowsCache.has(id) && !data._expanded) {
-                        data._expanded = true;
-                        row.update(data);
-                        row.reformat();
+                    if (this.expandedRowsCache.has(id)) {
+                        if (!data._expanded) {
+                            data._expanded = true;
+                            row.update(data);
+                            
+                            setTimeout(() => {
+                                row.reformat();
+                                
+                                // Update expander icon for supported tables
+                                setTimeout(() => {
+                                    const cells = row.getCells();
+                                    const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                                    
+                                    for (let field of nameFields) {
+                                        const nameCell = cells.find(cell => cell.getField() === field);
+                                        if (nameCell) {
+                                            const cellElement = nameCell.getElement();
+                                            const expander = cellElement.querySelector('.row-expander');
+                                            if (expander) {
+                                                expander.innerHTML = "−";
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }, 50);
+                            }, 100);
+                        }
                     }
                 });
             }
         };
     }
-}
-
-// Create table elements (moved from global scope)
-function createTableElements() {
-    // Create elements for table0 (Matchups - now default active)
-    var matchupsElement = document.createElement('div');
-    matchupsElement.id = 'matchups-table';
     
-    var table0Container = document.createElement('div');
-    table0Container.className = 'table-container active-table';
-    table0Container.id = 'table0-container';
-    table0Container.style.cssText = 'width: 100%; display: block;';
-    table0Container.appendChild(matchupsElement);
-
-    // Create elements for table3
-    var pitcherElement = document.createElement('div');
-    pitcherElement.id = 'pitcher-table';
-    
-    var table3Container = document.createElement('div');
-    table3Container.className = 'table-container inactive-table';
-    table3Container.id = 'table3-container';
-    table3Container.style.cssText = 'width: 100%; display: none;';
-    table3Container.appendChild(pitcherElement);
-
-    // Create elements for table4
-    var pitcherAltElement = document.createElement('div');
-    pitcherAltElement.id = 'pitcher-table-alt';
-    
-    var table4Container = document.createElement('div');
-    table4Container.className = 'table-container inactive-table';
-    table4Container.id = 'table4-container';
-    table4Container.style.cssText = 'width: 100%; display: none;';
-    table4Container.appendChild(pitcherAltElement);
-
-    // Create elements for table5
-    var modBatterStatsElement = document.createElement('div');
-    modBatterStatsElement.id = 'mod-batter-stats-table';
-    
-    var table5Container = document.createElement('div');
-    table5Container.className = 'table-container inactive-table';
-    table5Container.id = 'table5-container';
-    table5Container.style.cssText = 'width: 100%; display: none;';
-    table5Container.appendChild(modBatterStatsElement);
-
-    // Create elements for table6
-    var modPitcherStatsElement = document.createElement('div');
-    modPitcherStatsElement.id = 'mod-pitcher-stats-table';
-    
-    var table6Container = document.createElement('div');
-    table6Container.className = 'table-container inactive-table';
-    table6Container.id = 'table6-container';
-    table6Container.style.cssText = 'width: 100%; display: none;';
-    table6Container.appendChild(modPitcherStatsElement);
-
-    // Create elements for table7
-    var batterPropsElement = document.createElement('div');
-    batterPropsElement.id = 'batter-props-table';
-    
-    var table7Container = document.createElement('div');
-    table7Container.className = 'table-container inactive-table';
-    table7Container.id = 'table7-container';
-    table7Container.style.cssText = 'width: 100%; display: none;';
-    table7Container.appendChild(batterPropsElement);
-
-    // Create elements for table8
-    var pitcherPropsElement = document.createElement('div');
-    pitcherPropsElement.id = 'pitcher-props-table';
-    
-    var table8Container = document.createElement('div');
-    table8Container.className = 'table-container inactive-table';
-    table8Container.id = 'table8-container';
-    table8Container.style.cssText = 'width: 100%; display: none;';
-    table8Container.appendChild(pitcherPropsElement);
-
-    // Create elements for table9
-    var gamePropsElement = document.createElement('div');
-    gamePropsElement.id = 'game-props-table';
-    
-    var table9Container = document.createElement('div');
-    table9Container.className = 'table-container inactive-table';
-    table9Container.id = 'table9-container';
-    table9Container.style.cssText = 'width: 100%; display: none;';
-    table9Container.appendChild(gamePropsElement);
-
-    // Add to tables container
-    var tablesContainer = document.querySelector('.tables-container');
-    if (tablesContainer) {
-        // Make sure table0Container is in the DOM
-        if (!document.getElementById('table0-container')) {
-            tablesContainer.appendChild(table0Container);
-        }
-        tablesContainer.appendChild(table3Container);
-        tablesContainer.appendChild(table4Container);
-        tablesContainer.appendChild(table5Container);
-        tablesContainer.appendChild(table6Container);
-        tablesContainer.appendChild(table7Container);
-        tablesContainer.appendChild(table8Container);
-        tablesContainer.appendChild(table9Container);
-        
-        // Set table1 (Batter Clearances) to inactive since Matchups is now default
-        var table1Container = document.getElementById('table1-container');
-        if (table1Container) {
-            table1Container.className = 'table-container inactive-table';
-            table1Container.style.display = 'none';
-        }
-    }
-}
-
-// Preload data for next likely tab (predictive loading)
-window.addEventListener('mouseover', function(e) {
-    if (e.target.classList.contains('tab-button')) {
-        const tabId = e.target.dataset.tab;
-        const tabManager = window.tabManager;
-        
-        if (tabManager && !tabManager.tabInitialized[tabId]) {
-            console.log(`Pre-warming tab: ${tabId}`);
-            // Pre-fetch data but don't fully initialize
-            const table = tabManager.tables[tabId];
-            if (table && table.endpoint && !table.dataLoaded) {
-                // This will trigger the data fetch and caching
-                table.getBaseConfig();
+    // Add saveTemporaryExpandedState if not exists
+    if (!tableInstance.saveTemporaryExpandedState) {
+        tableInstance.saveTemporaryExpandedState = function() {
+            this.temporaryExpandedRows.clear();
+            if (this.table) {
+                const rows = this.table.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    if (data._expanded) {
+                        const id = this.generateRowId ? this.generateRowId(data) : JSON.stringify(data);
+                        this.temporaryExpandedRows.add(id);
+                    }
+                });
             }
-        }
+            console.log(`Temporarily saved ${this.temporaryExpandedRows.size} expanded rows for ${this.elementId}`);
+        };
+    }
+    
+    // Add restoreTemporaryExpandedState if not exists
+    if (!tableInstance.restoreTemporaryExpandedState) {
+        tableInstance.restoreTemporaryExpandedState = function() {
+            if (this.temporaryExpandedRows.size > 0 && this.table) {
+                console.log(`Restoring ${this.temporaryExpandedRows.size} temporarily expanded rows for ${this.elementId}`);
+                
+                setTimeout(() => {
+                    const rows = this.table.getRows();
+                    rows.forEach(row => {
+                        const data = row.getData();
+                        const id = this.generateRowId ? this.generateRowId(data) : JSON.stringify(data);
+                        
+                        if (this.temporaryExpandedRows.has(id) && !data._expanded) {
+                            data._expanded = true;
+                            row.update(data);
+                            row.reformat();
+                        }
+                    });
+                }, 100);
+            }
+        };
+    }
+    
+    // Add generateRowId if not exists
+    if (!tableInstance.generateRowId) {
+        tableInstance.generateRowId = function(data) {
+            const fields = [];
+            
+            // Matchups table ID generation
+            if (data["Matchup Game ID"] !== undefined) {
+                return `matchup_${data["Matchup Game ID"]}`;
+            }
+            
+            // Batter table ID generation
+            if (data["Batter Name"]) {
+                fields.push(data["Batter Name"]);
+                if (data["Batter Team"]) fields.push(data["Batter Team"]);
+                if (data["Batter Prop Type"]) fields.push(data["Batter Prop Type"]);
+                if (data["Batter Prop Value"]) fields.push(data["Batter Prop Value"]);
+                if (data["Batter Prop Split ID"]) fields.push(data["Batter Prop Split ID"]);
+                if (data["Batter Stat Type"]) fields.push(data["Batter Stat Type"]);
+                return `batter_${fields.join('_')}`;
+            }
+            
+            // Pitcher table ID generation
+            if (data["Pitcher Name"]) {
+                fields.push(data["Pitcher Name"]);
+                if (data["Pitcher Team"]) fields.push(data["Pitcher Team"]);
+                if (data["Pitcher Prop Type"]) fields.push(data["Pitcher Prop Type"]);
+                if (data["Pitcher Prop Value"]) fields.push(data["Pitcher Prop Value"]);
+                if (data["Pitcher Prop Split ID"]) fields.push(data["Pitcher Prop Split ID"]);
+                if (data["Pitcher Stat Type"]) fields.push(data["Pitcher Stat Type"]);
+                return `pitcher_${fields.join('_')}`;
+            }
+            
+            // Fallback ID generation
+            const keys = Object.keys(data).filter(k => !k.startsWith('_') && data[k] != null);
+            return keys.slice(0, 5).map(k => `${k}:${data[k]}`).join('|');
+        };
+    }
+    
+    console.log(`Enhanced table instance: ${tableInstance.elementId} with complete state management`);
+}
+
+// Global error handler
+window.addEventListener('error', function(e) {
+    console.error('Global error in table system:', e.error);
+});
+
+// Handle window resize
+window.addEventListener('resize', function() {
+    if (window.tabManager && window.tabManager.tables) {
+        Object.values(window.tabManager.tables).forEach(table => {
+            if (table && table.table) {
+                table.table.redraw();
+            }
+        });
     }
 });
+
+// Export for debugging
+window.tableDebug = {
+    getGlobalState: () => window.globalExpandedState,
+    clearGlobalState: () => {
+        window.globalExpandedState.clear();
+        console.log("Global state cleared");
+    },
+    logState: () => {
+        console.log("Current global state:", Array.from(window.globalExpandedState.entries()));
+    }
+};
+
+console.log("Enhanced table system with matchups fixes loaded successfully");
