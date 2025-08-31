@@ -26,50 +26,70 @@ document.addEventListener("DOMContentLoaded", function() {
     
     try {
         // FIXED: Initialize Matchups table with proper state management
-        if (document.getElementById('table0')) {
+        if (document.getElementById('table0') || document.querySelector('#matchups-table')) {
             console.log("Initializing Matchups table with all fixes...");
-            const matchupsTable = new MatchupsTable('#table0');
+            const elementId = document.getElementById('table0') ? '#table0' : '#matchups-table';
+            const matchupsTable = new MatchupsTable(elementId);
             
             // Add enhanced state management methods
             enhanceTableInstance(matchupsTable);
             
+            // CRITICAL: Actually initialize the table
             matchupsTable.initialize();
             tableInstances.matchups = matchupsTable;
             
             console.log("Matchups table initialized with state preservation");
+        } else {
+            console.log("Matchups table element not found (looking for #table0 or #matchups-table)");
         }
         
         // Initialize other tables with existing working state management
-        if (document.getElementById('table1')) {
+        if (document.getElementById('table1') || document.querySelector('#batter-table')) {
             console.log("Initializing Batter Clearances table...");
-            const batterClearancesTable = new BatterClearancesTable('#table1');
+            const elementId = document.getElementById('table1') ? '#table1' : '#batter-table';
+            const batterClearancesTable = new BatterClearancesTable(elementId);
             enhanceTableInstance(batterClearancesTable);
+            // CRITICAL: Actually initialize the table
             batterClearancesTable.initialize();
             tableInstances.batterClearances = batterClearancesTable;
+        } else {
+            console.log("Batter Clearances table element not found (looking for #table1 or #batter-table)");
         }
         
-        if (document.getElementById('table2')) {
+        if (document.getElementById('table2') || document.querySelector('#batter-table-alt')) {
             console.log("Initializing Batter Clearances Alt table...");
-            const batterClearancesAltTable = new BatterClearancesAltTable('#table2');
+            const elementId = document.getElementById('table2') ? '#table2' : '#batter-table-alt';
+            const batterClearancesAltTable = new BatterClearancesAltTable(elementId);
             enhanceTableInstance(batterClearancesAltTable);
+            // CRITICAL: Actually initialize the table
             batterClearancesAltTable.initialize();
             tableInstances.batterClearancesAlt = batterClearancesAltTable;
+        } else {
+            console.log("Batter Clearances Alt table element not found (looking for #table2 or #batter-table-alt)");
         }
         
-        if (document.getElementById('table3')) {
+        if (document.getElementById('table3') || document.querySelector('#pitcher-table')) {
             console.log("Initializing Pitcher Clearances table...");
-            const pitcherClearancesTable = new PitcherClearancesTable('#table3');
+            const elementId = document.getElementById('table3') ? '#table3' : '#pitcher-table';
+            const pitcherClearancesTable = new PitcherClearancesTable(elementId);
             enhanceTableInstance(pitcherClearancesTable);
+            // CRITICAL: Actually initialize the table
             pitcherClearancesTable.initialize();
             tableInstances.pitcherClearances = pitcherClearancesTable;
+        } else {
+            console.log("Pitcher Clearances table element not found (looking for #table3 or #pitcher-table)");
         }
         
-        if (document.getElementById('table4')) {
+        if (document.getElementById('table4') || document.querySelector('#pitcher-table-alt')) {
             console.log("Initializing Pitcher Clearances Alt table...");
-            const pitcherClearancesAltTable = new PitcherClearancesAltTable('#table4');
+            const elementId = document.getElementById('table4') ? '#table4' : '#pitcher-table-alt';
+            const pitcherClearancesAltTable = new PitcherClearancesAltTable(elementId);
             enhanceTableInstance(pitcherClearancesAltTable);
+            // CRITICAL: Actually initialize the table
             pitcherClearancesAltTable.initialize();
             tableInstances.pitcherClearancesAlt = pitcherClearancesAltTable;
+        } else {
+            console.log("Pitcher Clearances Alt table element not found (looking for #table4 or #pitcher-table-alt)");
         }
         
         if (document.getElementById('mod-batter-stats-table') || document.getElementById('table5')) {
@@ -77,8 +97,11 @@ document.addEventListener("DOMContentLoaded", function() {
             const elementId = document.getElementById('mod-batter-stats-table') ? '#mod-batter-stats-table' : '#table5';
             const modBatterStatsTable = new ModBatterStatsTable(elementId);
             enhanceTableInstance(modBatterStatsTable);
+            // CRITICAL: Actually initialize the table
             modBatterStatsTable.initialize();
             tableInstances.modBatterStats = modBatterStatsTable;
+        } else {
+            console.log("Mod Batter Stats table element not found (looking for #mod-batter-stats-table or #table5)");
         }
         
         if (document.getElementById('mod-pitcher-stats-table') || document.getElementById('table6')) {
@@ -86,8 +109,11 @@ document.addEventListener("DOMContentLoaded", function() {
             const elementId = document.getElementById('mod-pitcher-stats-table') ? '#mod-pitcher-stats-table' : '#table6';
             const modPitcherStatsTable = new ModPitcherStatsTable(elementId);
             enhanceTableInstance(modPitcherStatsTable);
+            // CRITICAL: Actually initialize the table
             modPitcherStatsTable.initialize();
             tableInstances.modPitcherStats = modPitcherStatsTable;
+        } else {
+            console.log("Mod Pitcher Stats table element not found (looking for #mod-pitcher-stats-table or #table6)");
         }
         
         // Initialize tab manager after all tables are created
