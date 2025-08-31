@@ -5,8 +5,8 @@ import { BatterClearancesTable } from './tables/batterClearancesTable.js';
 import { BatterClearancesAltTable } from './tables/batterClearancesAltTable.js';
 import { PitcherClearancesTable } from './tables/pitcherClearancesTable.js';
 import { PitcherClearancesAltTable } from './tables/pitcherClearancesAltTable.js';
-import { BatterStatsTable } from './tables/batterStatsTable.js';
-import { PitcherStatsTable } from './tables/pitcherStatsTable.js';
+import { ModBatterStatsTable } from './tables/modBatterStats.js';
+import { ModPitcherStatsTable } from './tables/modPitcherStats.js';
 import { TabManager } from './components/tabManager.js';
 
 // Global state for expanded rows - shared across all tables
@@ -72,20 +72,22 @@ document.addEventListener("DOMContentLoaded", function() {
             tableInstances.pitcherClearancesAlt = pitcherClearancesAltTable;
         }
         
-        if (document.getElementById('table5')) {
-            console.log("Initializing Batter Stats table...");
-            const batterStatsTable = new BatterStatsTable('#table5');
-            enhanceTableInstance(batterStatsTable);
-            batterStatsTable.initialize();
-            tableInstances.batterStats = batterStatsTable;
+        if (document.getElementById('mod-batter-stats-table') || document.getElementById('table5')) {
+            console.log("Initializing Mod Batter Stats table...");
+            const elementId = document.getElementById('mod-batter-stats-table') ? '#mod-batter-stats-table' : '#table5';
+            const modBatterStatsTable = new ModBatterStatsTable(elementId);
+            enhanceTableInstance(modBatterStatsTable);
+            modBatterStatsTable.initialize();
+            tableInstances.modBatterStats = modBatterStatsTable;
         }
         
-        if (document.getElementById('table6')) {
-            console.log("Initializing Pitcher Stats table...");
-            const pitcherStatsTable = new PitcherStatsTable('#table6');
-            enhanceTableInstance(pitcherStatsTable);
-            pitcherStatsTable.initialize();
-            tableInstances.pitcherStats = pitcherStatsTable;
+        if (document.getElementById('mod-pitcher-stats-table') || document.getElementById('table6')) {
+            console.log("Initializing Mod Pitcher Stats table...");
+            const elementId = document.getElementById('mod-pitcher-stats-table') ? '#mod-pitcher-stats-table' : '#table6';
+            const modPitcherStatsTable = new ModPitcherStatsTable(elementId);
+            enhanceTableInstance(modPitcherStatsTable);
+            modPitcherStatsTable.initialize();
+            tableInstances.modPitcherStats = modPitcherStatsTable;
         }
         
         // Initialize tab manager after all tables are created
@@ -96,9 +98,8 @@ document.addEventListener("DOMContentLoaded", function() {
             'table1': tableInstances.batterClearances,
             'table2': tableInstances.batterClearancesAlt,
             'table3': tableInstances.pitcherClearances,
-            'table4': tableInstances.pitcherClearancesAlt,
-            'table5': tableInstances.batterStats,
-            'table6': tableInstances.pitcherStats
+            'table4': tableInstances.pitcherClearancesAlt
+            // Note: table5 and table6 (ModBatterStats/ModPitcherStats) use utility files, not table classes
         };
         
         tabManager.initialize(tableMap);
