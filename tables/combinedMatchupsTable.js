@@ -130,6 +130,11 @@ export class MatchupsTable extends BaseTable {
                 #matchups-table .tabulator-header .tabulator-col-title {
                     text-align: center !important;
                 }
+                
+                /* Style for expanded rows */
+                .row-expanded {
+                    background-color: #f0f8ff !important;
+                }
             `;
             document.head.appendChild(fixStyles);
         }
@@ -137,6 +142,13 @@ export class MatchupsTable extends BaseTable {
         // Create and initialize the table using BaseTable's ajax loading
         const config = this.getTableConfig();
         this.table = new Tabulator(this.elementId, config);
+        
+        // Add click handler for row expansion
+        this.table.on("cellClick", (e, cell) => {
+            if (cell.getField() === "Matchup Team") {
+                this.toggleRow(cell.getRow());
+            }
+        });
         
         console.log('Matchups table initialized - data will load automatically via ajax');
     }
@@ -193,7 +205,20 @@ export class MatchupsTable extends BaseTable {
                 title: "Team",
                 field: "Matchup Team",
                 width: 180,
-                formatter: (cell) => this.createNameFormatter()(cell),
+                formatter: (cell) => {
+                    const value = cell.getValue();
+                    const row = cell.getRow();
+                    const data = row.getData();
+                    const expanded = data._expanded || false;
+                    
+                    // Create the HTML directly
+                    return `<div style="display: flex; align-items: center; cursor: pointer;">
+                        <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px;">
+                            ${expanded ? '−' : '+'}
+                        </span>
+                        <span>${value || ''}</span>
+                    </div>`;
+                },
                 headerSort: false
             },
             {
@@ -238,11 +263,11 @@ export class MatchupsTable extends BaseTable {
         const rowElement = row.getElement();
         const data = row.getData();
         
-        // Add click handler for row expansion
-        const nameCell = rowElement.querySelector('.tabulator-cell[tabulator-field="Matchup Team"]');
-        if (nameCell) {
-            nameCell.style.cursor = 'pointer';
-            nameCell.addEventListener('click', () => this.toggleRow(row));
+        // Just add a class for styling if needed
+        if (data._expanded) {
+            rowElement.classList.add('row-expanded');
+        } else {
+            rowElement.classList.remove('row-expanded');
         }
     }
 
