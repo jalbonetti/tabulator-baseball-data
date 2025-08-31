@@ -134,18 +134,24 @@ export class MatchupsTable extends BaseTable {
             document.head.appendChild(fixStyles);
         }
         
-        this.loadAndRenderTable();
+        // Create and initialize the table using BaseTable's ajax loading
+        const config = this.getTableConfig();
+        this.table = new Tabulator(this.elementId, config);
+        
+        console.log('Matchups table initialized - data will load automatically via ajax');
     }
 
     getTableConfig() {
-        const baseConfig = super.getTableConfig();
+        const baseConfig = super.getBaseConfig();  // FIXED: Use getBaseConfig() not getTableConfig()
         
         return {
             ...baseConfig,
             columns: this.getColumns(),
             rowFormatter: (row) => this.rowFormatter(row),
-            dataLoaded: () => {
-                console.log(`Data loaded for ${this.elementId}`);
+            dataLoaded: (data) => {
+                console.log(`Data loaded for ${this.elementId}: ${data.length} rows`);
+                this.data = data;
+                this.matchupsData = data;  // Keep for backwards compatibility
                 this.dataLoaded = true;
                 this.attachEventHandlers();
                 
@@ -1202,58 +1208,6 @@ export class MatchupsTable extends BaseTable {
         window.addEventListener('resize', () => {
             if (this.table) {
                 this.table.redraw();
-            }
-        });
-    }
-
-    loadAndRenderTable() {
-        console.log(`Loading data for ${this.elementId}...`);
-        
-        // Use this.endpoint which is set by BaseTable, not this.tableName
-        const tableName = this.endpoint || 'ModMatchupsData';
-        console.log(`Fetching from: ${API_CONFIG.baseURL}${tableName}`);
-        
-        // Show loading indicator
-        const element = document.querySelector(this.elementId);
-        if (element) {
-            element.innerHTML = '<div class="loading-indicator">Loading matchups data...</div>';
-        }
-        
-        fetch(`${API_CONFIG.baseURL}${tableName}`, {
-            method: 'GET',
-            headers: API_CONFIG.headers
-        })
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            console.log(`Data loaded for ${this.elementId}: ${data.length} rows`);
-            this.data = data;
-            this.matchupsData = data;  // Keep for backwards compatibility
-            
-            // Clear loading indicator
-            if (element) {
-                element.innerHTML = '';
-            }
-            
-            if (!this.table) {
-                this.table = new Tabulator(this.elementId, this.getTableConfig());
-            }
-            
-            this.table.setData(data);
-            this.dataLoaded = true;
-            
-            // Restore state if pending
-            if (this.pendingStateRestore) {
-                this.restoreState();
-                this.pendingStateRestore = false;
-            }
-        })
-        .catch(error => {
-            console.error(`Error loading data for ${this.elementId}:`, error);
-            if (element) {
-                element.innerHTML = '<div class="error-message">Error loading data. Please refresh the page.</div>';
             }
         });
     }
