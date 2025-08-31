@@ -6,7 +6,7 @@ import { formatRatio, formatDecimal } from '../shared/utils.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
-        super(elementId, 'ModMatchupsData');
+        super(elementId, 'ModMatchupsData');  // This sets this.endpoint in BaseTable
         this.matchupsData = [];
         this.parkFactorsCache = new Map();
         this.pitcherStatsCache = new Map();
@@ -1209,13 +1209,17 @@ export class MatchupsTable extends BaseTable {
     loadAndRenderTable() {
         console.log(`Loading data for ${this.elementId}...`);
         
+        // Use this.endpoint which is set by BaseTable, not this.tableName
+        const tableName = this.endpoint || 'ModMatchupsData';
+        console.log(`Fetching from: ${API_CONFIG.baseURL}${tableName}`);
+        
         // Show loading indicator
         const element = document.querySelector(this.elementId);
         if (element) {
             element.innerHTML = '<div class="loading-indicator">Loading matchups data...</div>';
         }
         
-        fetch(`${API_CONFIG.baseURL}${this.tableName}`, {
+        fetch(`${API_CONFIG.baseURL}${tableName}`, {
             method: 'GET',
             headers: API_CONFIG.headers
         })
@@ -1226,7 +1230,7 @@ export class MatchupsTable extends BaseTable {
         .then(data => {
             console.log(`Data loaded for ${this.elementId}: ${data.length} rows`);
             this.data = data;
-            this.matchupsData = data;
+            this.matchupsData = data;  // Keep for backwards compatibility
             
             // Clear loading indicator
             if (element) {
