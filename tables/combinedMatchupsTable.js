@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION
+// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION WITH ALL METHODS
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
@@ -12,6 +12,12 @@ export class MatchupsTable extends BaseTable {
         this.pitcherStatsCache = new Map();
         this.batterMatchupsCache = new Map();
         this.bullpenMatchupsCache = new Map();
+        this.expandedRows = new Set();
+        this.lastScrollPosition = 0;
+        this.temporaryExpandedRows = new Set();
+        this.expandedRowsCache = new Map();
+        this.isRestoringState = false;
+        this.pendingRestoration = null;
         
         // Container configuration with proper sizing
         this.subtableConfig = {
@@ -47,231 +53,288 @@ export class MatchupsTable extends BaseTable {
     }
 
     initialize() {
-        console.log('Initializing enhanced matchups table...');
+        console.log('Initializing enhanced matchups table with fixes...');
         
-        // SIMPLE FIX: Force scrollbars and row colors to show
-        if (!document.getElementById('force-scrollbars-and-colors')) {
-            const fix = document.createElement('style');
-            fix.id = 'force-scrollbars-and-colors';
-            fix.innerHTML = `
-                .tabulator .tabulator-tableHolder {
-                    overflow-y: auto !important;
-                    overflow-x: hidden !important;
-                }
-                .tabulator .tabulator-tableHolder::-webkit-scrollbar {
-                    width: 12px !important;
-                    display: block !important;
-                }
-                .tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
-                    background: #f1f1f1 !important;
-                }
-                .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
-                    background: #888 !important;
-                    border-radius: 6px !important;
-                }
-                .tabulator-row.tabulator-row-even {
+        // FORCE CSS FIXES - Ensure alternating rows and scrollbar visibility
+        if (!document.getElementById('force-table-fixes')) {
+            const fixStyles = document.createElement('style');
+            fixStyles.id = 'force-table-fixes';
+            fixStyles.innerHTML = `
+                /* Force alternating rows using nth-child */
+                #matchups-table .tabulator-row:nth-child(even),
+                #batter-table .tabulator-row:nth-child(even),
+                #pitcher-table .tabulator-row:nth-child(even),
+                #mod-batter-stats-table .tabulator-row:nth-child(even),
+                #mod-pitcher-stats-table .tabulator-row:nth-child(even) {
                     background-color: #f5f5f5 !important;
                 }
-                .tabulator-row.tabulator-row-odd {
-                    background-color: #ffffff !important;
+                
+                #matchups-table .tabulator-row:nth-child(odd),
+                #batter-table .tabulator-row:nth-child(odd),
+                #pitcher-table .tabulator-row:nth-child(odd),
+                #mod-batter-stats-table .tabulator-row:nth-child(odd),
+                #mod-pitcher-stats-table .tabulator-row:nth-child(odd) {
+                    background-color: white !important;
                 }
+                
+                /* Force scrollbar visibility with fixed height */
+                .tabulator .tabulator-tableHolder {
+                    overflow-y: scroll !important;
+                    height: 600px !important;
+                    max-height: 600px !important;
+                }
+                
+                /* Force scrollbar to be visible */
+                .tabulator .tabulator-tableHolder::-webkit-scrollbar {
+                    width: 14px !important;
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                }
+                
+                .tabulator .tabulator-tableHolder::-webkit-scrollbar-track {
+                    background: #e0e0e0 !important;
+                    border-radius: 7px !important;
+                    border: 1px solid #ccc !important;
+                }
+                
+                .tabulator .tabulator-tableHolder::-webkit-scrollbar-thumb {
+                    background: #888 !important;
+                    border-radius: 7px !important;
+                    border: 1px solid #666 !important;
+                    min-height: 40px !important;
+                }
+                
+                /* Remove any grey padding/margins */
+                .table-wrapper,
+                .table-container,
+                .w-container {
+                    padding: 0 !important;
+                    background: transparent !important;
+                }
+                
+                /* Fix subtable scaling */
+                .subrow-container table,
+                .subrow-container .tabulator {
+                    transform: none !important;
+                    font-size: 12px !important;
+                }
+                
+                /* Ensure expanded row containers are transparent */
                 .subrow-container {
-                    background-color: #f8f9fa !important;
+                    background: transparent !important;
+                    padding: 10px 20px !important;
+                }
+                
+                /* Center all headers */
+                #matchups-table .tabulator-header .tabulator-col-title {
+                    text-align: center !important;
                 }
             `;
-            document.body.appendChild(fix);
+            document.head.appendChild(fixStyles);
         }
         
-        // Add loading indicator
-        const element = document.querySelector(this.elementId);
-        if (element && !element.querySelector('.loading-indicator')) {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'loading-indicator';
-            loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
-            loadingDiv.innerHTML = `
-                <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
-                <div>Loading matchups data...</div>
-                <div style="font-size: 12px; color: #666; margin-top: 10px;">Please wait while data loads...</div>
-            `;
-            element.appendChild(loadingDiv);
-            
-            // Add spinner animation and comprehensive fixes if not already present
-            if (!document.querySelector('#matchups-spinner-style')) {
-                const style = document.createElement('style');
-                style.id = 'matchups-spinner-style';
-                style.textContent = `
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                    
-                    /* FORCE visible scrollbars for main table with higher specificity */
-                    #matchups-table .tabulator-tableHolder {
-                        overflow-y: scroll !important;
-                        overflow-x: hidden !important;
-                        scrollbar-width: auto !important;
-                        -ms-overflow-style: auto !important;
-                    }
-                    
-                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar {
-                        width: 12px !important;
-                        height: 12px !important;
-                        display: block !important;
-                        visibility: visible !important;
-                        opacity: 1 !important;
-                    }
-                    
-                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar-track {
-                        background: #f1f1f1 !important;
-                        border-radius: 6px !important;
-                        visibility: visible !important;
-                    }
-                    
-                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb {
-                        background: #666 !important;
-                        border-radius: 6px !important;
-                        visibility: visible !important;
-                        min-height: 30px !important;
-                    }
-                    
-                    #matchups-table .tabulator-tableHolder::-webkit-scrollbar-thumb:hover {
-                        background: #333 !important;
-                    }
-                    
-                    /* COMPLETELY REMOVE grey background from expanded rows */
-                    #matchups-table .tabulator-row.tabulator-row-even,
-                    #matchups-table .tabulator-row.tabulator-row-odd {
-                        background-color: white !important;
-                    }
-                    
-                    #matchups-table .subrow-container {
-                        background: transparent !important;
-                        background-color: transparent !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
-                    }
-                    
-                    #matchups-table .tabulator-cell {
-                        background-color: white !important;
-                    }
-                    
-                    /* Center all headers */
-                    #matchups-table .tabulator-header .tabulator-col-title {
-                        text-align: center !important;
-                    }
-                    
-                    #matchups-table h4, #matchups-table h5 {
-                        text-align: center !important;
-                    }
-                    
-                    /* Increase weather text size */
-                    #matchups-table .weather-text {
-                        font-size: 14px !important;
-                        line-height: 1.6 !important;
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        }
+        this.loadAndRenderTable();
+    }
+
+    getTableConfig() {
+        const baseConfig = super.getTableConfig();
         
-        // Get base config from parent class
-        const baseConfig = this.getBaseConfig();
-        
-        const config = {
+        return {
             ...baseConfig,
             columns: this.getColumns(),
-            width: "1200px",
-            maxWidth: "1200px",
-            height: "600px",
-            layout: "fitData",
-            placeholder: "Loading matchups data...",
-            headerVisible: true,
-            headerHozAlign: "center",
-            renderVertical: "basic",
-            renderHorizontal: "basic",
-            layoutColumnsOnNewData: false,
-            virtualDom: true,
-            virtualDomBuffer: 200,
-            initialSort: [
-                {column: "Matchup Game", dir: "asc"}
-            ],
-            rowFormatter: this.createRowFormatter(),
-            // Override the ajaxRequestFunc to fetch additional data
-            ajaxRequestFunc: async (url, config, params) => {
-                // Call the parent's ajaxRequestFunc to get the main data with caching
-                const parentFunc = baseConfig.ajaxRequestFunc;
-                const data = await parentFunc.call(this, url, config, params);
+            rowFormatter: (row) => this.rowFormatter(row),
+            dataLoaded: () => {
+                console.log(`Data loaded for ${this.elementId}`);
+                this.dataLoaded = true;
+                this.attachEventHandlers();
                 
-                await this.fetchAllAdditionalData(data);
-                
-                // Remove loading indicator
-                const loadingDiv = document.querySelector(`${this.elementId} .loading-indicator`);
-                if (loadingDiv) {
-                    loadingDiv.remove();
+                if (this.pendingStateRestore) {
+                    this.restoreState();
+                    this.pendingStateRestore = false;
                 }
-                
-                return data;
+            },
+            dataProcessing: () => {
+                console.log(`Data processing for ${this.elementId}`);
+                if (!this.isRestoringState && this.table) {
+                    this.saveTemporaryExpandedState();
+                }
+            },
+            dataProcessed: () => {
+                console.log(`Data processed for ${this.elementId}`);
+                if (this.pendingRestoration) {
+                    this.executePendingRestoration();
+                }
+            },
+            dataFiltered: () => {
+                console.log(`Data filtered for ${this.elementId}`);
+                if (!this.isRestoringState) {
+                    this.restoreTemporaryExpandedState();
+                }
             }
         };
-
-        this.table = new Tabulator(this.elementId, config);
-        this.setupRowExpansion();
-        
-        this.table.on("tableBuilt", () => {
-            console.log("Matchups table built successfully");
-        });
     }
 
-    async fetchAllAdditionalData(data) {
-        const fetchPromises = data.map(async (row) => {
-            const matchupId = row["Matchup Game ID"];
+    getColumns() {
+        return [
+            {
+                title: "ID",
+                field: "Matchup Game ID",
+                visible: false,
+                sorter: "number"
+            },
+            {
+                title: "Team",
+                field: "Matchup Team",
+                width: 180,
+                formatter: (cell) => this.createNameFormatter()(cell),
+                headerSort: false
+            },
+            {
+                title: "Game",
+                field: "Matchup Game",
+                width: 340,
+                headerFilter: createCustomMultiSelect,
+                headerSort: false
+            },
+            {
+                title: "Spread",
+                field: "Matchup Spread",
+                width: 110,
+                hozAlign: "center",
+                headerSort: false
+            },
+            {
+                title: "Total",
+                field: "Matchup Total",
+                width: 110,
+                hozAlign: "center",
+                headerSort: false
+            },
+            {
+                title: "Lineup Status",
+                field: "Matchup Lineup Status",
+                width: 250,
+                hozAlign: "center",
+                headerFilter: createCustomMultiSelect,
+                headerSort: false,
+                formatter: (cell) => {
+                    const value = cell.getValue();
+                    if (!value) return "";
+                    const color = value.toLowerCase().includes('confirmed') ? '#28a745' : '#6c757d';
+                    return `<span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${value}</span>`;
+                }
+            }
+        ];
+    }
+
+    rowFormatter(row) {
+        const rowElement = row.getElement();
+        const data = row.getData();
+        
+        // Add click handler for row expansion
+        const nameCell = rowElement.querySelector('.tabulator-cell[tabulator-field="Matchup Team"]');
+        if (nameCell) {
+            nameCell.style.cursor = 'pointer';
+            nameCell.addEventListener('click', () => this.toggleRow(row));
+        }
+    }
+
+    async toggleRow(row) {
+        const rowElement = row.getElement();
+        const data = row.getData();
+        const isExpanded = data._expanded || false;
+        
+        if (!isExpanded) {
+            // Expand row
+            data._expanded = true;
+            row.reformat();
             
-            try {
+            // Create subtable container
+            const subrowContainer = document.createElement('div');
+            subrowContainer.className = 'subrow-container';
+            subrowContainer.style.display = 'block';
+            
+            // Fetch all required data if not cached
+            if (!data._parkFactors || !data._pitcherStats || !data._batterMatchups || !data._bullpenMatchups) {
                 const [parkFactors, pitcherStats, batterMatchups, bullpenMatchups] = await Promise.all([
-                    this.fetchParkFactors(matchupId),
-                    this.fetchPitcherStats(matchupId),
-                    this.fetchBatterMatchups(matchupId),
-                    this.fetchBullpenMatchups(matchupId)
+                    this.fetchParkFactors(data["Matchup Game ID"]),
+                    this.fetchPitcherStats(data["Matchup Game ID"]),
+                    this.fetchBatterMatchups(data["Matchup Game ID"]),
+                    this.fetchBullpenMatchups(data["Matchup Game ID"])
                 ]);
                 
-                row._parkFactors = parkFactors;
-                row._pitcherStats = pitcherStats;
-                row._batterMatchups = batterMatchups;
-                row._bullpenMatchups = bullpenMatchups;
-            } catch (error) {
-                console.error(`Error fetching data for matchup ${matchupId}:`, error);
-                row._parkFactors = null;
-                row._pitcherStats = null;
-                row._batterMatchups = null;
-                row._bullpenMatchups = null;
+                // Store fetched data
+                data._parkFactors = parkFactors;
+                data._pitcherStats = pitcherStats;
+                data._batterMatchups = batterMatchups;
+                data._bullpenMatchups = bullpenMatchups;
             }
-        });
+            
+            // Create subtable content
+            this.createSubtableContent(subrowContainer, data);
+            
+            // Insert after current row
+            rowElement.parentNode.insertBefore(subrowContainer, rowElement.nextSibling);
+            rowElement.classList.add('row-expanded');
+            
+        } else {
+            // Collapse row
+            data._expanded = false;
+            row.reformat();
+            
+            const existingSubrow = rowElement.nextSibling;
+            if (existingSubrow && existingSubrow.classList.contains('subrow-container')) {
+                existingSubrow.remove();
+            }
+            rowElement.classList.remove('row-expanded');
+        }
         
-        await Promise.all(fetchPromises);
+        // Update expander icon
+        const expander = rowElement.querySelector('.row-expander');
+        if (expander) {
+            expander.innerHTML = data._expanded ? '−' : '+';
+        }
+        
+        // Normalize heights
+        setTimeout(() => {
+            row.normalizeHeight();
+        }, 50);
     }
 
-    async fetchParkFactors(matchupId) {
-        if (this.parkFactorsCache.has(matchupId)) {
-            return this.parkFactorsCache.get(matchupId);
-        }
-
-        try {
-            const response = await fetch(
-                `${API_CONFIG.baseURL}ModParkFactors?Park Factor Game ID=eq.${matchupId}`,
-                { method: 'GET', headers: API_CONFIG.headers }
-            );
-            
-            if (!response.ok) throw new Error('Failed to fetch park factors');
-            
-            const parkFactors = await response.json();
-            this.parkFactorsCache.set(matchupId, parkFactors);
-            return parkFactors;
-        } catch (error) {
-            console.error('Error fetching park factors:', error);
-            return null;
-        }
+    createSubtableContent(container, data) {
+        // Determine location for weather data
+        const isAway = this.isTeamAway(data["Matchup Game"]);
+        const opposingPitcherLocation = isAway ? "@" : "Home";
+        
+        // Create main container structure
+        container.innerHTML = `
+            <div style="display: flex; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 15px;">
+                <div id="park-factors-container-${data["Matchup Game ID"]}" style="flex: 0 0 ${this.subtableConfig.parkFactorsContainerWidth}px;"></div>
+                <div id="weather-container-${data["Matchup Game ID"]}" style="flex: 0 0 ${this.subtableConfig.weatherContainerWidth}px;"></div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}"></div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <div id="batter-matchups-subtable-${data["Matchup Game ID"]}"></div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}"></div>
+            </div>
+        `;
+        
+        // Create each subtable with a slight delay to ensure DOM is ready
+        setTimeout(() => {
+            this.createParkFactorsTable(data);
+            this.createWeatherTable(data);
+            this.createPitcherStatsTable(data, opposingPitcherLocation);
+            this.createBatterMatchupsTable(data, opposingPitcherLocation);
+            this.createBullpenMatchupsTable(data, opposingPitcherLocation);
+        }, 10);
     }
 
+    // FIXED: Correct API endpoint for pitcher stats
     async fetchPitcherStats(matchupId) {
         if (this.pitcherStatsCache.has(matchupId)) {
             return this.pitcherStatsCache.get(matchupId);
@@ -316,6 +379,7 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
+    // FIXED: Correct API endpoint for bullpen matchups
     async fetchBullpenMatchups(matchupId) {
         if (this.bullpenMatchupsCache.has(matchupId)) {
             return this.bullpenMatchupsCache.get(matchupId);
@@ -338,281 +402,51 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    isTeamAway(gameString) {
-        if (!gameString) return false;
-        const parts = gameString.split(' ');
-        return parts.length >= 3 && parts[1] === '@';
-    }
-
-    getTableScrollPosition() {
-        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
-        return tableHolder ? tableHolder.scrollTop : 0;
-    }
-    
-    setTableScrollPosition(position) {
-        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
-        if (tableHolder) {
-            tableHolder.scrollTop = position;
+    async fetchParkFactors(matchupId) {
+        if (this.parkFactorsCache.has(matchupId)) {
+            return this.parkFactorsCache.get(matchupId);
         }
-    }
 
-    getColumns() {
-        return [
-            {
-                title: "ID",
-                field: "Matchup Game ID",
-                visible: false,
-                sorter: "number",
-                resizable: false
-            },
-            {
-                title: "Team", 
-                field: "Matchup Team",
-                width: 340,
-                headerFilter: true,
-                headerFilterPlaceholder: "Search teams...",
-                headerHozAlign: "center",
-                sorter: "string",
-                resizable: false,
-                formatter: (cell, formatterParams, onRendered) => {
-                    const value = cell.getValue();
-                    const row = cell.getRow();
-                    const expanded = row.getData()._expanded || false;
-                    
-                    const teamName = value;
-                    
-                    onRendered(function() {
-                        try {
-                            const cellElement = cell.getElement();
-                            if (cellElement) {
-                                cellElement.innerHTML = '';
-                                
-                                const container = document.createElement("div");
-                                container.style.display = "flex";
-                                container.style.alignItems = "center";
-                                container.style.cursor = "pointer";
-                                
-                                const expander = document.createElement("span");
-                                expander.innerHTML = expanded ? "−" : "+";
-                                expander.style.marginRight = "8px";
-                                expander.style.fontWeight = "bold";
-                                expander.style.color = "#007bff";
-                                expander.style.fontSize = "14px";
-                                expander.style.minWidth = "12px";
-                                expander.classList.add("row-expander");
-                                
-                                const textSpan = document.createElement("span");
-                                textSpan.textContent = teamName;
-                                
-                                container.appendChild(expander);
-                                container.appendChild(textSpan);
-                                
-                                cellElement.appendChild(container);
-                                cellElement.style.textAlign = "left";
-                            }
-                        } catch (error) {
-                            console.error("Error in team formatter:", error);
-                        }
-                    });
-                    
-                    return (expanded ? "− " : "+ ") + teamName;
-                }
-            },
-            {
-                title: "Game", 
-                field: "Matchup Game",
-                width: 340,
-                headerFilter: createCustomMultiSelect,
-                headerSort: false,
-                headerHozAlign: "center",
-                resizable: false
-            },
-            {
-                title: "Spread", 
-                field: "Matchup Spread",
-                width: 110,
-                hozAlign: "center",
-                headerHozAlign: "center",
-                headerSort: false,
-                resizable: false
-            },
-            {
-                title: "Total", 
-                field: "Matchup Total",
-                width: 110,
-                hozAlign: "center",
-                headerHozAlign: "center",
-                headerSort: false,
-                resizable: false
-            },
-            {
-                title: "Lineup Status",
-                field: "Matchup Lineup Status",
-                width: 250,
-                hozAlign: "center",
-                headerHozAlign: "center",
-                headerFilter: createCustomMultiSelect,
-                headerSort: false,
-                resizable: false,
-                formatter: (cell) => {
-                    const value = cell.getValue();
-                    if (!value) return "";
-                    
-                    const color = value.toLowerCase().includes('confirmed') ? '#28a745' : '#6c757d';
-                    return `<span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${value}</span>`;
-                }
-            }
-        ];
-    }
-
-    createRowFormatter() {
-        return (row) => {
-            const data = row.getData();
-            const rowElement = row.getElement();
+        try {
+            const response = await fetch(
+                `${API_CONFIG.baseURL}ModParkFactors?Game ID=eq.${matchupId}`,
+                { method: 'GET', headers: API_CONFIG.headers }
+            );
             
-            rowElement.style.maxWidth = "100%";
-            rowElement.style.overflow = "hidden";
+            if (!response.ok) throw new Error('Failed to fetch park factors');
             
-            if (data._expanded && !rowElement.querySelector('.subrow-container')) {
-                const holderEl = document.createElement("div");
-                holderEl.classList.add('subrow-container');
-                holderEl.style.padding = "10px";
-                holderEl.style.background = "#f8f9fa";
-                holderEl.style.maxWidth = "100%";
-                holderEl.style.overflow = "hidden";
-                
-                const subtableEl = document.createElement("div");
-                subtableEl.style.maxWidth = "100%";
-                subtableEl.style.overflow = "hidden";
-                holderEl.appendChild(subtableEl);
-                rowElement.appendChild(holderEl);
-                
-                this.createMatchupsSubtable(subtableEl, data);
-            } else if (!data._expanded) {
-                const existingSubrow = rowElement.querySelector('.subrow-container');
-                if (existingSubrow) {
-                    existingSubrow.remove();
-                }
-            }
-        };
-    }
-
-    createMatchupsSubtable(container, data) {
-        const weatherData = [
-            data["Matchup Weather 1"] || "No weather data",
-            data["Matchup Weather 2"] || "",
-            data["Matchup Weather 3"] || "",
-            data["Matchup Weather 4"] || ""
-        ].filter(d => d);
-
-        const isTeamAway = this.isTeamAway(data["Matchup Game"]);
-        const opposingPitcherLocation = isTeamAway ? "at Home" : "Away";
-        
-        let ballparkName = data["Matchup Ballpark"] || "Unknown Ballpark";
-        let hasRetractableRoof = false;
-        
-        if (ballparkName.includes("(Retractable Roof)")) {
-            hasRetractableRoof = true;
-            ballparkName = ballparkName.replace("(Retractable Roof)", "").trim();
+            const parkFactors = await response.json();
+            this.parkFactorsCache.set(matchupId, parkFactors);
+            return parkFactors;
+        } catch (error) {
+            console.error('Error fetching park factors:', error);
+            return null;
         }
-        
-        const weatherTitle = hasRetractableRoof ? "Weather (Retractable Roof)" : "Weather";
-        const totalWidth = this.subtableConfig.maxTotalWidth;
-
-        // FIXED: Ensure weather section is always displayed properly
-        let tableHTML = `
-            <div style="display: flex; justify-content: center; gap: ${this.subtableConfig.containerGap}px; margin-bottom: 20px; width: ${totalWidth}px; max-width: 100%; margin-left: auto; margin-right: auto; clear: both;">
-                <!-- Park Factors Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.parkFactorsContainerWidth}px; min-width: ${this.subtableConfig.parkFactorsContainerWidth}px; max-width: ${this.subtableConfig.parkFactorsContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
-                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${ballparkName} Park Factors</h5>
-                    <div id="park-factors-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
-                </div>
-
-                <!-- Weather Section -->
-                <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; width: ${this.subtableConfig.weatherContainerWidth}px; min-width: ${this.subtableConfig.weatherContainerWidth}px; max-width: ${this.subtableConfig.weatherContainerWidth}px; flex: 0 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; display: block;">
-                    <h5 style="margin: 0 0 10px 0; color: #333; font-size: 14px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${weatherTitle}</h5>
-                    <div style="font-size: 12px; color: #333; display: block;">
-                        ${weatherData.map(w => `<div style="padding: 8px 12px; border-bottom: 1px solid #eee; word-wrap: break-word;">${w}</div>`).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        if (data._pitcherStats && data._pitcherStats.length > 0) {
-            tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
-                    <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Starting Pitcher</h4>
-                    <div id="pitcher-stats-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
-                </div>
-            `;
-        }
-
-        if (data._batterMatchups && data._batterMatchups.length > 0) {
-            tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
-                    <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Starting Lineup</h4>
-                    <div id="batter-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
-                </div>
-            `;
-        }
-
-        if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
-            tableHTML += `
-                <div style="margin-top: 20px; width: ${totalWidth}px; max-width: 100%; overflow: hidden; margin-left: auto; margin-right: auto;">
-                    <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px; font-weight: bold;">Opposing Bullpen</h4>
-                    <div id="bullpen-matchups-subtable-${data["Matchup Game ID"]}" style="width: 100%; overflow: hidden;"></div>
-                </div>
-            `;
-        }
-
-        container.innerHTML = tableHTML;
-
-        setTimeout(() => {
-            this.createParkFactorsTable(data);
-            this.createPitcherStatsTable(data, opposingPitcherLocation);
-            this.createBatterMatchupsTable(data);
-            this.createBullpenMatchupsTable(data, opposingPitcherLocation);
-        }, 50);
     }
 
     createParkFactorsTable(data) {
         if (data._parkFactors && data._parkFactors.length > 0) {
-            const containerId = `park-factors-subtable-${data["Matchup Game ID"]}`;
+            const containerId = `park-factors-container-${data["Matchup Game ID"]}`;
             const containerElement = document.getElementById(containerId);
             
-            if (!containerElement) {
-                console.error(`Park factors container not found: ${containerId}`);
-                return;
-            }
+            if (!containerElement) return;
             
-            const splitIdMap = {
-                'A': 'All',
-                'R': 'Righties',
-                'L': 'Lefties'
-            };
-
-            const sortedParkFactors = data._parkFactors.sort((a, b) => {
-                const order = { 'A': 0, 'R': 1, 'L': 2 };
-                return order[a["Park Factor Split ID"]] - order[b["Park Factor Split ID"]];
-            });
-
             const columns = [
-                {title: "Split", field: "split", width: this.subtableConfig.parkFactorsColumns.split, headerSort: false, hozAlign: "center"},
-                {title: "H", field: "H", width: this.subtableConfig.parkFactorsColumns.H, hozAlign: "center", headerSort: false},
-                {title: "1B", field: "1B", width: this.subtableConfig.parkFactorsColumns["1B"], hozAlign: "center", headerSort: false},
-                {title: "2B", field: "2B", width: this.subtableConfig.parkFactorsColumns["2B"], hozAlign: "center", headerSort: false},
-                {title: "3B", field: "3B", width: this.subtableConfig.parkFactorsColumns["3B"], hozAlign: "center", headerSort: false},
-                {title: "HR", field: "HR", width: this.subtableConfig.parkFactorsColumns.HR, hozAlign: "center", headerSort: false},
-                {title: "R", field: "R", width: this.subtableConfig.parkFactorsColumns.R, hozAlign: "center", headerSort: false},
-                {title: "BB", field: "BB", width: this.subtableConfig.parkFactorsColumns.BB, hozAlign: "center", headerSort: false},
-                {title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, hozAlign: "center", headerSort: false}
+                { title: "Split", field: "split", width: this.subtableConfig.parkFactorsColumns.split, headerSort: false },
+                { title: "H", field: "H", width: this.subtableConfig.parkFactorsColumns.H, headerSort: false },
+                { title: "1B", field: "1B", width: this.subtableConfig.parkFactorsColumns["1B"], headerSort: false },
+                { title: "2B", field: "2B", width: this.subtableConfig.parkFactorsColumns["2B"], headerSort: false },
+                { title: "3B", field: "3B", width: this.subtableConfig.parkFactorsColumns["3B"], headerSort: false },
+                { title: "HR", field: "HR", width: this.subtableConfig.parkFactorsColumns.HR, headerSort: false },
+                { title: "R", field: "R", width: this.subtableConfig.parkFactorsColumns.R, headerSort: false },
+                { title: "BB", field: "BB", width: this.subtableConfig.parkFactorsColumns.BB, headerSort: false },
+                { title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, headerSort: false }
             ];
-
+            
             new Tabulator(`#${containerId}`, {
-                layout: "fitColumns",
-                width: "100%",
-                data: sortedParkFactors.map(pf => ({
-                    split: splitIdMap[pf["Park Factor Split ID"]] || pf["Park Factor Split ID"],
+                layout: "fitData",
+                data: data._parkFactors.map(pf => ({
+                    split: pf["Park Factor Split"] || "Park",
                     H: pf["Park Factor H"],
                     "1B": pf["Park Factor 1B"],
                     "2B": pf["Park Factor 2B"],
@@ -630,6 +464,34 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
+    createWeatherTable(data) {
+        const containerId = `weather-container-${data["Matchup Game ID"]}`;
+        const containerElement = document.getElementById(containerId);
+        
+        if (!containerElement) return;
+        
+        const weatherData = [
+            { label: "Temperature", value: data["Temperature"] || "-" },
+            { label: "Wind Speed", value: data["Wind Speed"] || "-" },
+            { label: "Wind Direction", value: data["Wind Direction"] || "-" },
+            { label: "Conditions", value: data["Weather Conditions"] || "-" },
+            { label: "Ballpark", value: data["Matchup Ballpark"] || "-" }
+        ];
+        
+        new Tabulator(`#${containerId}`, {
+            layout: "fitData",
+            data: weatherData,
+            columns: [
+                { title: "Weather", field: "label", width: 150, headerSort: false },
+                { title: "Value", field: "value", width: 400, headerSort: false }
+            ],
+            height: false,
+            headerHeight: 30,
+            rowHeight: 28
+        });
+    }
+
+    // FIXED: Create pitcher stats table with correct field mapping
     createPitcherStatsTable(data, opposingPitcherLocation) {
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             const containerId = `pitcher-stats-subtable-${data["Matchup Game ID"]}`;
@@ -640,19 +502,19 @@ export class MatchupsTable extends BaseTable {
                 return;
             }
             
-            // DEBUG: Log the actual fields available to find the correct name field
-            if (data._pitcherStats[0]) {
-                console.log("PITCHER FIELDS AVAILABLE:", Object.keys(data._pitcherStats[0]));
-            }
+            // FIXED: Use correct field name from ModPitcherMatchups
+            const nameField = data._pitcherStats[0]["Starter Name & Hand"] || 
+                             data._pitcherStats[0]["Starter Name"] || 
+                             "Unknown Pitcher";
             
-            // Try multiple possible field names
-            const pitcherName = data._pitcherStats[0]["Starter Name"] || 
-                               data._pitcherStats[0]["Pitcher Name"] || 
-                               data._pitcherStats[0]["Name"] ||
-                               data._pitcherStats[0]["Player Name"] ||
-                               data._pitcherStats[0]["Player"] ||
-                               data._pitcherStats[0]["Starter"] ||
-                               "Unknown Pitcher";
+            // Extract name and handedness if present
+            let pitcherName = nameField;
+            let handedness = "";
+            const handMatch = nameField.match(/\s*\(([LR])\)\s*$/);
+            if (handMatch) {
+                pitcherName = nameField.replace(/\s*\([LR]\)\s*$/, "").trim();
+                handedness = handMatch[1];
+            }
             
             const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
             const splitMap = {
@@ -675,7 +537,7 @@ export class MatchupsTable extends BaseTable {
                     _id: `${data["Matchup Game ID"]}-main`,
                     _rowType: 'main',
                     _isExpanded: false,
-                    name: pitcherName,
+                    name: pitcherName + (handedness ? ` (${handedness})` : ""),
                     split: "Full Season",
                     TBF: fullSeasonData["Starter TBF"],
                     "H/TBF": formatRatio(fullSeasonData["Starter H/TBF"], 3),
@@ -705,89 +567,139 @@ export class MatchupsTable extends BaseTable {
                                 
                                 if (rowData._rowType === 'main') {
                                     return `<div style="cursor: pointer;">
-                                        <span class="subtable-expander" style="margin-right: 8px; font-weight: bold; color: #007bff;">${rowData._isExpanded ? '−' : '+'}</span>
+                                        <span class="subtable-expander" style="margin-right: 8px; font-weight: bold; color: #007bff;">
+                                            ${rowData._isExpanded ? '−' : '+'}
+                                        </span>
                                         <span>${value}</span>
                                     </div>`;
                                 }
-                                return `<div style="margin-left: 30px;">${value}</div>`;
+                                return `<div style="padding-left: 28px;">${value}</div>`;
                             }
                         },
-                        {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                        {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
-                        {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
-                        {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                        {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                        {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
+                        {
+                            title: "Split",
+                            field: "split",
+                            width: this.subtableConfig.statTableColumns.split,
+                            headerSort: false
+                        },
+                        {
+                            title: "TBF",
+                            field: "TBF",
+                            width: this.subtableConfig.statTableColumns.tbf_pa,
+                            headerSort: false
+                        },
+                        {
+                            title: "H/TBF",
+                            field: "H/TBF",
+                            width: this.subtableConfig.statTableColumns.ratio,
+                            headerSort: false
+                        },
+                        {
+                            title: "H",
+                            field: "H",
+                            width: this.subtableConfig.statTableColumns.stat,
+                            headerSort: false
+                        },
+                        {
+                            title: "1B",
+                            field: "1B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "2B",
+                            field: "2B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "3B",
+                            field: "3B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "HR",
+                            field: "HR",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "R",
+                            field: "R",
+                            width: this.subtableConfig.statTableColumns.stat,
+                            headerSort: false
+                        },
+                        {
+                            title: "ERA",
+                            field: "ERA",
+                            width: this.subtableConfig.statTableColumns.era_rbi,
+                            headerSort: false
+                        },
+                        {
+                            title: "BB",
+                            field: "BB",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "SO",
+                            field: "SO",
+                            width: this.subtableConfig.statTableColumns.so,
+                            headerSort: false
+                        }
                     ],
                     height: false,
                     headerHeight: 30,
                     rowHeight: 28
                 });
 
+                // Add click handler for expanding/collapsing
                 pitcherTable.on("cellClick", function(e, cell) {
-                    if (cell.getField() === "name") {
-                        e.preventDefault();
-                        e.stopPropagation();
+                    const field = cell.getField();
+                    const rowData = cell.getRow().getData();
+                    
+                    if (field === "name" && rowData._rowType === 'main') {
+                        rowData._isExpanded = !rowData._isExpanded;
+                        cell.getRow().reformat();
                         
-                        const row = cell.getRow();
-                        const rowData = row.getData();
-                        
-                        if (rowData._rowType === 'main') {
-                            rowData._isExpanded = !rowData._isExpanded;
-                            row.update(rowData);
+                        if (rowData._isExpanded) {
+                            const allData = pitcherTable.getData();
+                            const childRows = [];
                             
-                            const cellElement = cell.getElement();
-                            const expander = cellElement.querySelector('.subtable-expander');
-                            if (expander) {
-                                expander.innerHTML = rowData._isExpanded ? '−' : '+';
-                            }
+                            ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
+                                const statData = sortedPitcherStats.find(s => s["Starter Split ID"] === splitId);
+                                if (statData) {
+                                    childRows.push({
+                                        _id: `${data["Matchup Game ID"]}-child-${index}`,
+                                        _rowType: 'child',
+                                        _parentId: rowData._id,
+                                        _sortOrder: index + 1,
+                                        name: pitcherName,
+                                        split: splitMap[splitId],
+                                        TBF: statData["Starter TBF"],
+                                        "H/TBF": formatRatio(statData["Starter H/TBF"], 3),
+                                        H: statData["Starter H"],
+                                        "1B": statData["Starter 1B"],
+                                        "2B": statData["Starter 2B"],
+                                        "3B": statData["Starter 3B"],
+                                        HR: statData["Starter HR"],
+                                        R: statData["Starter R"],
+                                        ERA: formatDecimal(statData["Starter ERA"], 2),
+                                        BB: statData["Starter BB"],
+                                        SO: statData["Starter SO"]
+                                    });
+                                }
+                            });
                             
-                            if (rowData._isExpanded) {
-                                const allData = pitcherTable.getData();
-                                
-                                const childRows = [];
-                                ["vs R", "vs L", "Full Season@", "vs R @", "vs L @"].forEach((splitId, index) => {
-                                    const statData = sortedPitcherStats.find(s => s["Starter Split ID"] === splitId);
-                                    if (statData) {
-                                        childRows.push({
-                                            _id: `${data["Matchup Game ID"]}-child-${index}`,
-                                            _rowType: 'child',
-                                            _parentId: rowData._id,
-                                            _sortOrder: index + 1,
-                                            name: pitcherName,
-                                            split: splitMap[splitId],
-                                            TBF: statData["Starter TBF"],
-                                            "H/TBF": formatRatio(statData["Starter H/TBF"], 3),
-                                            H: statData["Starter H"],
-                                            "1B": statData["Starter 1B"],
-                                            "2B": statData["Starter 2B"],
-                                            "3B": statData["Starter 3B"],
-                                            HR: statData["Starter HR"],
-                                            R: statData["Starter R"],
-                                            ERA: formatDecimal(statData["Starter ERA"], 2),
-                                            BB: statData["Starter BB"],
-                                            SO: statData["Starter SO"]
-                                        });
-                                    }
-                                });
-                                
-                                const parentIndex = allData.findIndex(d => d._id === rowData._id);
-                                allData.splice(parentIndex + 1, 0, ...childRows);
-                                
-                                pitcherTable.replaceData(allData);
-                                
-                            } else {
-                                const filteredData = pitcherTable.getData().filter(d => 
-                                    !(d._rowType === 'child' && d._parentId === rowData._id)
-                                );
-                                pitcherTable.replaceData(filteredData);
-                            }
+                            const parentIndex = allData.findIndex(d => d._id === rowData._id);
+                            allData.splice(parentIndex + 1, 0, ...childRows);
+                            pitcherTable.replaceData(allData);
+                        } else {
+                            const filteredData = pitcherTable.getData().filter(d => 
+                                !(d._rowType === 'child' && d._parentId === rowData._id)
+                            );
+                            pitcherTable.replaceData(filteredData);
                         }
                     }
                 });
@@ -795,186 +707,150 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    createBatterMatchupsTable(data) {
+    createBatterMatchupsTable(data, opposingPitcherLocation) {
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
             const containerElement = document.getElementById(containerId);
             
             if (!containerElement) {
-                console.error(`Container element not found: ${containerId}`);
+                console.error(`Batter matchups container not found: ${containerId}`);
                 return;
             }
             
-            const isTeamAway = this.isTeamAway(data["Matchup Game"]);
-            const batterLocationText = isTeamAway ? "Away" : "at Home";
-            
-            const splitOrder = ["Full Season", "vs R", "vs L", "Full Season@", "vs R @", "vs L @"];
-            const splitMap = {
-                "Full Season": "Full Season",
-                "vs R": "vs Righties",
-                "vs L": "vs Lefties",
-                "Full Season@": `Full Season ${batterLocationText}`,
-                "vs R @": `vs Righties ${batterLocationText}`,
-                "vs L @": `vs Lefties ${batterLocationText}`
-            };
-            
-            const battersByOrder = {};
+            // Group batter matchups by player
+            const batterGroups = {};
             data._batterMatchups.forEach(batter => {
-                const nameHandSpot = batter["Batter Name & Hand & Spot"];
-                const match = nameHandSpot ? nameHandSpot.match(/(.+?)\s+(\d+)$/) : null;
-                if (match) {
-                    const batterName = match[1];
-                    const battingOrder = parseInt(match[2]);
-                    
-                    if (!battersByOrder[battingOrder]) {
-                        battersByOrder[battingOrder] = {
-                            name: batterName,
-                            order: battingOrder,
-                            splits: []
-                        };
-                    }
-                    battersByOrder[battingOrder].splits.push(batter);
+                const nameField = batter["Batter Name"] || "Unknown Batter";
+                if (!batterGroups[nameField]) {
+                    batterGroups[nameField] = {
+                        name: nameField,
+                        splits: []
+                    };
+                }
+                batterGroups[nameField].splits.push(batter);
+            });
+            
+            // Create table data
+            const tableData = [];
+            Object.keys(batterGroups).forEach((batterName, index) => {
+                const batterData = batterGroups[batterName];
+                const fullSeasonData = batterData.splits.find(s => s["Batter Split ID"] === "Full Season");
+                
+                if (fullSeasonData) {
+                    tableData.push({
+                        _id: `${data["Matchup Game ID"]}-batter-${index}`,
+                        _rowType: 'main',
+                        _isExpanded: false,
+                        name: batterData.name,
+                        split: "Full Season",
+                        PA: fullSeasonData["Batter PA"],
+                        "H/PA": formatRatio(fullSeasonData["Batter H/PA"], 3),
+                        H: fullSeasonData["Batter H"],
+                        "1B": fullSeasonData["Batter 1B"],
+                        "2B": fullSeasonData["Batter 2B"],
+                        "3B": fullSeasonData["Batter 3B"],
+                        HR: fullSeasonData["Batter HR"],
+                        R: fullSeasonData["Batter R"],
+                        RBI: fullSeasonData["Batter RBI"],
+                        BB: fullSeasonData["Batter BB"],
+                        SO: fullSeasonData["Batter SO"]
+                    });
                 }
             });
             
-            const tableData = [];
-            Object.keys(battersByOrder)
-                .sort((a, b) => parseInt(a) - parseInt(b))
-                .forEach((order, orderIndex) => {
-                    const batterData = battersByOrder[order];
-                    const fullSeasonData = batterData.splits.find(s => s["Batter Split ID"] === "Full Season");
-                    
-                    if (fullSeasonData) {
-                        tableData.push({
-                            _id: `${data["Matchup Game ID"]}-batter-${order}`,
-                            _rowType: 'main',
-                            _isExpanded: false,
-                            _sortOrder: orderIndex,
-                            name: batterData.name,
-                            split: "Full Season",
-                            PA: fullSeasonData["Batter PA"],
-                            "H/PA": formatRatio(fullSeasonData["Batter H/PA"], 3),
-                            H: fullSeasonData["Batter H"],
-                            "1B": fullSeasonData["Batter 1B"],
-                            "2B": fullSeasonData["Batter 2B"],
-                            "3B": fullSeasonData["Batter 3B"],
-                            HR: fullSeasonData["Batter HR"],
-                            R: fullSeasonData["Batter R"],
-                            RBI: fullSeasonData["Batter RBI"],
-                            BB: fullSeasonData["Batter BB"],
-                            SO: fullSeasonData["Batter SO"]
-                        });
-                    }
+            if (tableData.length > 0) {
+                new Tabulator(`#${containerId}`, {
+                    layout: "fitData",
+                    data: tableData,
+                    columns: [
+                        {
+                            title: "Name",
+                            field: "name",
+                            width: 200,
+                            headerSort: false
+                        },
+                        {
+                            title: "Split",
+                            field: "split",
+                            width: 160,
+                            headerSort: false
+                        },
+                        {
+                            title: "PA",
+                            field: "PA",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "H/PA",
+                            field: "H/PA",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "H",
+                            field: "H",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "1B",
+                            field: "1B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "2B",
+                            field: "2B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "3B",
+                            field: "3B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "HR",
+                            field: "HR",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "R",
+                            field: "R",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "RBI",
+                            field: "RBI",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "BB",
+                            field: "BB",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "SO",
+                            field: "SO",
+                            width: 60,
+                            headerSort: false
+                        }
+                    ],
+                    height: false,
+                    headerHeight: 30,
+                    rowHeight: 28
                 });
-
-            const batterTable = new Tabulator(`#${containerId}`, {
-                layout: "fitData",
-                data: tableData,
-                columns: [
-                    {
-                        title: "Name",
-                        field: "name",
-                        width: this.subtableConfig.statTableColumns.name,
-                        headerSort: false,
-                        formatter: function(cell) {
-                            const value = cell.getValue();
-                            const rowData = cell.getRow().getData();
-                            
-                            if (rowData._rowType === 'main') {
-                                return `<div style="cursor: pointer;">
-                                    <span class="subtable-expander" style="margin-right: 8px; font-weight: bold; color: #007bff;">${rowData._isExpanded ? '−' : '+'}</span>
-                                    <span>${value}</span>
-                                </div>`;
-                            }
-                            return `<div style="margin-left: 30px;">${value}</div>`;
-                        }
-                    },
-                    {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                    {title: "PA", field: "PA", width: this.subtableConfig.statTableColumns.pa, hozAlign: "center", headerSort: false},
-                    {title: "H/PA", field: "H/PA", width: this.subtableConfig.statTableColumns.h_pa, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "RBI", field: "RBI", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
-                ],
-                height: false,
-                headerHeight: 30,
-                rowHeight: 28
-            });
-
-            batterTable.on("cellClick", function(e, cell) {
-                if (cell.getField() === "name") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const row = cell.getRow();
-                    const rowData = row.getData();
-                    
-                    if (rowData._rowType === 'main') {
-                        rowData._isExpanded = !rowData._isExpanded;
-                        row.update(rowData);
-                        
-                        const cellElement = cell.getElement();
-                        const expander = cellElement.querySelector('.subtable-expander');
-                        if (expander) {
-                            expander.innerHTML = rowData._isExpanded ? '−' : '+';
-                        }
-                        
-                        if (rowData._isExpanded) {
-                            const allData = batterTable.getData();
-                            const batterInfo = battersByOrder[Object.keys(battersByOrder).find(o => 
-                                battersByOrder[o].name === rowData.name
-                            )];
-                            
-                            if (batterInfo) {
-                                const childRows = [];
-                                splitOrder.slice(1).forEach((splitId, index) => {
-                                    const statData = batterInfo.splits.find(s => s["Batter Split ID"] === splitId);
-                                    if (statData) {
-                                        childRows.push({
-                                            _id: `${data["Matchup Game ID"]}-batter-child-${index}`,
-                                            _rowType: 'child',
-                                            _parentId: rowData._id,
-                                            _sortOrder: rowData._sortOrder + (index + 1) * 0.1,
-                                            name: batterInfo.name,
-                                            split: splitMap[splitId],
-                                            PA: statData["Batter PA"],
-                                            "H/PA": formatRatio(statData["Batter H/PA"], 3),
-                                            H: statData["Batter H"],
-                                            "1B": statData["Batter 1B"],
-                                            "2B": statData["Batter 2B"],
-                                            "3B": statData["Batter 3B"],
-                                            HR: statData["Batter HR"],
-                                            R: statData["Batter R"],
-                                            RBI: statData["Batter RBI"],
-                                            BB: statData["Batter BB"],
-                                            SO: statData["Batter SO"]
-                                        });
-                                    }
-                                });
-                                
-                                const parentIndex = allData.findIndex(d => d._id === rowData._id);
-                                allData.splice(parentIndex + 1, 0, ...childRows);
-                                
-                                batterTable.replaceData(allData);
-                            }
-                        } else {
-                            const filteredData = batterTable.getData().filter(d => 
-                                !(d._rowType === 'child' && d._parentId === rowData._id)
-                            );
-                            batterTable.replaceData(filteredData);
-                        }
-                    }
-                }
-            });
+            }
         }
     }
 
+    // FIXED: Create bullpen matchups table with correct field mapping
     createBullpenMatchupsTable(data, opposingPitcherLocation) {
         if (data._bullpenMatchups && data._bullpenMatchups.length > 0) {
             const containerId = `bullpen-matchups-subtable-${data["Matchup Game ID"]}`;
@@ -997,29 +873,19 @@ export class MatchupsTable extends BaseTable {
             
             const bullpenPitchers = {};
             
-            // DEBUG: Log first record to see available fields
-            if (data._bullpenMatchups.length > 0) {
-                console.log("BULLPEN FIELDS AVAILABLE:", Object.keys(data._bullpenMatchups[0]));
-            }
-            
             data._bullpenMatchups.forEach(pitcher => {
-                // Try multiple possible field names
-                const pitcherName = pitcher["Bullpen Name"] || 
-                                   pitcher["Pitcher Name"] || 
-                                   pitcher["Name"] ||
-                                   pitcher["Player Name"] ||
-                                   pitcher["Player"] ||
-                                   pitcher["Reliever Name"] ||
-                                   pitcher["Reliever"] ||
-                                   "Unknown Pitcher";
+                // FIXED: Use correct field name from ModBullpenMatchups
+                const nameField = pitcher["Bullpen Hand & Number"] || 
+                                 pitcher["Bullpen Name"] || 
+                                 "Unknown Pitcher";
                 
-                if (!bullpenPitchers[pitcherName]) {
-                    bullpenPitchers[pitcherName] = {
-                        name: pitcherName,
+                if (!bullpenPitchers[nameField]) {
+                    bullpenPitchers[nameField] = {
+                        name: nameField,
                         splits: []
                     };
                 }
-                bullpenPitchers[pitcherName].splits.push(pitcher);
+                bullpenPitchers[nameField].splits.push(pitcher);
             });
             
             const tableData = [];
@@ -1050,63 +916,117 @@ export class MatchupsTable extends BaseTable {
                 }
             });
 
-            const bullpenTable = new Tabulator(`#${containerId}`, {
-                layout: "fitData",
-                data: tableData,
-                columns: [
-                    {
-                        title: "Name",
-                        field: "name",
-                        width: this.subtableConfig.statTableColumns.name,
-                        headerSort: false,
-                        formatter: function(cell) {
-                            const value = cell.getValue();
-                            const rowData = cell.getRow().getData();
-                            
-                            if (rowData._rowType === 'main') {
-                                return `<div style="cursor: pointer;">
-                                    <span class="subtable-expander" style="margin-right: 8px; font-weight: bold; color: #007bff;">${rowData._isExpanded ? '−' : '+'}</span>
-                                    <span>${value}</span>
-                                </div>`;
+            if (tableData.length > 0) {
+                const bullpenTable = new Tabulator(`#${containerId}`, {
+                    layout: "fitData",
+                    data: tableData,
+                    columns: [
+                        {
+                            title: "Name",
+                            field: "name",
+                            width: 200,
+                            headerSort: false,
+                            formatter: function(cell) {
+                                const value = cell.getValue();
+                                const rowData = cell.getRow().getData();
+                                
+                                if (rowData._rowType === 'main') {
+                                    return `<div style="cursor: pointer;">
+                                        <span class="subtable-expander" style="margin-right: 8px; font-weight: bold; color: #007bff;">
+                                            ${rowData._isExpanded ? '−' : '+'}
+                                        </span>
+                                        <span>${value}</span>
+                                    </div>`;
+                                }
+                                return `<div style="padding-left: 28px;">${value}</div>`;
                             }
-                            return `<div style="margin-left: 30px;">${value}</div>`;
+                        },
+                        {
+                            title: "Split",
+                            field: "split",
+                            width: 160,
+                            headerSort: false
+                        },
+                        {
+                            title: "TBF",
+                            field: "TBF",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "H/TBF",
+                            field: "H/TBF",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "H",
+                            field: "H",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "1B",
+                            field: "1B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "2B",
+                            field: "2B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "3B",
+                            field: "3B",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "HR",
+                            field: "HR",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "R",
+                            field: "R",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "ERA",
+                            field: "ERA",
+                            width: 60,
+                            headerSort: false
+                        },
+                        {
+                            title: "BB",
+                            field: "BB",
+                            width: 45,
+                            headerSort: false
+                        },
+                        {
+                            title: "SO",
+                            field: "SO",
+                            width: 60,
+                            headerSort: false
                         }
-                    },
-                    {title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false},
-                    {title: "TBF", field: "TBF", width: this.subtableConfig.statTableColumns.tbf_pa, hozAlign: "center", headerSort: false},
-                    {title: "H/TBF", field: "H/TBF", width: this.subtableConfig.statTableColumns.ratio, hozAlign: "center", headerSort: false},
-                    {title: "H", field: "H", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "1B", field: "1B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "2B", field: "2B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "3B", field: "3B", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "HR", field: "HR", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "R", field: "R", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "ERA", field: "ERA", width: this.subtableConfig.statTableColumns.era_rbi, hozAlign: "center", headerSort: false},
-                    {title: "BB", field: "BB", width: this.subtableConfig.statTableColumns.stat, hozAlign: "center", headerSort: false},
-                    {title: "SO", field: "SO", width: this.subtableConfig.statTableColumns.so, hozAlign: "center", headerSort: false}
-                ],
-                height: false,
-                headerHeight: 30,
-                rowHeight: 28
-            });
+                    ],
+                    height: false,
+                    headerHeight: 30,
+                    rowHeight: 28
+                });
 
-            bullpenTable.on("cellClick", function(e, cell) {
-                if (cell.getField() === "name") {
-                    e.preventDefault();
-                    e.stopPropagation();
+                // Add click handler for expanding/collapsing
+                bullpenTable.on("cellClick", function(e, cell) {
+                    const field = cell.getField();
+                    const rowData = cell.getRow().getData();
                     
-                    const row = cell.getRow();
-                    const rowData = row.getData();
-                    
-                    if (rowData._rowType === 'main') {
+                    if (field === "name" && rowData._rowType === 'main') {
                         rowData._isExpanded = !rowData._isExpanded;
-                        row.update(rowData);
-                        
-                        const cellElement = cell.getElement();
-                        const expander = cellElement.querySelector('.subtable-expander');
-                        if (expander) {
-                            expander.innerHTML = rowData._isExpanded ? '−' : '+';
-                        }
+                        cell.getRow().reformat();
                         
                         if (rowData._isExpanded) {
                             const allData = bullpenTable.getData();
@@ -1141,7 +1061,6 @@ export class MatchupsTable extends BaseTable {
                                 
                                 const parentIndex = allData.findIndex(d => d._id === rowData._id);
                                 allData.splice(parentIndex + 1, 0, ...childRows);
-                                
                                 bullpenTable.replaceData(allData);
                             }
                         } else {
@@ -1151,32 +1070,217 @@ export class MatchupsTable extends BaseTable {
                             bullpenTable.replaceData(filteredData);
                         }
                     }
+                });
+            }
+        }
+    }
+
+    // Helper methods
+    isTeamAway(gameString) {
+        if (!gameString) return false;
+        const parts = gameString.split(' ');
+        return parts.length >= 3 && parts[1] === '@';
+    }
+
+    getTableScrollPosition() {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        return tableHolder ? tableHolder.scrollTop : 0;
+    }
+
+    setTableScrollPosition(position) {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        if (tableHolder) {
+            tableHolder.scrollTop = position;
+        }
+    }
+
+    // State management methods
+    saveState() {
+        if (!this.table) return;
+        
+        console.log(`Saving state for ${this.elementId}`);
+        
+        // Save scroll position
+        this.lastScrollPosition = this.getTableScrollPosition();
+        
+        // Save expanded rows
+        this.expandedRows.clear();
+        const rows = this.table.getRows();
+        rows.forEach(row => {
+            const data = row.getData();
+            if (data._expanded) {
+                const id = this.generateRowId(data);
+                this.expandedRows.add(id);
+                this.expandedRowsCache.set(id, true);
+            }
+        });
+        
+        console.log(`State saved: ${this.expandedRows.size} expanded rows`);
+    }
+
+    restoreState() {
+        if (!this.table) return;
+        
+        console.log(`Restoring state for ${this.elementId}`);
+        
+        // Restore scroll position
+        if (this.lastScrollPosition) {
+            this.setTableScrollPosition(this.lastScrollPosition);
+        }
+        
+        // Restore expanded rows
+        if (this.expandedRows.size > 0 || this.expandedRowsCache.size > 0) {
+            const rowsToExpand = new Set([...this.expandedRows, ...this.expandedRowsCache.keys()]);
+            console.log(`Restoring ${rowsToExpand.size} expanded rows`);
+            
+            const rows = this.table.getRows();
+            rows.forEach(row => {
+                const data = row.getData();
+                const id = this.generateRowId(data);
+                
+                if (rowsToExpand.has(id) && !data._expanded) {
+                    data._expanded = true;
+                    row.update(data);
+                    row.reformat();
                 }
             });
         }
     }
 
-    // Override destroy method to properly clean up
-    destroy() {
-        // Remove any loading indicators
+    saveTemporaryExpandedState() {
+        this.temporaryExpandedRows.clear();
+        if (this.table) {
+            const rows = this.table.getRows();
+            rows.forEach(row => {
+                const data = row.getData();
+                if (data._expanded) {
+                    const id = this.generateRowId(data);
+                    this.temporaryExpandedRows.add(id);
+                }
+            });
+        }
+    }
+
+    restoreTemporaryExpandedState() {
+        if (this.temporaryExpandedRows.size > 0 && this.table) {
+            setTimeout(() => {
+                const rows = this.table.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    const id = this.generateRowId(data);
+                    
+                    if (this.temporaryExpandedRows.has(id) && !data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        row.reformat();
+                    }
+                });
+            }, 100);
+        }
+    }
+
+    executePendingRestoration() {
+        if (this.pendingRestoration && this.table) {
+            this.pendingRestoration();
+            this.pendingRestoration = null;
+        }
+    }
+
+    generateRowId(data) {
+        // Generate unique ID for each row
+        if (data["Matchup Game ID"]) {
+            return `matchup_${data["Matchup Game ID"]}`;
+        }
+        return JSON.stringify(data);
+    }
+
+    attachEventHandlers() {
+        // Add any additional event handlers specific to matchups table
+        console.log('Matchups table event handlers attached');
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (this.table) {
+                this.table.redraw();
+            }
+        });
+    }
+
+    loadAndRenderTable() {
+        console.log(`Loading data for ${this.elementId}...`);
+        
+        // Show loading indicator
         const element = document.querySelector(this.elementId);
         if (element) {
-            const loadingDiv = element.querySelector('.loading-indicator');
-            if (loadingDiv) {
-                loadingDiv.remove();
-            }
+            element.innerHTML = '<div class="loading-indicator">Loading matchups data...</div>';
         }
         
-        // Call parent destroy
-        super.destroy();
+        fetch(`${API_CONFIG.baseURL}${this.tableName}`, {
+            method: 'GET',
+            headers: API_CONFIG.headers
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log(`Data loaded for ${this.elementId}: ${data.length} rows`);
+            this.data = data;
+            this.matchupsData = data;
+            
+            // Clear loading indicator
+            if (element) {
+                element.innerHTML = '';
+            }
+            
+            if (!this.table) {
+                this.table = new Tabulator(this.elementId, this.getTableConfig());
+            }
+            
+            this.table.setData(data);
+            this.dataLoaded = true;
+            
+            // Restore state if pending
+            if (this.pendingStateRestore) {
+                this.restoreState();
+                this.pendingStateRestore = false;
+            }
+        })
+        .catch(error => {
+            console.error(`Error loading data for ${this.elementId}:`, error);
+            if (element) {
+                element.innerHTML = '<div class="error-message">Error loading data. Please refresh the page.</div>';
+            }
+        });
     }
 
-    // Not used for matchups table but required by parent class
-    createSubtable1(container, data) {
-        // Not used for matchups table
+    // Override parent's redraw method to preserve state
+    redraw(force) {
+        this.saveState();
+        if (this.table) {
+            this.table.redraw(force);
+        }
+        setTimeout(() => this.restoreState(), 100);
     }
 
-    createSubtable2(container, data) {
-        // Not used for matchups table
+    // Clean up method
+    destroy() {
+        if (this.table) {
+            this.saveState();
+            this.table.destroy();
+            this.table = null;
+        }
+        this.dataLoaded = false;
+        this.pendingStateRestore = false;
+        this.isRestoringState = false;
+        
+        // Clear all caches
+        this.parkFactorsCache.clear();
+        this.pitcherStatsCache.clear();
+        this.batterMatchupsCache.clear();
+        this.bullpenMatchupsCache.clear();
+        this.expandedRows.clear();
+        this.temporaryExpandedRows.clear();
+        this.expandedRowsCache.clear();
     }
 }
