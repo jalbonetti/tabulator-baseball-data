@@ -350,24 +350,24 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // ✅ FIXED: Data loading methods with CORRECT field names for each table
+    // ✅ FIXED: Data loading methods with CORRECT field names from database schema
     async loadParkFactorsData(gameId) {
-        // ModParkFactors uses "Game ID" field
-        return this.loadSubtableData('ModParkFactors', `Game%20ID=eq.${gameId}`, this.parkFactorsCache, gameId);
+        // ✅ FIXED: ModParkFactors uses "Park Factor Game ID" field
+        return this.loadSubtableData('ModParkFactors', `Park%20Factor%20Game%20ID=eq.${gameId}`, this.parkFactorsCache, gameId);
     }
 
     async loadPitcherStatsData(gameId) {
-        // ✅ FIXED: Use ModPitcherMatchups (not ModStarterMatchups) with "Starter Game ID" field
+        // ✅ FIXED: ModPitcherMatchups uses "Starter Game ID" field
         return this.loadSubtableData('ModPitcherMatchups', `Starter%20Game%20ID=eq.${gameId}`, this.pitcherStatsCache, gameId);
     }
 
     async loadBatterMatchupsData(gameId) {
-        // ModBatterMatchups uses "Batter Game ID" field
+        // ✅ FIXED: ModBatterMatchups uses "Batter Game ID" field
         return this.loadSubtableData('ModBatterMatchups', `Batter%20Game%20ID=eq.${gameId}`, this.batterMatchupsCache, gameId);
     }
 
     async loadBullpenMatchupsData(gameId) {
-        // ModBullpenMatchups uses "Bullpen Game ID" field
+        // ✅ FIXED: ModBullpenMatchups uses "Bullpen Game ID" field
         return this.loadSubtableData('ModBullpenMatchups', `Bullpen%20Game%20ID=eq.${gameId}`, this.bullpenMatchupsCache, gameId);
     }
 
@@ -526,7 +526,7 @@ export class MatchupsTable extends BaseTable {
         return hasRetractableRoof ? " (Retractable Roof)" : "";
     }
 
-    // FIXED: Create park factors table with CORRECT field mappings
+    // FIXED: Create park factors table with CORRECT field mappings and expandable rows
     createParkFactorsTable(data) {
         if (data._parkFactors && data._parkFactors.length > 0) {
             const containerId = `park-factors-container-${data["Matchup Game ID"]}`;
@@ -550,7 +550,8 @@ export class MatchupsTable extends BaseTable {
                 layout: "fitData",
                 resizableColumns: false, // ✅ FIXED: Disable resizing for subtables
                 data: data._parkFactors.map(pf => ({
-                    split: pf["Park Factor Split"] || "Park",
+                    // ✅ FIXED: Use correct field names from database schema
+                    split: pf["Park Factor Split ID"] || "Park",
                     H: pf["Park Factor H"] || "-",
                     "1B": pf["Park Factor 1B"] || "-",
                     "2B": pf["Park Factor 2B"] || "-",
@@ -641,7 +642,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
 
-    // FIXED: Create pitcher stats table with CORRECT field mappings for ModPitcherMatchups
+    // FIXED: Create pitcher stats table with expandable rows and CORRECT field mappings
     createPitcherStatsTable(data) {
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             const containerId = `pitcher-stats-subtable-${data["Matchup Game ID"]}`;
@@ -649,11 +650,36 @@ export class MatchupsTable extends BaseTable {
             
             if (!containerElement) return;
             
-            // Add header - Updated to reflect correct table name
+            // Add header
             containerElement.innerHTML = '<h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Pitcher Matchups</h4><div id="pitcher-stats-table-' + data["Matchup Game ID"] + '"></div>';
             
+            // ✅ FIXED: Group by player and create expandable structure
+            const groupedData = this.groupPlayerData(data._pitcherStats, "Starter Name & Hand");
+            
             const columns = [
-                { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false, resizable: false },
+                { 
+                    title: "Name", 
+                    field: "name", 
+                    width: this.subtableConfig.statTableColumns.name, 
+                    headerSort: false, 
+                    resizable: false,
+                    formatter: (cell) => {
+                        const data = cell.getData();
+                        const expanded = data._expanded || false;
+                        const hasDetails = data._hasDetails || false;
+                        
+                        if (!hasDetails) {
+                            return `<span>${data.name}</span>`;
+                        }
+                        
+                        return `<div style="display: flex; align-items: center;">
+                            <span class="row-expander" style="margin-right: 8px; cursor: pointer; font-weight: bold; color: #007bff;">
+                                ${expanded ? "−" : "+"}
+                            </span>
+                            <span>${data.name}</span>
+                        </div>`;
+                    }
+                },
                 { title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false, resizable: false },
                 { title: "TBF", field: "tbf", width: this.subtableConfig.statTableColumns.tbf_pa, headerSort: false, resizable: false },
                 { title: "H/TBF", field: "h_tbf", width: this.subtableConfig.statTableColumns.ratio, headerSort: false, resizable: false },
@@ -664,21 +690,10 @@ export class MatchupsTable extends BaseTable {
                 { title: "R", field: "r", width: this.subtableConfig.statTableColumns.pa, headerSort: false, resizable: false }
             ];
             
-            new Tabulator(`#pitcher-stats-table-${data["Matchup Game ID"]}`, {
+            const table = new Tabulator(`#pitcher-stats-table-${data["Matchup Game ID"]}`, {
                 layout: "fitData",
-                resizableColumns: false, // ✅ FIXED: Disable resizing
-                data: data._pitcherStats.map(ps => ({
-                    // ✅ FIXED: Use correct field names for ModPitcherMatchups
-                    name: ps["Pitcher Name"] || "Unknown",
-                    split: ps["Pitcher Split"] || "Full Season",
-                    tbf: ps["TBF"] || 0,
-                    h_tbf: ps["H/TBF"] || "0.000",
-                    h: ps["H"] || 0,
-                    era: ps["ERA"] || "0.00",
-                    so: ps["SO"] || 0,
-                    bb: ps["BB"] || 0,
-                    r: ps["R"] || 0
-                })),
+                resizableColumns: false,
+                data: groupedData,
                 columns: columns,
                 height: false,
                 headerHeight: 30,
@@ -687,10 +702,17 @@ export class MatchupsTable extends BaseTable {
                     fontSize: 'inherit !important'
                 }
             });
+            
+            // Add click handler for expansion
+            table.on("cellClick", (e, cell) => {
+                if (cell.getField() === "name") {
+                    this.toggleSubtableRow(table, cell.getRow());
+                }
+            });
         }
     }
 
-    // FIXED: Create batter matchups table with correct field mappings
+    // FIXED: Create batter matchups table with expandable rows and correct field mappings
     createBatterMatchupsTable(data) {
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
@@ -701,8 +723,33 @@ export class MatchupsTable extends BaseTable {
             // Add header
             containerElement.innerHTML = '<h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Batter Matchups</h4><div id="batter-matchups-table-' + data["Matchup Game ID"] + '"></div>';
             
+            // ✅ FIXED: Group by player and create expandable structure
+            const groupedData = this.groupPlayerData(data._batterMatchups, "Batter Name & Hand & Spot");
+            
             const columns = [
-                { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false, resizable: false },
+                { 
+                    title: "Name", 
+                    field: "name", 
+                    width: this.subtableConfig.statTableColumns.name, 
+                    headerSort: false, 
+                    resizable: false,
+                    formatter: (cell) => {
+                        const data = cell.getData();
+                        const expanded = data._expanded || false;
+                        const hasDetails = data._hasDetails || false;
+                        
+                        if (!hasDetails) {
+                            return `<span>${data.name}</span>`;
+                        }
+                        
+                        return `<div style="display: flex; align-items: center;">
+                            <span class="row-expander" style="margin-right: 8px; cursor: pointer; font-weight: bold; color: #007bff;">
+                                ${expanded ? "−" : "+"}
+                            </span>
+                            <span>${data.name}</span>
+                        </div>`;
+                    }
+                },
                 { title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false, resizable: false },
                 { title: "PA", field: "pa", width: this.subtableConfig.statTableColumns.tbf_pa, headerSort: false, resizable: false },
                 { title: "H/PA", field: "h_pa", width: this.subtableConfig.statTableColumns.ratio, headerSort: false, resizable: false },
@@ -713,26 +760,23 @@ export class MatchupsTable extends BaseTable {
                 { title: "R", field: "r", width: this.subtableConfig.statTableColumns.pa, headerSort: false, resizable: false }
             ];
             
-            new Tabulator(`#batter-matchups-table-${data["Matchup Game ID"]}`, {
+            const table = new Tabulator(`#batter-matchups-table-${data["Matchup Game ID"]}`, {
                 layout: "fitData",
-                resizableColumns: false, // ✅ FIXED: Disable resizing
-                data: data._batterMatchups.map(bm => ({
-                    name: bm["Batter Name"] || "Unknown",
-                    split: bm["Batter Split"] || "Full Season",
-                    pa: bm["PA"] || 0,
-                    h_pa: bm["H/PA"] || "0.000",
-                    h: bm["H"] || 0,
-                    rbi: bm["RBI"] || 0,
-                    so: bm["SO"] || 0,
-                    bb: bm["BB"] || 0,
-                    r: bm["R"] || 0
-                })),
+                resizableColumns: false,
+                data: groupedData,
                 columns: columns,
                 height: false,
                 headerHeight: 30,
                 rowHeight: 28,
                 css: {
                     fontSize: 'inherit !important'
+                }
+            });
+            
+            // Add click handler for expansion
+            table.on("cellClick", (e, cell) => {
+                if (cell.getField() === "name") {
+                    this.toggleSubtableRow(table, cell.getRow());
                 }
             });
         }
@@ -786,8 +830,159 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // State management methods
-    getTableScrollPosition() {
+    // ✅ IMPROVED: Helper method to group player data and create expandable structure  
+    groupPlayerData(rawData, nameField) {
+        const grouped = new Map();
+        
+        // Group data by player name or bullpen group
+        rawData.forEach(item => {
+            let playerName;
+            if (nameField.includes("Bullpen")) {
+                // For bullpen, use the hand & number directly as the group name
+                playerName = item[nameField] || "Unknown";
+            } else {
+                // For players, extract clean name
+                playerName = this.extractPlayerName(item[nameField] || "Unknown");
+            }
+            
+            if (!grouped.has(playerName)) {
+                grouped.set(playerName, []);
+            }
+            grouped.get(playerName).push(item);
+        });
+        
+        const result = [];
+        
+        // Create main rows and detail rows
+        grouped.forEach((playerData, playerName) => {
+            // Find the "Full Season" row as the main row
+            const mainRow = playerData.find(item => {
+                const splitId = item["Starter Split ID"] || item["Batter Split ID"] || item["Bullpen Split ID"] || "";
+                return splitId === "Full Season";
+            }) || playerData[0]; // fallback to first row if no Full Season found
+            
+            // Create main row
+            const mainRowData = this.mapPlayerDataToTableRow(mainRow, nameField);
+            mainRowData._hasDetails = playerData.length > 1;
+            mainRowData._expanded = false;
+            mainRowData._playerName = playerName;
+            mainRowData._rawData = playerData;
+            mainRowData._isMainRow = true;
+            
+            result.push(mainRowData);
+        });
+        
+        return result;
+    }
+    
+    // ✅ NEW: Helper to extract clean player name from full name field
+    extractPlayerName(fullName) {
+        // Extract name from formats like "Jackson Holliday (L) — 1" or "Kyle Bradish (R)"
+        return fullName.split('(')[0].trim();
+    }
+    
+    // ✅ NEW: Map database fields to table row format
+    mapPlayerDataToTableRow(item, nameField) {
+        const isStarter = nameField.includes("Starter");
+        const isBatter = nameField.includes("Batter");
+        const isBullpen = nameField.includes("Bullpen");
+        
+        if (isStarter) {
+            return {
+                name: this.extractPlayerName(item["Starter Name & Hand"] || "Unknown"),
+                split: item["Starter Split ID"] || "Full Season",
+                tbf: item["Starter TBF"] || 0,
+                h_tbf: item["Starter H/TBF"] || "0.000",
+                h: item["Starter H"] || 0,
+                era: item["Starter ERA"] || "0.00",
+                so: item["Starter SO"] || 0,
+                bb: item["Starter BB"] || 0,
+                r: item["Starter R"] || 0
+            };
+        } else if (isBatter) {
+            return {
+                name: this.extractPlayerName(item["Batter Name & Hand & Spot"] || "Unknown"),
+                split: item["Batter Split ID"] || "Full Season",
+                pa: item["Batter PA"] || 0,
+                h_pa: item["Batter H/PA"] || "0.000",
+                h: item["Batter H"] || 0,
+                rbi: item["Batter RBI"] || 0,
+                so: item["Batter SO"] || 0,
+                bb: item["Batter BB"] || 0,
+                r: item["Batter R"] || 0
+            };
+        } else if (isBullpen) {
+            return {
+                name: item["Bullpen Hand & Number"] || "Unknown",
+                split: item["Bullpen Split ID"] || "Full Season",
+                tbf: item["Bullpen TBF"] || 0,
+                h_tbf: item["Bullpen H/TBF"] || "0.000",
+                h: item["Bullpen H"] || 0,
+                era: item["Bullpen ERA"] || "0.00",
+                so: item["Bullpen SO"] || 0,
+                bb: item["Bullpen BB"] || 0,
+                r: item["Bullpen R"] || 0
+            };
+        }
+        
+        return {};
+    }
+    
+    // ✅ IMPROVED: Toggle subtable row expansion with better field detection
+    toggleSubtableRow(table, row) {
+        const data = row.getData();
+        
+        if (!data._hasDetails) return;
+        
+        data._expanded = !data._expanded;
+        row.update(data);
+        
+        if (data._expanded) {
+            // Add detail rows
+            const detailRows = data._rawData
+                .filter(item => {
+                    const splitId = item["Starter Split ID"] || item["Batter Split ID"] || item["Bullpen Split ID"] || "";
+                    return splitId !== "Full Season"; // Show all non-Full Season rows
+                })
+                .map(item => {
+                    // Detect data type based on available fields
+                    let nameField;
+                    if (item["Starter Name & Hand"]) {
+                        nameField = "Starter Name & Hand";
+                    } else if (item["Batter Name & Hand & Spot"]) {
+                        nameField = "Batter Name & Hand & Spot";
+                    } else {
+                        nameField = "Bullpen Hand & Number";
+                    }
+                    
+                    const detailRow = this.mapPlayerDataToTableRow(item, nameField);
+                    detailRow._isDetailRow = true;
+                    detailRow._parentName = data._playerName;
+                    detailRow.name = "  └ " + detailRow.split; // Indent and show split as name
+                    return detailRow;
+                });
+            
+            // Insert detail rows after main row
+            const rowIndex = table.getRowPosition(row);
+            detailRows.forEach((detailRow, index) => {
+                table.addRow(detailRow, rowIndex + index + 1);
+            });
+        } else {
+            // Remove detail rows
+            const allRows = table.getRows();
+            const rowIndex = table.getRowPosition(row);
+            
+            // Find and remove detail rows that belong to this player
+            for (let i = rowIndex + 1; i < allRows.length; i++) {
+                const nextRowData = allRows[i].getData();
+                if (nextRowData._isDetailRow && nextRowData._parentName === data._playerName) {
+                    allRows[i].delete();
+                } else {
+                    break; // Stop when we hit a non-detail row
+                }
+            }
+        }
+    }
         const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
         return tableHolder ? tableHolder.scrollTop : 0;
     }
