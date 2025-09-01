@@ -61,6 +61,276 @@ export class MatchupsTable extends BaseTable {
 
     initialize() {
         console.log('Initializing enhanced matchups table with all fixes...');
+        
+        // Create and initialize the table using BaseTable's ajax loading
+        const config = this.getTableConfig();
+        this.table = new Tabulator(this.elementId, config);
+        
+        // FIXED: Proper click handler for row expansion with state management
+        this.table.on("cellClick", (e, cell) => {
+            if (cell.getField() === "Matchup Team") {
+                this.toggleRow(cell.getRow());
+            }
+        });
+        
+        console.log('Matchups table initialized - data will load automatically via ajax');
+    }
+
+    getTableConfig() {
+        const baseConfig = super.getBaseConfig();
+        const self = this;
+        
+        return {
+            ...baseConfig,
+            columns: this.getColumns(),
+            rowFormatter: (row) => this.rowFormatter(row),
+            dataLoaded: (data) => {
+                console.log(`Data loaded for ${this.elementId}: ${data.length} rows`);
+                this.data = data;
+                this.matchupsData = data;
+                this.dataLoaded = true;
+                this.attachEventHandlers();
+                
+                // FIXED: Restore state after data loads using same pattern as other tables
+                if (this.pendingRestoration || this.expandedRowsCache.size > 0 || this.expandedRowsSet.size > 0) {
+                    setTimeout(() => {
+                        this.restoreState();
+                        this.pendingRestoration = null;
+                    }, 100);
+                }
+            },
+            dataProcessing: () => {
+                console.log(`Data processing for ${self.elementId}`);
+                if (!self.isRestoringState) {
+                    self.saveTemporaryExpandedState();
+                }
+            },
+            dataProcessed: () => {
+                console.log(`Data processed for ${self.elementId}`);
+                if (!self.isRestoringState && self.temporaryExpandedRows.size > 0) {
+                    setTimeout(() => {
+                        self.restoreTemporaryExpandedState();
+                    }, 50);
+                }
+            }
+        };
+    }
+
+    getColumns() {
+        const self = this;
+        
+        return [
+            {
+                title: "Team",
+                field: "Matchup Team",
+                width: 200,
+                formatter: (cell) => {
+                    const data = cell.getData();
+                    const team = cell.getValue();
+                    const expanded = data._expanded || false;
+                    
+                    return `<div style="display: flex; align-items: center;">
+                        <span class="row-expander" style="margin-right: 8px; cursor: pointer; font-weight: bold; color: #007bff;">
+                            ${expanded ? "−" : "+"}
+                        </span>
+                        <span>${team}</span>
+                    </div>`;
+                },
+                headerFilter: createCustomMultiSelect,
+                headerSort: false
+            },
+            {
+                title: "Game",
+                field: "Matchup Game",
+                width: 250,
+                headerFilter: () => createCustomMultiSelect(),
+                headerSort: false
+            },
+            {
+                title: "Spread",
+                field: "Spread",
+                width: 120,
+                formatter: (cell) => {
+                    const value = cell.getValue();
+                    const team = cell.getRow().getData()["Matchup Team"];
+                    
+                    if (!value || value === "-" || value === null) return "-";
+                    
+                    const numValue = parseFloat(value);
+                    if (isNaN(numValue)) return value;
+                    
+                    const prefix = numValue >= 0 ? (team ? team.substring(0, 3).toUpperCase() + " +" : "+") : (team ? team.substring(0, 3).toUpperCase() + " " : "");
+                    return prefix + numValue;
+                },
+                headerSort: false
+            },
+            {
+                title: "Total",
+                field: "Total",
+                width: 120,
+                headerSort: false
+            },
+            {
+                title: "Lineup Status",
+                field: "Lineup Status",
+                width: 150,
+                formatter: (cell) => {
+                    const value = cell.getValue();
+                    let bgColor = "#f8f9fa";
+                    let textColor = "#333";
+                    
+                    if (value === "Confirmed") {
+                        bgColor = "#d4edda";
+                        textColor = "#155724";
+                    } else if (value === "Probable") {
+                        bgColor = "#fff3cd";
+                        textColor = "#856404";
+                    }
+                    
+                    return `<span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${value || ""}</span>`;
+                },
+                headerFilter: () => createCustomMultiSelect(),
+                headerSort: false
+            }
+        ];
+    }
+
+    // FIXED: Proper row ID generation like other tables
+    generateRowId(data) {
+        if (data["Matchup Game ID"]) {
+            return `matchup_${data["Matchup Game ID"]}`;
+        }
+        
+        // Fallback to other identifiers
+        const identifiers = [];
+        if (data["Matchup Team"]) identifiers.push(data["Matchup Team"]);
+        if (data["Matchup Game"]) identifiers.push(data["Matchup Game"]);
+        if (data["Spread"]) identifiers.push(data["Spread"]);
+        
+        return identifiers.length > 0 ? `matchup_${identifiers.join('_')}` : JSON.stringify(data);
+    }
+
+    // FIXED: Enhanced row toggle with proper data fetching and state management
+    async toggleRow(row) {
+        if (this.isRestoringState) return;
+        
+        const data = row.getData();
+        const rowId = this.generateRowId(data);
+        
+        // Initialize _expanded if undefined
+        if (data._expanded === undefined) {
+            data._expanded = false;
+        }
+        
+        // Toggle expansion state
+        data._expanded = !data._expanded;
+        
+        // FIXED: Update state management like other tables
+        const globalState = this.getGlobalState();
+        if (data._expanded) {
+            globalState.set(rowId, {
+                timestamp: Date.now(),
+                data: data
+            });
+            this.expandedRowsCache.add(rowId);
+            this.expandedRowsSet.add(rowId);
+        } else {
+            globalState.delete(rowId);
+            this.expandedRowsCache.delete(rowId);
+            this.expandedRowsSet.delete(rowId);
+        }
+        this.setGlobalState(globalState);
+        
+        console.log(`Matchups row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
+        
+        // Update the row
+        row.update(data);
+        
+        // Update expander icon
+        const cellElement = row.getCells().find(cell => cell.getField() === "Matchup Team")?.getElement();
+        const expanderIcon = cellElement?.querySelector('.row-expander');
+        if (expanderIcon) {
+            expanderIcon.innerHTML = data._expanded ? "−" : "+";
+        }
+        
+        // Handle expansion
+        if (data._expanded) {
+            try {
+                // FIXED: Fetch all required data before creating subtables
+                const matchupId = data["Matchup Game ID"];
+                if (matchupId) {
+                    await this.loadAllSubtableData(data);
+                }
+            } catch (error) {
+                console.error('Error loading subtable data:', error);
+            }
+        }
+        
+        // Reformat the row
+        setTimeout(() => {
+            row.reformat();// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION WITH ALL ISSUES RESOLVED
+import { BaseTable } from './baseTable.js';
+import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+import { API_CONFIG, TEAM_NAME_MAP } from '../shared/config.js';
+import { formatRatio, formatDecimal } from '../shared/utils.js';
+
+export class MatchupsTable extends BaseTable {
+    constructor(elementId) {
+        super(elementId, 'ModMatchupsData');  // This sets this.endpoint in BaseTable
+        this.matchupsData = [];
+        this.parkFactorsCache = new Map();
+        this.pitcherStatsCache = new Map();
+        this.batterMatchupsCache = new Map();
+        this.bullpenMatchupsCache = new Map();
+        
+        // FIXED: Use consistent state management like other tables
+        this.expandedRowsCache = new Set();
+        this.expandedRowsSet = new Set();
+        this.expandedRowsMetadata = new Map();
+        this.temporaryExpandedRows = new Set();
+        this.lastScrollPosition = 0;
+        this.isRestoringState = false;
+        this.pendingRestoration = null;
+        this.restorationAttempts = 0;
+        this.maxRestorationAttempts = 3;
+        
+        // Container configuration with proper sizing - FIXED: Consistent scaling
+        this.subtableConfig = {
+            parkFactorsContainerWidth: 550,
+            weatherContainerWidth: 550,
+            containerGap: 20,
+            maxTotalWidth: 1120,
+            
+            // FIXED: Consistent column widths for all subtables
+            parkFactorsColumns: {
+                split: 90,
+                H: 55,
+                "1B": 55,
+                "2B": 55,
+                "3B": 55,
+                HR: 55,
+                R: 55,
+                BB: 55,
+                SO: 55
+            },
+            
+            // FIXED: Standardized widths for pitcher/batter/bullpen tables
+            statTableColumns: {
+                name: 300,
+                split: 160,
+                tbf_pa: 60,
+                ratio: 60,
+                stat: 60,
+                era_rbi: 60,
+                so: 60,
+                h_pa: 60,
+                pa: 60
+            }
+        };
+    }
+
+    initialize() {
+        console.log('Initializing enhanced matchups table with all fixes...');
         console.log('Matchups table endpoint:', this.endpoint);
         console.log('Matchups table elementId:', this.elementId);
         
