@@ -983,8 +983,11 @@ export class MatchupsTable extends BaseTable {
             }
         }
     }
-        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
-        return tableHolder ? tableHolder.scrollTop : 0;
+}
+getTableScrollPosition() {
+    const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+    return tableHolder ? tableHolder.scrollTop : 0;
+}
     }
 
     setTableScrollPosition(position) {
