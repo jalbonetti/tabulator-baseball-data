@@ -350,25 +350,28 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // ✅ FIXED: Data loading methods for each subtable type with CORRECT API ENDPOINTS
+    // ✅ FIXED: Data loading methods with CORRECT field names for each table
     async loadParkFactorsData(gameId) {
-        return this.loadSubtableData('ModParkFactors', `Matchup%20Game%20ID=eq.${gameId}`, this.parkFactorsCache, gameId);
+        // ModParkFactors uses "Game ID" field
+        return this.loadSubtableData('ModParkFactors', `Game%20ID=eq.${gameId}`, this.parkFactorsCache, gameId);
     }
 
     async loadPitcherStatsData(gameId) {
-        // ✅ FIXED: Use ModStarterMatchups instead of ModPitcherMatchups
-        return this.loadSubtableData('ModStarterMatchups', `Matchup%20Game%20ID=eq.${gameId}`, this.pitcherStatsCache, gameId);
+        // ✅ FIXED: Use ModPitcherMatchups (not ModStarterMatchups) with "Starter Game ID" field
+        return this.loadSubtableData('ModPitcherMatchups', `Starter%20Game%20ID=eq.${gameId}`, this.pitcherStatsCache, gameId);
     }
 
     async loadBatterMatchupsData(gameId) {
-        return this.loadSubtableData('ModBatterMatchups', `Matchup%20Game%20ID=eq.${gameId}`, this.batterMatchupsCache, gameId);
+        // ModBatterMatchups uses "Batter Game ID" field
+        return this.loadSubtableData('ModBatterMatchups', `Batter%20Game%20ID=eq.${gameId}`, this.batterMatchupsCache, gameId);
     }
 
     async loadBullpenMatchupsData(gameId) {
-        return this.loadSubtableData('ModBullpenMatchups', `Matchup%20Game%20ID=eq.${gameId}`, this.bullpenMatchupsCache, gameId);
+        // ModBullpenMatchups uses "Bullpen Game ID" field
+        return this.loadSubtableData('ModBullpenMatchups', `Bullpen%20Game%20ID=eq.${gameId}`, this.bullpenMatchupsCache, gameId);
     }
 
-    // ✅ FIXED: Correct API construction using proper Supabase format
+    // ✅ FIXED: Better error handling and debug information
     async loadSubtableData(endpoint, filter, cache, gameId) {
         if (cache.has(gameId)) {
             console.log(`Using cached data for ${endpoint} - game ${gameId}`);
@@ -386,16 +389,31 @@ export class MatchupsTable extends BaseTable {
             });
             
             if (!response.ok) {
+                console.error(`❌ ${endpoint} API Error:`, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: url,
+                    gameId: gameId
+                });
+                
+                // Try to get error details from response
+                try {
+                    const errorData = await response.text();
+                    console.error(`❌ ${endpoint} Error Response:`, errorData);
+                } catch (parseError) {
+                    console.error(`❌ Could not parse error response for ${endpoint}`);
+                }
+                
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
             cache.set(gameId, data);
-            console.log(`Loaded ${data.length} ${endpoint} records for game ${gameId}`);
+            console.log(`✅ Loaded ${data.length} ${endpoint} records for game ${gameId}`);
             return data;
             
         } catch (error) {
-            console.error(`Error loading ${endpoint} data for game ${gameId}:`, error);
+            console.error(`❌ Error loading ${endpoint} data for game ${gameId}:`, error);
             return [];
         }
     }
@@ -623,7 +641,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
 
-    // FIXED: Create pitcher stats table with CORRECT field mappings for ModStarterMatchups
+    // FIXED: Create pitcher stats table with CORRECT field mappings for ModPitcherMatchups
     createPitcherStatsTable(data) {
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             const containerId = `pitcher-stats-subtable-${data["Matchup Game ID"]}`;
@@ -631,8 +649,8 @@ export class MatchupsTable extends BaseTable {
             
             if (!containerElement) return;
             
-            // Add header
-            containerElement.innerHTML = '<h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Starter Matchups</h4><div id="pitcher-stats-table-' + data["Matchup Game ID"] + '"></div>';
+            // Add header - Updated to reflect correct table name
+            containerElement.innerHTML = '<h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Pitcher Matchups</h4><div id="pitcher-stats-table-' + data["Matchup Game ID"] + '"></div>';
             
             const columns = [
                 { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false, resizable: false },
@@ -650,9 +668,9 @@ export class MatchupsTable extends BaseTable {
                 layout: "fitData",
                 resizableColumns: false, // ✅ FIXED: Disable resizing
                 data: data._pitcherStats.map(ps => ({
-                    // ✅ FIXED: Use correct field names for ModStarterMatchups
-                    name: ps["Starter Name"] || ps["Pitcher Name"] || "Unknown",
-                    split: ps["Starter Split"] || ps["Pitcher Split"] || "Full Season",
+                    // ✅ FIXED: Use correct field names for ModPitcherMatchups
+                    name: ps["Pitcher Name"] || "Unknown",
+                    split: ps["Pitcher Split"] || "Full Season",
                     tbf: ps["TBF"] || 0,
                     h_tbf: ps["H/TBF"] || "0.000",
                     h: ps["H"] || 0,
