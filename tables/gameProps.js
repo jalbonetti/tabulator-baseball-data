@@ -10,6 +10,7 @@ export class GamePropsTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
+            resizableColumns: false,
             columns: this.getColumns(),
             // FIXED: Use correct field names
             initialSort: [
