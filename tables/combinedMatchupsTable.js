@@ -107,6 +107,12 @@ export class MatchupsTable extends BaseTable {
             },
             columns: this.getColumns(),
             rowFormatter: (row) => this.rowFormatter(row),
+            // FIXED: Disable column resizing completely
+            resizableColumns: false,
+            // FIXED: Set proper table dimensions
+            maxHeight: "600px",
+            height: "600px",
+            layout: "fitColumns", // Changed from fitData to fitColumns for proper sizing
             dataLoaded: (data) => {
                 console.log(`✅ Matchups data loaded: ${data.length} rows`);
                 this.data = data;
@@ -147,6 +153,8 @@ export class MatchupsTable extends BaseTable {
                 title: "Team",
                 field: "Matchup Team",
                 width: 200,
+                minWidth: 200,
+                resizable: false, // ✅ FIXED: Disable resizing
                 formatter: (cell) => {
                     const data = cell.getData();
                     const team = cell.getValue();
@@ -165,7 +173,9 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Game",
                 field: "Matchup Game",
-                width: 250,
+                width: 280,
+                minWidth: 280,
+                resizable: false, // ✅ FIXED: Disable resizing
                 headerFilter: createCustomMultiSelect, // ✅ FIXED: Removed arrow function
                 headerSort: false
             },
@@ -173,11 +183,13 @@ export class MatchupsTable extends BaseTable {
                 title: "Spread",
                 field: "Spread",
                 width: 120,
+                minWidth: 120,
+                resizable: false, // ✅ FIXED: Disable resizing
                 formatter: (cell) => {
                     const value = cell.getValue();
                     const team = cell.getRow().getData()["Matchup Team"];
                     
-                    if (!value || value === "-" || value === null) return "-";
+                    if (!value || value === "-" || value === null || value === "") return "-";
                     
                     const numValue = parseFloat(value);
                     if (isNaN(numValue)) return value;
@@ -191,16 +203,29 @@ export class MatchupsTable extends BaseTable {
                 title: "Total",
                 field: "Total",
                 width: 120,
+                minWidth: 120,
+                resizable: false, // ✅ FIXED: Disable resizing
+                formatter: (cell) => {
+                    const value = cell.getValue();
+                    if (!value || value === "-" || value === null || value === "") return "-";
+                    return value;
+                },
                 headerSort: false
             },
             {
                 title: "Lineup Status",
                 field: "Lineup Status",
                 width: 150,
+                minWidth: 150,
+                resizable: false, // ✅ FIXED: Disable resizing
                 formatter: (cell) => {
                     const value = cell.getValue();
                     let bgColor = "#f8f9fa";
                     let textColor = "#333";
+                    
+                    if (!value || value === "-" || value === null || value === "") {
+                        return `<span style="background-color: #f8f9fa; color: #666; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Unknown</span>`;
+                    }
                     
                     if (value === "Confirmed") {
                         bgColor = "#d4edda";
@@ -210,7 +235,7 @@ export class MatchupsTable extends BaseTable {
                         textColor = "#856404";
                     }
                     
-                    return `<span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${value || ""}</span>`;
+                    return `<span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${value}</span>`;
                 },
                 headerFilter: createCustomMultiSelect, // ✅ FIXED: Removed arrow function
                 headerSort: false
@@ -287,7 +312,7 @@ export class MatchupsTable extends BaseTable {
         }, 50);
     }
 
-    // FIXED: Load all subtable data with better error handling
+    // FIXED: Load all subtable data with better error handling and CORRECT API ENDPOINTS
     async loadAllSubtableData(data) {
         const gameId = data["Matchup Game ID"];
         
@@ -299,7 +324,7 @@ export class MatchupsTable extends BaseTable {
         console.log(`Loading all subtable data for game ${gameId}`);
         
         try {
-            // FIXED: Load all data types concurrently for better performance
+            // FIXED: Load all data types concurrently for better performance with CORRECT endpoints
             const [parkFactors, pitcherStats, batterMatchups, bullpenMatchups] = await Promise.all([
                 this.loadParkFactorsData(gameId),
                 this.loadPitcherStatsData(gameId),
@@ -325,23 +350,25 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // Data loading methods for each subtable type
+    // ✅ FIXED: Data loading methods for each subtable type with CORRECT API ENDPOINTS
     async loadParkFactorsData(gameId) {
-        return this.loadSubtableData('ModParkFactors', `Matchup Game ID.eq.${gameId}`, this.parkFactorsCache, gameId);
+        return this.loadSubtableData('ModParkFactors', `Matchup%20Game%20ID=eq.${gameId}`, this.parkFactorsCache, gameId);
     }
 
     async loadPitcherStatsData(gameId) {
-        return this.loadSubtableData('ModPitcherStats', `Matchup Game ID.eq.${gameId}`, this.pitcherStatsCache, gameId);
+        // ✅ FIXED: Use ModStarterMatchups instead of ModPitcherMatchups
+        return this.loadSubtableData('ModStarterMatchups', `Matchup%20Game%20ID=eq.${gameId}`, this.pitcherStatsCache, gameId);
     }
 
     async loadBatterMatchupsData(gameId) {
-        return this.loadSubtableData('ModBatterMatchups', `Matchup Game ID.eq.${gameId}`, this.batterMatchupsCache, gameId);
+        return this.loadSubtableData('ModBatterMatchups', `Matchup%20Game%20ID=eq.${gameId}`, this.batterMatchupsCache, gameId);
     }
 
     async loadBullpenMatchupsData(gameId) {
-        return this.loadSubtableData('ModBullpenMatchups', `Matchup Game ID.eq.${gameId}`, this.bullpenMatchupsCache, gameId);
+        return this.loadSubtableData('ModBullpenMatchups', `Matchup%20Game%20ID=eq.${gameId}`, this.bullpenMatchupsCache, gameId);
     }
 
+    // ✅ FIXED: Correct API construction using proper Supabase format
     async loadSubtableData(endpoint, filter, cache, gameId) {
         if (cache.has(gameId)) {
             console.log(`Using cached data for ${endpoint} - game ${gameId}`);
@@ -349,10 +376,15 @@ export class MatchupsTable extends BaseTable {
         }
 
         try {
-            const url = `${API_CONFIG.BASE_URL}/${endpoint}?${filter}&apikey=${API_CONFIG.API_KEY}&select=*`;
+            // ✅ FIXED: Use correct API_CONFIG.baseURL format and proper URL construction
+            const url = `${API_CONFIG.baseURL}${endpoint}?${filter}&select=*`;
             console.log(`Loading ${endpoint} data:`, url);
             
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: API_CONFIG.headers
+            });
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -476,7 +508,7 @@ export class MatchupsTable extends BaseTable {
         return hasRetractableRoof ? " (Retractable Roof)" : "";
     }
 
-    // FIXED: Create park factors table (Issue #1 - Missing ModParkFactors data)
+    // FIXED: Create park factors table with CORRECT field mappings
     createParkFactorsTable(data) {
         if (data._parkFactors && data._parkFactors.length > 0) {
             const containerId = `park-factors-container-${data["Matchup Game ID"]}`;
@@ -485,29 +517,30 @@ export class MatchupsTable extends BaseTable {
             if (!containerElement) return;
             
             const columns = [
-                { title: "Split", field: "split", width: this.subtableConfig.parkFactorsColumns.split, headerSort: false },
-                { title: "H", field: "H", width: this.subtableConfig.parkFactorsColumns.H, headerSort: false },
-                { title: "1B", field: "1B", width: this.subtableConfig.parkFactorsColumns["1B"], headerSort: false },
-                { title: "2B", field: "2B", width: this.subtableConfig.parkFactorsColumns["2B"], headerSort: false },
-                { title: "3B", field: "3B", width: this.subtableConfig.parkFactorsColumns["3B"], headerSort: false },
-                { title: "HR", field: "HR", width: this.subtableConfig.parkFactorsColumns.HR, headerSort: false },
-                { title: "R", field: "R", width: this.subtableConfig.parkFactorsColumns.R, headerSort: false },
-                { title: "BB", field: "BB", width: this.subtableConfig.parkFactorsColumns.BB, headerSort: false },
-                { title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, headerSort: false }
+                { title: "Split", field: "split", width: this.subtableConfig.parkFactorsColumns.split, headerSort: false, resizable: false },
+                { title: "H", field: "H", width: this.subtableConfig.parkFactorsColumns.H, headerSort: false, resizable: false },
+                { title: "1B", field: "1B", width: this.subtableConfig.parkFactorsColumns["1B"], headerSort: false, resizable: false },
+                { title: "2B", field: "2B", width: this.subtableConfig.parkFactorsColumns["2B"], headerSort: false, resizable: false },
+                { title: "3B", field: "3B", width: this.subtableConfig.parkFactorsColumns["3B"], headerSort: false, resizable: false },
+                { title: "HR", field: "HR", width: this.subtableConfig.parkFactorsColumns.HR, headerSort: false, resizable: false },
+                { title: "R", field: "R", width: this.subtableConfig.parkFactorsColumns.R, headerSort: false, resizable: false },
+                { title: "BB", field: "BB", width: this.subtableConfig.parkFactorsColumns.BB, headerSort: false, resizable: false },
+                { title: "SO", field: "SO", width: this.subtableConfig.parkFactorsColumns.SO, headerSort: false, resizable: false }
             ];
             
             new Tabulator(`#${containerId}`, {
                 layout: "fitData",
+                resizableColumns: false, // ✅ FIXED: Disable resizing for subtables
                 data: data._parkFactors.map(pf => ({
                     split: pf["Park Factor Split"] || "Park",
-                    H: pf["Park Factor H"],
-                    "1B": pf["Park Factor 1B"],
-                    "2B": pf["Park Factor 2B"],
-                    "3B": pf["Park Factor 3B"],
-                    HR: pf["Park Factor HR"],
-                    R: pf["Park Factor R"],
-                    BB: pf["Park Factor BB"],
-                    SO: pf["Park Factor SO"]
+                    H: pf["Park Factor H"] || "-",
+                    "1B": pf["Park Factor 1B"] || "-",
+                    "2B": pf["Park Factor 2B"] || "-",
+                    "3B": pf["Park Factor 3B"] || "-",
+                    HR: pf["Park Factor HR"] || "-",
+                    R: pf["Park Factor R"] || "-",
+                    BB: pf["Park Factor BB"] || "-",
+                    SO: pf["Park Factor SO"] || "-"
                 })),
                 columns: columns,
                 height: false,
@@ -528,7 +561,7 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // FIXED: Create weather table with proper formatting (Issue #2 - Weather table formatting)
+    // FIXED: Create weather table with proper formatting
     createWeatherTable(data) {
         const containerId = `weather-container-${data["Matchup Game ID"]}`;
         const containerElement = document.getElementById(containerId);
@@ -574,10 +607,11 @@ export class MatchupsTable extends BaseTable {
         
         new Tabulator(`#${containerId}`, {
             layout: "fitData",
+            resizableColumns: false, // ✅ FIXED: Disable resizing
             data: weatherData,
             columns: [
-                { title: "Time", field: "time", width: 120, headerSort: false },
-                { title: "Conditions", field: "conditions", width: 400, headerSort: false }
+                { title: "Time", field: "time", width: 120, headerSort: false, resizable: false },
+                { title: "Conditions", field: "conditions", width: 400, headerSort: false, resizable: false }
             ],
             height: false,
             headerHeight: 30,
@@ -589,7 +623,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
 
-    // FIXED: Create pitcher stats table with consistent formatting
+    // FIXED: Create pitcher stats table with CORRECT field mappings for ModStarterMatchups
     createPitcherStatsTable(data) {
         if (data._pitcherStats && data._pitcherStats.length > 0) {
             const containerId = `pitcher-stats-subtable-${data["Matchup Game ID"]}`;
@@ -598,25 +632,27 @@ export class MatchupsTable extends BaseTable {
             if (!containerElement) return;
             
             // Add header
-            containerElement.innerHTML = '<h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Pitcher Stats</h4><div id="pitcher-stats-table-' + data["Matchup Game ID"] + '"></div>';
+            containerElement.innerHTML = '<h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Starter Matchups</h4><div id="pitcher-stats-table-' + data["Matchup Game ID"] + '"></div>';
             
             const columns = [
-                { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false },
-                { title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false },
-                { title: "TBF", field: "tbf", width: this.subtableConfig.statTableColumns.tbf_pa, headerSort: false },
-                { title: "H/TBF", field: "h_tbf", width: this.subtableConfig.statTableColumns.ratio, headerSort: false },
-                { title: "H", field: "h", width: this.subtableConfig.statTableColumns.stat, headerSort: false },
-                { title: "ERA", field: "era", width: this.subtableConfig.statTableColumns.era_rbi, headerSort: false },
-                { title: "SO", field: "so", width: this.subtableConfig.statTableColumns.so, headerSort: false },
-                { title: "BB", field: "bb", width: this.subtableConfig.statTableColumns.h_pa, headerSort: false },
-                { title: "R", field: "r", width: this.subtableConfig.statTableColumns.pa, headerSort: false }
+                { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false, resizable: false },
+                { title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false, resizable: false },
+                { title: "TBF", field: "tbf", width: this.subtableConfig.statTableColumns.tbf_pa, headerSort: false, resizable: false },
+                { title: "H/TBF", field: "h_tbf", width: this.subtableConfig.statTableColumns.ratio, headerSort: false, resizable: false },
+                { title: "H", field: "h", width: this.subtableConfig.statTableColumns.stat, headerSort: false, resizable: false },
+                { title: "ERA", field: "era", width: this.subtableConfig.statTableColumns.era_rbi, headerSort: false, resizable: false },
+                { title: "SO", field: "so", width: this.subtableConfig.statTableColumns.so, headerSort: false, resizable: false },
+                { title: "BB", field: "bb", width: this.subtableConfig.statTableColumns.h_pa, headerSort: false, resizable: false },
+                { title: "R", field: "r", width: this.subtableConfig.statTableColumns.pa, headerSort: false, resizable: false }
             ];
             
             new Tabulator(`#pitcher-stats-table-${data["Matchup Game ID"]}`, {
                 layout: "fitData",
+                resizableColumns: false, // ✅ FIXED: Disable resizing
                 data: data._pitcherStats.map(ps => ({
-                    name: ps["Pitcher Name"] || "Unknown",
-                    split: ps["Pitcher Split"] || "Full Season",
+                    // ✅ FIXED: Use correct field names for ModStarterMatchups
+                    name: ps["Starter Name"] || ps["Pitcher Name"] || "Unknown",
+                    split: ps["Starter Split"] || ps["Pitcher Split"] || "Full Season",
                     tbf: ps["TBF"] || 0,
                     h_tbf: ps["H/TBF"] || "0.000",
                     h: ps["H"] || 0,
@@ -636,7 +672,7 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    // FIXED: Create batter matchups table (Issue #4 - ModBatterMatchups data)
+    // FIXED: Create batter matchups table with correct field mappings
     createBatterMatchupsTable(data) {
         if (data._batterMatchups && data._batterMatchups.length > 0) {
             const containerId = `batter-matchups-subtable-${data["Matchup Game ID"]}`;
@@ -648,19 +684,20 @@ export class MatchupsTable extends BaseTable {
             containerElement.innerHTML = '<h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Batter Matchups</h4><div id="batter-matchups-table-' + data["Matchup Game ID"] + '"></div>';
             
             const columns = [
-                { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false },
-                { title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false },
-                { title: "PA", field: "pa", width: this.subtableConfig.statTableColumns.tbf_pa, headerSort: false },
-                { title: "H/PA", field: "h_pa", width: this.subtableConfig.statTableColumns.ratio, headerSort: false },
-                { title: "H", field: "h", width: this.subtableConfig.statTableColumns.stat, headerSort: false },
-                { title: "RBI", field: "rbi", width: this.subtableConfig.statTableColumns.era_rbi, headerSort: false },
-                { title: "SO", field: "so", width: this.subtableConfig.statTableColumns.so, headerSort: false },
-                { title: "BB", field: "bb", width: this.subtableConfig.statTableColumns.h_pa, headerSort: false },
-                { title: "R", field: "r", width: this.subtableConfig.statTableColumns.pa, headerSort: false }
+                { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false, resizable: false },
+                { title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false, resizable: false },
+                { title: "PA", field: "pa", width: this.subtableConfig.statTableColumns.tbf_pa, headerSort: false, resizable: false },
+                { title: "H/PA", field: "h_pa", width: this.subtableConfig.statTableColumns.ratio, headerSort: false, resizable: false },
+                { title: "H", field: "h", width: this.subtableConfig.statTableColumns.stat, headerSort: false, resizable: false },
+                { title: "RBI", field: "rbi", width: this.subtableConfig.statTableColumns.era_rbi, headerSort: false, resizable: false },
+                { title: "SO", field: "so", width: this.subtableConfig.statTableColumns.so, headerSort: false, resizable: false },
+                { title: "BB", field: "bb", width: this.subtableConfig.statTableColumns.h_pa, headerSort: false, resizable: false },
+                { title: "R", field: "r", width: this.subtableConfig.statTableColumns.pa, headerSort: false, resizable: false }
             ];
             
             new Tabulator(`#batter-matchups-table-${data["Matchup Game ID"]}`, {
                 layout: "fitData",
+                resizableColumns: false, // ✅ FIXED: Disable resizing
                 data: data._batterMatchups.map(bm => ({
                     name: bm["Batter Name"] || "Unknown",
                     split: bm["Batter Split"] || "Full Season",
@@ -695,19 +732,20 @@ export class MatchupsTable extends BaseTable {
             containerElement.innerHTML = '<h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Bullpen Matchups</h4><div id="bullpen-matchups-table-' + data["Matchup Game ID"] + '"></div>';
             
             const columns = [
-                { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false },
-                { title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false },
-                { title: "TBF", field: "tbf", width: this.subtableConfig.statTableColumns.tbf_pa, headerSort: false },
-                { title: "H/TBF", field: "h_tbf", width: this.subtableConfig.statTableColumns.ratio, headerSort: false },
-                { title: "H", field: "h", width: this.subtableConfig.statTableColumns.stat, headerSort: false },
-                { title: "ERA", field: "era", width: this.subtableConfig.statTableColumns.era_rbi, headerSort: false },
-                { title: "SO", field: "so", width: this.subtableConfig.statTableColumns.so, headerSort: false },
-                { title: "BB", field: "bb", width: this.subtableConfig.statTableColumns.h_pa, headerSort: false },
-                { title: "R", field: "r", width: this.subtableConfig.statTableColumns.pa, headerSort: false }
+                { title: "Name", field: "name", width: this.subtableConfig.statTableColumns.name, headerSort: false, resizable: false },
+                { title: "Split", field: "split", width: this.subtableConfig.statTableColumns.split, headerSort: false, resizable: false },
+                { title: "TBF", field: "tbf", width: this.subtableConfig.statTableColumns.tbf_pa, headerSort: false, resizable: false },
+                { title: "H/TBF", field: "h_tbf", width: this.subtableConfig.statTableColumns.ratio, headerSort: false, resizable: false },
+                { title: "H", field: "h", width: this.subtableConfig.statTableColumns.stat, headerSort: false, resizable: false },
+                { title: "ERA", field: "era", width: this.subtableConfig.statTableColumns.era_rbi, headerSort: false, resizable: false },
+                { title: "SO", field: "so", width: this.subtableConfig.statTableColumns.so, headerSort: false, resizable: false },
+                { title: "BB", field: "bb", width: this.subtableConfig.statTableColumns.h_pa, headerSort: false, resizable: false },
+                { title: "R", field: "r", width: this.subtableConfig.statTableColumns.pa, headerSort: false, resizable: false }
             ];
             
             new Tabulator(`#bullpen-matchups-table-${data["Matchup Game ID"]}`, {
                 layout: "fitData",
+                resizableColumns: false, // ✅ FIXED: Disable resizing
                 data: data._bullpenMatchups.map(bm => ({
                     name: bm["Bullpen Name"] || "Unknown",
                     split: bm["Bullpen Split"] || "Full Season",
@@ -920,95 +958,6 @@ export class MatchupsTable extends BaseTable {
             this.table.redraw(force);
         }
         setTimeout(() => this.restoreState(), 100);
-    }
-
-    // API fetch methods with proper error handling
-    async fetchParkFactors(matchupId) {
-        if (this.parkFactorsCache.has(matchupId)) {
-            return this.parkFactorsCache.get(matchupId);
-        }
-
-        try {
-            const response = await fetch(
-                `${API_CONFIG.baseURL}ModParkFactors?Game ID=eq.${matchupId}`,
-                { method: 'GET', headers: API_CONFIG.headers }
-            );
-            
-            if (!response.ok) throw new Error('Failed to fetch park factors');
-            
-            const parkFactors = await response.json();
-            this.parkFactorsCache.set(matchupId, parkFactors);
-            return parkFactors;
-        } catch (error) {
-            console.error('Error fetching park factors:', error);
-            return [];
-        }
-    }
-
-    async fetchPitcherStats(matchupId) {
-        if (this.pitcherStatsCache.has(matchupId)) {
-            return this.pitcherStatsCache.get(matchupId);
-        }
-
-        try {
-            const response = await fetch(
-                `${API_CONFIG.baseURL}ModPitcherMatchups?Starter Game ID=eq.${matchupId}`,
-                { method: 'GET', headers: API_CONFIG.headers }
-            );
-            
-            if (!response.ok) throw new Error('Failed to fetch pitcher stats');
-            
-            const pitcherStats = await response.json();
-            this.pitcherStatsCache.set(matchupId, pitcherStats);
-            return pitcherStats;
-        } catch (error) {
-            console.error('Error fetching pitcher stats:', error);
-            return [];
-        }
-    }
-
-    async fetchBatterMatchups(matchupId) {
-        if (this.batterMatchupsCache.has(matchupId)) {
-            return this.batterMatchupsCache.get(matchupId);
-        }
-
-        try {
-            const response = await fetch(
-                `${API_CONFIG.baseURL}ModBatterMatchups?Batter Game ID=eq.${matchupId}`,
-                { method: 'GET', headers: API_CONFIG.headers }
-            );
-            
-            if (!response.ok) throw new Error('Failed to fetch batter matchups');
-            
-            const batterMatchups = await response.json();
-            this.batterMatchupsCache.set(matchupId, batterMatchups);
-            return batterMatchups;
-        } catch (error) {
-            console.error('Error fetching batter matchups:', error);
-            return [];
-        }
-    }
-
-    async fetchBullpenMatchups(matchupId) {
-        if (this.bullpenMatchupsCache.has(matchupId)) {
-            return this.bullpenMatchupsCache.get(matchupId);
-        }
-
-        try {
-            const response = await fetch(
-                `${API_CONFIG.baseURL}ModBullpenMatchups?Bullpen Game ID=eq.${matchupId}`,
-                { method: 'GET', headers: API_CONFIG.headers }
-            );
-            
-            if (!response.ok) throw new Error('Failed to fetch bullpen matchups');
-            
-            const bullpenMatchups = await response.json();
-            this.bullpenMatchupsCache.set(matchupId, bullpenMatchups);
-            return bullpenMatchups;
-        } catch (error) {
-            console.error('Error fetching bullpen matchups:', error);
-            return [];
-        }
     }
 
     // FIXED: State management methods matching other tables (Issue #7)
