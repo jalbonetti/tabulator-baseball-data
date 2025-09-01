@@ -136,7 +136,7 @@ export class MatchupsTable extends BaseTable {
                         <span>${team}</span>
                     </div>`;
                 },
-                headerFilter: () => createCustomMultiSelect(),
+                headerFilter: createCustomMultiSelect,
                 headerSort: false
             },
             {
