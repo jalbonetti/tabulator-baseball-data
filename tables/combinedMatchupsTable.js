@@ -1,156 +1,115 @@
 // ./tables/combinedMatchupsTable.js
-// Exports BOTH a named and default wrapper that has { elementId, getTableConfig, initialize }.
-// This matches how your other tables are integrated by tabManager.js.
+// Class-based table wrapper with initialize(), matching your other modules.
+// Supports: import { MatchupsTable } ... AND import MatchupsTable ...
 
-const MatchupsWrapper = (function () {
-  // ---------- Config ----------
-  const elementId = '#matchups-table';
-  const BASE_URL =
-    (typeof window !== 'undefined' && window.SUPABASE_REST_URL) ||
-    'https://hcwolbvmffkmjcxsumwn.supabase.co/rest/v1/';
-  const SUPABASE_ANON_KEY =
-    (typeof window !== 'undefined' && window.SUPABASE_ANON_KEY) || '';
+export default class MatchupsTable {
+  constructor({
+    elementId = '#matchups-table',
+    baseUrl = (typeof window !== 'undefined' && window.SUPABASE_REST_URL) || 'https://hcwolbvmffkmjcxsumwn.supabase.co/rest/v1/',
+    supabaseAnonKey = (typeof window !== 'undefined' && window.SUPABASE_ANON_KEY) || ''
+  } = {}) {
+    this.elementId = elementId;
+    this.BASE_URL = baseUrl;
+    this.SUPABASE_ANON_KEY = supabaseAnonKey;
 
-  const ENDPOINTS = {
-    MATCHUPS: 'ModMatchupsData',
-    PITCHERS: 'ModPitcherMatchups',
-    BATTERS:  'ModBatterMatchups',
-    BULLPEN:  'ModBullpenMatchups',
-    PARK:     'ModParkFactors',
-  };
+    this.ENDPOINTS = {
+      MATCHUPS: 'ModMatchupsData',
+      PITCHERS: 'ModPitcherMatchups',
+      BATTERS:  'ModBatterMatchups',
+      BULLPEN:  'ModBullpenMatchups',
+      PARK:     'ModParkFactors',
+    };
 
-  // Field names
-  const F = {
-    MATCH_ID: 'Matchup Game ID',
-    TEAM: 'Matchup Team',
-    GAME: 'Matchup Game',
-    PARK: 'Matchup Ballpark',
-    SPREAD: 'Matchup Spread',
-    TOTAL: 'Matchup Total',
-    LINEUP: 'Matchup Lineup Status',
-    WX1: 'Matchup Weather 1',
-    WX2: 'Matchup Weather 2',
-    WX3: 'Matchup Weather 3',
-    WX4: 'Matchup Weather 4',
+    this.F = {
+      MATCH_ID: 'Matchup Game ID',
+      TEAM: 'Matchup Team',
+      GAME: 'Matchup Game',
+      PARK: 'Matchup Ballpark',
+      SPREAD: 'Matchup Spread',
+      TOTAL: 'Matchup Total',
+      LINEUP: 'Matchup Lineup Status',
+      WX1: 'Matchup Weather 1',
+      WX2: 'Matchup Weather 2',
+      WX3: 'Matchup Weather 3',
+      WX4: 'Matchup Weather 4',
 
-    P_GAME_ID: 'Starter Game ID',
-    P_NAME: 'Starter Name & Hand',
-    P_SPLIT: 'Starter Split ID',
-    P_TBF: 'Starter TBF',
-    P_H_TBF: 'Starter H/TBF',
-    P_H: 'Starter H',
-    P_1B: 'Starter 1B',
-    P_2B: 'Starter 2B',
-    P_3B: 'Starter 3B',
-    P_HR: 'Starter HR',
-    P_R: 'Starter R',
-    P_ERA: 'Starter ERA',
-    P_BB: 'Starter BB',
-    P_SO: 'Starter SO',
+      P_GAME_ID: 'Starter Game ID',
+      P_NAME: 'Starter Name & Hand',
+      P_SPLIT: 'Starter Split ID',
+      P_TBF: 'Starter TBF',
+      P_H_TBF: 'Starter H/TBF',
+      P_H: 'Starter H',
+      P_1B: 'Starter 1B',
+      P_2B: 'Starter 2B',
+      P_3B: 'Starter 3B',
+      P_HR: 'Starter HR',
+      P_R: 'Starter R',
+      P_ERA: 'Starter ERA',
+      P_BB: 'Starter BB',
+      P_SO: 'Starter SO',
 
-    B_GAME_ID: 'Batter Game ID',
-    B_NAME: 'Batter Name & Hand & Spot',
-    B_SPLIT: 'Batter Split ID',
-    B_PA: 'Batter PA',
-    B_H_PA: 'Batter H/PA',
-    B_H: 'Batter H',
-    B_1B: 'Batter 1B',
-    B_2B: 'Batter 2B',
-    B_3B: 'Batter 3B',
-    B_HR: 'Batter HR',
-    B_R: 'Batter R',
-    B_RBI: 'Batter RBI',
-    B_BB: 'Batter BB',
-    B_SO: 'Batter SO',
+      B_GAME_ID: 'Batter Game ID',
+      B_NAME: 'Batter Name & Hand & Spot',
+      B_SPLIT: 'Batter Split ID',
+      B_PA: 'Batter PA',
+      B_H_PA: 'Batter H/PA',
+      B_H: 'Batter H',
+      B_1B: 'Batter 1B',
+      B_2B: 'Batter 2B',
+      B_3B: 'Batter 3B',
+      B_HR: 'Batter HR',
+      B_R: 'Batter R',
+      B_RBI: 'Batter RBI',
+      B_BB: 'Batter BB',
+      B_SO: 'Batter SO',
 
-    BP_GAME_ID: 'Bullpen Game ID',
-    BP_HAND_CNT: 'Bullpen Hand & Number',
-    BP_SPLIT: 'Bullpen Split ID',
-    BP_TBF: 'Bullpen TBF',
-    BP_H_TBF: 'Bullpen H/TBF',
-    BP_H: 'Bullpen H',
-    BP_1B: 'Bullpen 1B',
-    BP_2B: 'Bullpen 2B',
-    BP_3B: 'Bullpen 3B',
-    BP_HR: 'Bullpen HR',
-    BP_R: 'Bullpen R',
-    BP_ERA: 'Bullpen ERA',
-    BP_BB: 'Bullpen BB',
-    BP_SO: 'Bullpen SO',
+      BP_GAME_ID: 'Bullpen Game ID',
+      BP_HAND_CNT: 'Bullpen Hand & Number',
+      BP_SPLIT: 'Bullpen Split ID',
+      BP_TBF: 'Bullpen TBF',
+      BP_H_TBF: 'Bullpen H/TBF',
+      BP_H: 'Bullpen H',
+      BP_1B: 'Bullpen 1B',
+      BP_2B: 'Bullpen 2B',
+      BP_3B: 'Bullpen 3B',
+      BP_HR: 'Bullpen HR',
+      BP_R: 'Bullpen R',
+      BP_ERA: 'Bullpen ERA',
+      BP_BB: 'Bullpen BB',
+      BP_SO: 'Bullpen SO',
 
-    PF_GAME_ID: 'Park Factor Game ID',
-    PF_STADIUM: 'Park Factor Stadium',
-    PF_SPLIT: 'Park Factor Split ID',
-    PF_H: 'Park Factor H',
-    PF_1B: 'Park Factor 1B',
-    PF_2B: 'Park Factor 2B',
-    PF_3B: 'Park Factor 3B',
-    PF_HR: 'Park Factor HR',
-    PF_R: 'Park Factor R',
-    PF_BB: 'Park Factor BB',
-    PF_SO: 'Park Factor SO',
-  };
+      PF_GAME_ID: 'Park Factor Game ID',
+      PF_STADIUM: 'Park Factor Stadium',
+      PF_SPLIT: 'Park Factor Split ID',
+      PF_H: 'Park Factor H',
+      PF_1B: 'Park Factor 1B',
+      PF_2B: 'Park Factor 2B',
+      PF_3B: 'Park Factor 3B',
+      PF_HR: 'Park Factor HR',
+      PF_R: 'Park Factor R',
+      PF_BB: 'Park Factor BB',
+      PF_SO: 'Park Factor SO',
+    };
 
-  // ---------- State ----------
-  const LS_EXPANDED = 'matchups_expanded_row_ids_v3';
-  const LS_SUBTAB   = 'matchups_active_subtab_v2';
-  const expandedRowIds = new Set(loadLS(LS_EXPANDED, []));
-  const activeSubtabByRow = new Map(Object.entries(loadLS(LS_SUBTAB, {})));
-  const subtableCache = new Map(); // gameId -> { park, pitchers, batters, bullpen }
+    // persisted state
+    this.LS_EXPANDED = 'matchups_expanded_row_ids_v3';
+    this.LS_SUBTAB   = 'matchups_active_subtab_v2';
+    this.expandedRowIds = new Set(this._loadLS(this.LS_EXPANDED, []));
+    this.activeSubtabByRow = new Map(Object.entries(this._loadLS(this.LS_SUBTAB, {})));
+    this.subtableCache = new Map(); // gameId -> payload
 
-  // ---------- Utils ----------
-  const esc = v => (v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
-  const toNum = v => (Number.isFinite(+v) ? +v : 0);
-  const headers = () => {
-    const h = { Accept: 'application/json' };
-    if (SUPABASE_ANON_KEY) h.apikey = SUPABASE_ANON_KEY;
-    return h;
-  };
-  function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
-  function loadLS(key, fallback) {
-    try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
-    catch { return fallback; }
-  }
-  function rowIndexFromData(d) {
-    const id = d?.[F.MATCH_ID];
-    return id != null ? `matchup_${id}` : undefined;
-  }
-  function getRowKey(row) { return row.getIndex(); }
-
-  // BaseTable-aware JSON fetch
-  async function fetchJSON(url, cacheKey, BaseTable) {
-    try {
-      if (BaseTable?.getJSON) return await BaseTable.getJSON(url, { headers: headers(), cacheKey });
-      if (BaseTable?.fetchJSON) return await BaseTable.fetchJSON(url, { headers: headers(), cacheKey });
-      if (BaseTable?.getCachedOrFetch) {
-        return await BaseTable.getCachedOrFetch(cacheKey, () =>
-          fetch(url, { headers: headers() }).then(r => (r.ok ? r.json() : []))
-        );
-      }
-    } catch (e) {
-      console.warn('[Matchups] BaseTable adapter failed; fallback to fetch()', e);
-    }
-    const res = await fetch(url, { headers: headers() });
-    if (!res.ok) return [];
-    try { return await res.json(); } catch { return []; }
+    this._injectStylesOnce();
   }
 
-  const URLS = {
-    matchups: () => `${BASE_URL}${ENDPOINTS.MATCHUPS}?select=*`,
-    pitchers: (gameId) => `${BASE_URL}${ENDPOINTS.PITCHERS}?${encodeURIComponent(F.P_GAME_ID)}=eq.${encodeURIComponent(gameId)}&select=*`,
-    batters:  (gameId) => `${BASE_URL}${ENDPOINTS.BATTERS }?${encodeURIComponent(F.B_GAME_ID)}=eq.${encodeURIComponent(gameId)}&select=*`,
-    bullpen:  (gameId) => `${BASE_URL}${ENDPOINTS.BULLPEN }?${encodeURIComponent(F.BP_GAME_ID)}=eq.${encodeURIComponent(gameId)}&select=*`,
-    park:     (gameId) => `${BASE_URL}${ENDPOINTS.PARK    }?${encodeURIComponent(F.PF_GAME_ID)}=eq.${encodeURIComponent(gameId)}&select=*`,
-  };
-
-  // ---------- Public: getTableConfig ----------
-  function getTableConfig(/* BaseTable */) {
+  // ---------- API expected by main.js / tabManager ----------
+  getTableConfig(/* BaseTable */) {
+    const F = this.F;
     return {
-      index: rowIndexFromData,
+      index: (data) => this._rowIdFromData(data),
       layout: 'fitColumns',
       height: '650px',
-      ajaxURL: URLS.matchups(),
-      ajaxConfig: { headers: headers() },
+      ajaxURL: `${this.BASE_URL}${this.ENDPOINTS.MATCHUPS}?select=*`,
+      ajaxConfig: { headers: this._headers() },
       columns: [
         {
           title: '', width: 36, hozAlign: 'center', headerSort: false,
@@ -159,7 +118,8 @@ const MatchupsWrapper = (function () {
             const isOpen = row.getElement().classList.contains('is-expanded');
             return `<button class="mf-toggle">${isOpen ? '−' : '+'}</button>`;
           },
-          cellClick: (_e, cell) => toggleRowExpansion(cell.getTable(), cell.getRow(), cell.getTable()._BaseTableRef),
+          cellClick: (_e, cell) =>
+            this._toggleRowExpansion(cell.getTable(), cell.getRow(), cell.getTable()._BaseTableRef),
         },
         { title: 'Team', field: F.TEAM, widthGrow: 1 },
         { title: 'Game', field: F.GAME, widthGrow: 2 },
@@ -175,106 +135,118 @@ const MatchupsWrapper = (function () {
     };
   }
 
-  // ---------- Public: initialize(BaseTable) ----------
-  function initialize(BaseTable) {
-    const el = document.querySelector(elementId);
+  initialize(BaseTable) {
+    const el = document.querySelector(this.elementId);
     if (!el || typeof Tabulator === 'undefined') return null;
 
-    const cfg = getTableConfig(BaseTable);
-
-    // Let BaseTable create or get (mirrors other tables). Fallback to direct Tabulator.
+    const cfg = this.getTableConfig(BaseTable);
+    // let BaseTable create or reuse (to keep caching/logging consistent)
     const table = BaseTable?.createOrGet
-      ? BaseTable.createOrGet(elementId, cfg)
+      ? BaseTable.createOrGet(this.elementId, cfg)
       : new Tabulator(el, cfg);
 
-    // Keep BaseTable ref for cached subtable fetches
+    // expose BaseTable to subtable fetches for caching
     table._BaseTableRef = BaseTable || null;
 
-    // Keep +/- icon synced
+    // keep +/- icon synced on redraw
     table.setOption('rowFormatter', (row) => {
       const btn = row.getCell(0)?.getElement()?.querySelector?.('.mf-toggle');
       if (btn) btn.textContent = row.getElement().classList.contains('is-expanded') ? '−' : '+';
     });
 
-    // Re-apply expanded state after loads & processing
-    const reapply = () => reapplyExpandedState(table);
+    const reapply = () => this._reapplyExpandedState(table);
     table.on('dataLoaded', reapply);
     table.on('dataProcessed', reapply);
 
-    injectStylesOnce();
-    console.log('Matchups table built successfully');
     return table;
   }
 
-  // ---------- Expansion / Subtables ----------
-  function reapplyExpandedState(table) {
-    const ids = [...expandedRowIds];
+  // ---------- internals ----------
+  _headers() {
+    const h = { Accept: 'application/json' };
+    if (this.SUPABASE_ANON_KEY) h['apikey'] = this.SUPABASE_ANON_KEY;
+    return h;
+  }
+
+  _rowIdFromData(data) {
+    const id = data?.[this.F.MATCH_ID];
+    return id != null ? `matchup_${id}` : undefined;
+  }
+
+  _saveExpanded() { this._saveLS(this.LS_EXPANDED, [...this.expandedRowIds]); }
+  _saveSubtabs()   { this._saveLS(this.LS_SUBTAB,   Object.fromEntries(this.activeSubtabByRow)); }
+  _saveLS(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  _loadLS(k,fallback){ try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } }
+
+  _reapplyExpandedState(table) {
+    const ids = [...this.expandedRowIds];
     if (!ids.length) return;
     requestAnimationFrame(() => {
       ids.forEach(id => {
         const row = table.getRow(id);
         if (row && !row.getElement().classList.contains('is-expanded')) {
-          openSubtableRow(table, row, table._BaseTableRef);
+          this._openSubtableRow(table, row, table._BaseTableRef);
         }
       });
     });
   }
 
-  async function toggleRowExpansion(table, row, BaseTable) {
-    const rowKey = getRowKey(row);
+  async _toggleRowExpansion(table, row, BaseTable) {
+    const rowKey = row.getIndex();
     const rowEl = row.getElement();
 
     if (rowEl.classList.contains('is-expanded')) {
       const next = rowEl.nextElementSibling;
       if (next && next.classList.contains('wf-subtable-wrapper')) next.remove();
       rowEl.classList.remove('is-expanded');
-      expandedRowIds.delete(rowKey);
-      saveLS(LS_EXPANDED, [...expandedRowIds]);
+      this.expandedRowIds.delete(rowKey);
+      this._saveExpanded();
       row.normalizeHeight();
       return;
     }
 
-    await openSubtableRow(table, row, BaseTable);
-    expandedRowIds.add(rowKey);
-    saveLS(LS_EXPANDED, [...expandedRowIds]);
+    await this._openSubtableRow(table, row, BaseTable);
+    this.expandedRowIds.add(rowKey);
+    this._saveExpanded();
   }
 
-  async function openSubtableRow(table, row, BaseTable) {
-    const gameId = row.getData()?.[F.MATCH_ID];
+  async _openSubtableRow(table, row, BaseTable) {
+    const gameId = row.getData()?.[this.F.MATCH_ID];
     if (gameId == null) return;
 
+    // insert AFTER row => expand downward
     const wrapper = document.createElement('div');
     wrapper.className = 'wf-subtable-wrapper';
     wrapper.style.position = 'relative';
     wrapper.style.margin = '0';
-    wrapper.innerHTML = buildSubtableSkeleton();
+    wrapper.innerHTML = this._subtableSkeleton();
 
     const rowEl = row.getElement();
-    rowEl.insertAdjacentElement('afterend', wrapper); // expand downward
+    rowEl.insertAdjacentElement('afterend', wrapper);
     rowEl.classList.add('is-expanded');
     row.normalizeHeight();
 
-    const data = await loadAllSubtableData(gameId, BaseTable);
+    const payload = await this._loadAllSubtableData(gameId, BaseTable);
 
-    renderPitchers(wrapper.querySelector('[data-sec="pitchers"]'), data.pitchers);
-    renderBatters (wrapper.querySelector('[data-sec="batters"]'),  data.batters);
-    renderBullpen (wrapper.querySelector('[data-sec="bullpen"]'),  data.bullpen);
-    renderPark    (wrapper.querySelector('[data-sec="park"]'),     data.park);
+    this._renderPitchers(wrapper.querySelector('[data-sec="pitchers"]'), payload.pitchers);
+    this._renderBatters (wrapper.querySelector('[data-sec="batters"]'),  payload.batters);
+    this._renderBullpen (wrapper.querySelector('[data-sec="bullpen"]'),  payload.bullpen);
+    this._renderPark    (wrapper.querySelector('[data-sec="park"]'),     payload.park);
 
-    const rowKey = getRowKey(row);
-    const defaultTab = activeSubtabByRow.get(rowKey) || 'pitchers';
-    switchSubtab(wrapper, defaultTab);
+    const rowKey = row.getIndex();
+    const defaultTab = this.activeSubtabByRow.get(rowKey) || 'pitchers';
+    this._switchSubtab(wrapper, defaultTab);
     wrapper.querySelectorAll('[data-subtab]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-subtab');
-        switchSubtab(wrapper, name);
-        activeSubtabByRow.set(rowKey, name);
-        saveLS(LS_SUBTAB, Object.fromEntries(activeSubtabByRow));
+        this._switchSubtab(wrapper, name);
+        this.activeSubtabByRow.set(rowKey, name);
+        this._saveSubtabs();
       });
     });
   }
 
-  function buildSubtableSkeleton() {
+  _subtableSkeleton() {
     return `
       <div class="wf-subtable">
         <div class="wf-subtable-tabs">
@@ -293,7 +265,7 @@ const MatchupsWrapper = (function () {
     `;
   }
 
-  function switchSubtab(wrapper, name) {
+  _switchSubtab(wrapper, name) {
     wrapper.querySelectorAll('.wf-tab').forEach(b => {
       b.classList.toggle('is-active', b.getAttribute('data-subtab') === name);
     });
@@ -302,44 +274,70 @@ const MatchupsWrapper = (function () {
     });
   }
 
-  // ---------- Subtable Data ----------
-  async function loadAllSubtableData(gameId, BaseTable) {
-    if (subtableCache.has(gameId)) return subtableCache.get(gameId);
+  // ---------- data loading (BaseTable-aware) ----------
+  _urlPitchers(g){ return `${this.BASE_URL}${this.ENDPOINTS.PITCHERS}?${encodeURIComponent(this.F.P_GAME_ID)}=eq.${encodeURIComponent(g)}&select=*`; }
+  _urlBatters(g){  return `${this.BASE_URL}${this.ENDPOINTS.BATTERS }?${encodeURIComponent(this.F.B_GAME_ID)}=eq.${encodeURIComponent(g)}&select=*`; }
+  _urlBullpen(g){  return `${this.BASE_URL}${this.ENDPOINTS.BULLPEN }?${encodeURIComponent(this.F.BP_GAME_ID)}=eq.${encodeURIComponent(g)}&select=*`; }
+  _urlPark(g){     return `${this.BASE_URL}${this.ENDPOINTS.PARK    }?${encodeURIComponent(this.F.PF_GAME_ID)}=eq.${encodeURIComponent(g)}&select=*`; }
 
+  async _fetchJSON(url, cacheKey, BaseTable) {
+    const headers = this._headers();
+    try {
+      if (BaseTable?.getJSON) return await BaseTable.getJSON(url, { headers, cacheKey });
+      if (BaseTable?.fetchJSON) return await BaseTable.fetchJSON(url, { headers, cacheKey });
+      if (BaseTable?.getCachedOrFetch) {
+        return await BaseTable.getCachedOrFetch(cacheKey, () =>
+          fetch(url, { headers }).then(r => (r.ok ? r.json() : []))
+        );
+      }
+    } catch (e) {
+      console.warn('[MatchupsTable] BaseTable adapter failed; falling back to fetch()', e);
+    }
+    const res = await fetch(url, { headers });
+    if (!res.ok) return [];
+    try { return await res.json(); } catch { return []; }
+  }
+
+  async _loadAllSubtableData(gameId, BaseTable) {
+    if (this.subtableCache.has(gameId)) return this.subtableCache.get(gameId);
     const [park, pitchers, batters, bullpen] = await Promise.all([
-      fetchJSON(URLS.park(gameId),    `${ENDPOINTS.PARK}:${gameId}`,    BaseTable),
-      fetchJSON(URLS.pitchers(gameId),`${ENDPOINTS.PITCHERS}:${gameId}`,BaseTable),
-      fetchJSON(URLS.batters(gameId), `${ENDPOINTS.BATTERS}:${gameId}`, BaseTable),
-      fetchJSON(URLS.bullpen(gameId), `${ENDPOINTS.BULLPEN}:${gameId}`, BaseTable),
+      this._fetchJSON(this._urlPark(gameId),    `${this.ENDPOINTS.PARK}:${gameId}`,    BaseTable),
+      this._fetchJSON(this._urlPitchers(gameId),`${this.ENDPOINTS.PITCHERS}:${gameId}`,BaseTable),
+      this._fetchJSON(this._urlBatters(gameId), `${this.ENDPOINTS.BATTERS}:${gameId}`, BaseTable),
+      this._fetchJSON(this._urlBullpen(gameId), `${this.ENDPOINTS.BULLPEN}:${gameId}`, BaseTable),
     ]);
-
     const payload = {
       park:     Array.isArray(park) ? park : [],
       pitchers: Array.isArray(pitchers) ? pitchers : [],
       batters:  Array.isArray(batters) ? batters : [],
       bullpen:  Array.isArray(bullpen) ? bullpen : [],
     };
-    subtableCache.set(gameId, payload);
+    this.subtableCache.set(gameId, payload);
     return payload;
   }
 
-  // ---------- Renderers ----------
-  function buildGridTable(rows, columns) {
+  // ---------- renderers (schema-accurate) ----------
+  _buildGridTable(rows, columns) {
+    const esc = (v) => (v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
     const cols = columns.length;
     const style = `style="grid-template-columns: repeat(${cols}, minmax(0, 1fr));"`;
-    const header = `<div class="wf-grid wf-header" ${style}>${
-      columns.map(c => `<div class="wf-cell">${esc(c.label)}</div>`).join('')
-    }</div>`;
+
+    const header = `<div class="wf-grid wf-header" ${style}>` +
+      columns.map(c => `<div class="wf-cell">${esc(c.label)}</div>`).join('') +
+      `</div>`;
+
     const body = (rows && rows.length)
       ? rows.map(r => `<div class="wf-grid wf-row" ${style}>${
           columns.map(c => `<div class="wf-cell">${esc(r?.[c.key] ?? '')}</div>`).join('')
         }</div>`).join('')
       : `<div class="wf-grid wf-row" ${style}><div class="wf-cell" style="grid-column:1/-1;opacity:.7;">No data</div></div>`;
+
     return `<div class="wf-subtable-section wf-table">${header}${body}</div>`;
   }
 
-  function renderPitchers(container, rows) {
-    container.innerHTML = buildGridTable(rows, [
+  _renderPitchers(container, rows) {
+    const F = this.F;
+    container.innerHTML = this._buildGridTable(rows, [
       { key: F.P_NAME,  label: 'Name' },
       { key: F.P_SPLIT, label: 'Split' },
       { key: F.P_TBF,   label: 'TBF' },
@@ -352,8 +350,9 @@ const MatchupsWrapper = (function () {
     ]);
   }
 
-  function renderBatters(container, rows) {
-    container.innerHTML = buildGridTable(rows, [
+  _renderBatters(container, rows) {
+    const F = this.F;
+    container.innerHTML = this._buildGridTable(rows, [
       { key: F.B_NAME,  label: 'Name' },
       { key: F.B_SPLIT, label: 'Split' },
       { key: F.B_PA,    label: 'PA' },
@@ -366,8 +365,9 @@ const MatchupsWrapper = (function () {
     ]);
   }
 
-  function renderPark(container, rows) {
-    container.innerHTML = buildGridTable(rows, [
+  _renderPark(container, rows) {
+    const F = this.F;
+    container.innerHTML = this._buildGridTable(rows, [
       { key: F.PF_STADIUM, label: 'Stadium' },
       { key: F.PF_SPLIT,   label: 'Split'   },
       { key: F.PF_R,       label: 'Runs PF' },
@@ -380,7 +380,9 @@ const MatchupsWrapper = (function () {
     ]);
   }
 
-  function renderBullpen(container, rows) {
+  _renderBullpen(container, rows) {
+    const F = this.F;
+    const toNum = (v) => (Number.isFinite(+v) ? +v : 0);
     const normalized = rows.map(r => ({
       [F.BP_HAND_CNT]: r[F.BP_HAND_CNT],
       [F.BP_SPLIT]:    r[F.BP_SPLIT],
@@ -392,7 +394,7 @@ const MatchupsWrapper = (function () {
       [F.BP_3B]:       toNum(r[F.BP_3B]),
       [F.BP_HR]:       toNum(r[F.BP_HR]),
       [F.BP_R]:        toNum(r[F.BP_R]),
-      [F.BP_ERA]:      r[F.BP_ERA], // rate; not summed
+      [F.BP_ERA]:      r[F.BP_ERA], // leave rate as-is
       [F.BP_BB]:       toNum(r[F.BP_BB]),
       [F.BP_SO]:       toNum(r[F.BP_SO]),
     }));
@@ -417,13 +419,11 @@ const MatchupsWrapper = (function () {
     });
 
     if (totals[F.BP_TBF] > 0) {
-      const weightedHOverTBF = normalized.reduce((s, r) => s + (r[F.BP_H_TBF] * r[F.BP_TBF]), 0) / totals[F.BP_TBF];
-      totals[F.BP_H_TBF] = Number.isFinite(weightedHOverTBF) ? +weightedHOverTBF.toFixed(3) : 0;
+      const weighted = normalized.reduce((s, r) => s + (r[F.BP_H_TBF] * r[F.BP_TBF]), 0) / totals[F.BP_TBF];
+      totals[F.BP_H_TBF] = Number.isFinite(weighted) ? +weighted.toFixed(3) : 0;
     }
 
-    const combined = [...normalized, totals];
-
-    container.innerHTML = buildGridTable(combined, [
+    container.innerHTML = this._buildGridTable([...normalized, totals], [
       { key: F.BP_HAND_CNT, label: 'Group'  },
       { key: F.BP_SPLIT,    label: 'Split'  },
       { key: F.BP_TBF,      label: 'TBF'    },
@@ -440,8 +440,8 @@ const MatchupsWrapper = (function () {
     ]);
   }
 
-  // ---------- Styles ----------
-  function injectStylesOnce() {
+  // ---------- styles ----------
+  _injectStylesOnce() {
     if (typeof document === 'undefined') return;
     if (document.getElementById('combinedMatchupsTableStyles')) return;
     const css = `
@@ -463,15 +463,8 @@ const MatchupsWrapper = (function () {
     s.textContent = css;
     document.head.appendChild(s);
   }
+}
 
-  // ---------- Public API ----------
-  return {
-    elementId,
-    getTableConfig,
-    initialize,
-  };
-})();
+// also provide named export for either import style
+export { MatchupsTable as MatchupsTable };
 
-// Export both ways so either import style in main.js works
-export const MatchupsTable = MatchupsWrapper;
-export default MatchupsWrapper;
