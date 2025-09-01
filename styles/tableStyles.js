@@ -23,6 +23,62 @@ function injectMinimalStyles() {
         
         ${TAB_STYLES}
         
+        /* CRITICAL FIX: Force tab visibility */
+        .tabs-container {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            margin-bottom: 20px !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        .tab-buttons {
+            display: flex !important;
+            justify-content: center !important;
+            flex-wrap: wrap !important;
+            gap: 5px !important;
+            padding: 10px !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            border-radius: 8px !important;
+            visibility: visible !important;
+        }
+        
+        .tab-button {
+            padding: 8px 12px !important;
+            border: none !important;
+            border-radius: 4px !important;
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: white !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+            white-space: nowrap !important;
+            display: block !important;
+            visibility: visible !important;
+        }
+        
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.3) !important;
+            transform: translateY(-1px) !important;
+        }
+        
+        .tab-button.active {
+            background: white !important;
+            color: #667eea !important;
+            font-weight: bold !important;
+        }
+        
+        /* Ensure table-wrapper is visible */
+        .table-wrapper {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
         /* CRITICAL FIX 1: Restore alternating row colors using nth-child */
         .tabulator-row:nth-child(even):not(.tabulator-row-moving):not(.tabulator-group) {
             background-color: #f9f9f9 !important;
@@ -151,6 +207,16 @@ function injectMinimalStyles() {
             z-index: 999999 !important;
             max-height: 300px !important;
             overflow-y: auto !important;
+        }
+        
+        /* Best odds column styling for Props tables */
+        .best-odds-column {
+            background-color: #fff3cd !important;
+            font-weight: bold !important;
+        }
+        
+        .tabulator-row:nth-child(even) .best-odds-column {
+            background-color: #ffeaa7 !important;
         }
         
         /* State management visual indicators */
