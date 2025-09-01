@@ -166,7 +166,7 @@ export class MatchupsTable extends BaseTable {
                 title: "Game",
                 field: "Matchup Game",
                 width: 250,
-                headerFilter: () => createCustomMultiSelect(),
+                headerFilter: createCustomMultiSelect, // ✅ FIXED: Removed arrow function
                 headerSort: false
             },
             {
@@ -212,7 +212,7 @@ export class MatchupsTable extends BaseTable {
                     
                     return `<span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${value || ""}</span>`;
                 },
-                headerFilter: () => createCustomMultiSelect(),
+                headerFilter: createCustomMultiSelect, // ✅ FIXED: Removed arrow function
                 headerSort: false
             }
         ];
@@ -276,46 +276,44 @@ export class MatchupsTable extends BaseTable {
             expanderIcon.innerHTML = data._expanded ? "−" : "+";
         }
         
-        // Handle expansion
+        // Load subtable data if expanding
         if (data._expanded) {
-            try {
-                // FIXED: Fetch all required data before creating subtables
-                const matchupId = data["Matchup Game ID"];
-                if (matchupId) {
-                    await this.loadAllSubtableData(data);
-                }
-            } catch (error) {
-                console.error('Error loading subtable data:', error);
-            }
+            await this.loadAllSubtableData(data);
         }
         
-        // Reformat the row
+        // Force a reformat to show/hide the subtables
         setTimeout(() => {
             row.reformat();
-        }, 10);
+        }, 50);
     }
 
-    // FIXED: Load all subtable data at once
+    // FIXED: Load all subtable data with better error handling
     async loadAllSubtableData(data) {
-        const matchupId = data["Matchup Game ID"];
-        if (!matchupId) return;
+        const gameId = data["Matchup Game ID"];
+        
+        if (!gameId) {
+            console.warn('No game ID found for subtable data loading');
+            return;
+        }
+        
+        console.log(`Loading all subtable data for game ${gameId}`);
         
         try {
-            // Fetch all data in parallel
+            // FIXED: Load all data types concurrently for better performance
             const [parkFactors, pitcherStats, batterMatchups, bullpenMatchups] = await Promise.all([
-                this.fetchParkFactors(matchupId),
-                this.fetchPitcherStats(matchupId),
-                this.fetchBatterMatchups(matchupId),
-                this.fetchBullpenMatchups(matchupId)
+                this.loadParkFactorsData(gameId),
+                this.loadPitcherStatsData(gameId),
+                this.loadBatterMatchupsData(gameId),
+                this.loadBullpenMatchupsData(gameId)
             ]);
             
-            // FIXED: Attach data to row data object
-            data._parkFactors = parkFactors || [];
-            data._pitcherStats = pitcherStats || [];
-            data._batterMatchups = batterMatchups || [];
-            data._bullpenMatchups = bullpenMatchups || [];
+            // Store data on the row data object
+            data._parkFactors = parkFactors;
+            data._pitcherStats = pitcherStats;
+            data._batterMatchups = batterMatchups;
+            data._bullpenMatchups = bullpenMatchups;
             
-            console.log(`Loaded subtable data for matchup ${matchupId}:`, {
+            console.log(`Successfully loaded all subtable data:`, {
                 parkFactors: data._parkFactors.length,
                 pitcherStats: data._pitcherStats.length,
                 batterMatchups: data._batterMatchups.length,
@@ -324,6 +322,49 @@ export class MatchupsTable extends BaseTable {
             
         } catch (error) {
             console.error('Error loading all subtable data:', error);
+        }
+    }
+
+    // Data loading methods for each subtable type
+    async loadParkFactorsData(gameId) {
+        return this.loadSubtableData('ModParkFactors', `Matchup Game ID.eq.${gameId}`, this.parkFactorsCache, gameId);
+    }
+
+    async loadPitcherStatsData(gameId) {
+        return this.loadSubtableData('ModPitcherStats', `Matchup Game ID.eq.${gameId}`, this.pitcherStatsCache, gameId);
+    }
+
+    async loadBatterMatchupsData(gameId) {
+        return this.loadSubtableData('ModBatterMatchups', `Matchup Game ID.eq.${gameId}`, this.batterMatchupsCache, gameId);
+    }
+
+    async loadBullpenMatchupsData(gameId) {
+        return this.loadSubtableData('ModBullpenMatchups', `Matchup Game ID.eq.${gameId}`, this.bullpenMatchupsCache, gameId);
+    }
+
+    async loadSubtableData(endpoint, filter, cache, gameId) {
+        if (cache.has(gameId)) {
+            console.log(`Using cached data for ${endpoint} - game ${gameId}`);
+            return cache.get(gameId);
+        }
+
+        try {
+            const url = `${API_CONFIG.BASE_URL}/${endpoint}?${filter}&apikey=${API_CONFIG.API_KEY}&select=*`;
+            console.log(`Loading ${endpoint} data:`, url);
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            cache.set(gameId, data);
+            console.log(`Loaded ${data.length} ${endpoint} records for game ${gameId}`);
+            return data;
+            
+        } catch (error) {
+            console.error(`Error loading ${endpoint} data for game ${gameId}:`, error);
+            return [];
         }
     }
 
@@ -689,6 +730,198 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
+    // State management methods
+    getTableScrollPosition() {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        return tableHolder ? tableHolder.scrollTop : 0;
+    }
+
+    setTableScrollPosition(position) {
+        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
+        if (tableHolder) {
+            tableHolder.scrollTop = position;
+        }
+    }
+
+    // FIXED: Enhanced state management matching other tables
+    saveState() {
+        if (!this.table) return;
+        
+        console.log(`Saving state for ${this.elementId}`);
+        
+        // Save scroll position
+        this.lastScrollPosition = this.getTableScrollPosition();
+        
+        // Clear and rebuild expanded rows set
+        this.expandedRowsCache.clear();
+        this.expandedRowsSet.clear();
+        
+        const globalState = this.getGlobalState();
+        const rows = this.table.getRows();
+        
+        rows.forEach(row => {
+            const data = row.getData();
+            if (data._expanded) {
+                const id = this.generateRowId(data);
+                this.expandedRowsCache.add(id);
+                this.expandedRowsSet.add(id);
+                
+                // Store in global state with metadata
+                globalState.set(id, {
+                    timestamp: Date.now(),
+                    data: data
+                });
+                
+                console.log(`Preserving expanded state for row: ${id}`);
+            }
+        });
+        
+        this.setGlobalState(globalState);
+        console.log(`State saved: ${this.expandedRowsCache.size} expanded rows, scroll: ${this.lastScrollPosition}`);
+    }
+
+    restoreState() {
+        if (!this.table) return;
+        
+        console.log(`Restoring state for ${this.elementId}`);
+        this.isRestoringState = true;
+        
+        try {
+            // Restore scroll position
+            if (this.lastScrollPosition > 0) {
+                this.setTableScrollPosition(this.lastScrollPosition);
+            }
+            
+            // Restore expanded rows from global state
+            const globalState = this.getGlobalState();
+            if (globalState.size > 0) {
+                console.log(`Restoring ${globalState.size} globally stored expanded rows`);
+                
+                const rows = this.table.getRows();
+                let restoredCount = 0;
+                
+                rows.forEach(row => {
+                    const data = row.getData();
+                    const rowId = this.generateRowId(data);
+                    
+                    if (globalState.has(rowId)) {
+                        if (!data._expanded) {
+                            data._expanded = true;
+                            row.update(data);
+                            restoredCount++;
+                            
+                            // Update the expander icon
+                            setTimeout(() => {
+                                const cellElement = row.getCells().find(cell => cell.getField() === "Matchup Team")?.getElement();
+                                const expanderIcon = cellElement?.querySelector('.row-expander');
+                                if (expanderIcon) {
+                                    expanderIcon.innerHTML = "−";
+                                }
+                                
+                                row.reformat();
+                            }, 50);
+                        }
+                    }
+                });
+                
+                console.log(`Successfully restored ${restoredCount} expanded rows`);
+            }
+            
+        } finally {
+            setTimeout(() => {
+                this.isRestoringState = false;
+            }, 500);
+        }
+    }
+
+    saveTemporaryExpandedState() {
+        this.temporaryExpandedRows.clear();
+        if (this.table) {
+            const rows = this.table.getRows();
+            rows.forEach(row => {
+                const data = row.getData();
+                if (data._expanded) {
+                    const id = this.generateRowId(data);
+                    this.temporaryExpandedRows.add(id);
+                }
+            });
+        }
+        console.log(`Temporarily saved ${this.temporaryExpandedRows.size} expanded rows for ${this.elementId}`);
+    }
+
+    restoreTemporaryExpandedState() {
+        if (this.temporaryExpandedRows.size > 0 && this.table) {
+            console.log(`Restoring ${this.temporaryExpandedRows.size} temporarily expanded rows for ${this.elementId}`);
+            
+            setTimeout(() => {
+                const rows = this.table.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    const id = this.generateRowId(data);
+                    
+                    if (this.temporaryExpandedRows.has(id) && !data._expanded) {
+                        data._expanded = true;
+                        row.update(data);
+                        row.reformat();
+                    }
+                });
+            }, 100);
+        }
+    }
+
+    // FIXED: Tab manager integration methods (Issue #7)
+    attachEventHandlers() {
+        console.log('Attaching matchups table event handlers');
+        
+        // Save state when tab is hidden
+        if (window.tabManager) {
+            const originalSaveState = window.tabManager.saveTabState;
+            if (originalSaveState) {
+                window.tabManager.saveTabState = (tabId) => {
+                    if (tabId === 'table0') {
+                        // Matchups is typically table0
+                        this.saveState();
+                    }
+                    if (typeof originalSaveState === 'function') {
+                        originalSaveState.call(window.tabManager, tabId);
+                    }
+                };
+            }
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (this.table) {
+                this.table.redraw();
+            }
+        });
+    }
+
+    // Public methods for tab manager integration (Issue #7)
+    onTabHidden() {
+        console.log(`Matchups table hidden - saving state`);
+        this.saveState();
+    }
+    
+    onTabShown() {
+        console.log(`Matchups table shown - restoring state`);
+        setTimeout(() => {
+            this.restoreState();
+            if (this.table) {
+                this.table.redraw();
+            }
+        }, 100);
+    }
+    
+    // Override redraw to preserve state
+    redraw(force) {
+        this.saveState();
+        if (this.table) {
+            this.table.redraw(force);
+        }
+        setTimeout(() => this.restoreState(), 100);
+    }
+
     // API fetch methods with proper error handling
     async fetchParkFactors(matchupId) {
         if (this.parkFactorsCache.has(matchupId)) {
@@ -790,194 +1023,32 @@ export class MatchupsTable extends BaseTable {
         window.globalExpandedState = state;
     }
 
-    getTableScrollPosition() {
-        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
-        return tableHolder ? tableHolder.scrollTop : 0;
-    }
-
-    setTableScrollPosition(position) {
-        const tableHolder = document.querySelector(`${this.elementId} .tabulator-tableHolder`);
-        if (tableHolder) {
-            tableHolder.scrollTop = position;
+    // Cache management methods
+    clearCache() {
+        const cacheKey = `${this.endpoint}_data`;
+        if (typeof dataCache !== 'undefined' && dataCache && dataCache.delete) {
+            dataCache.delete(cacheKey);
         }
+        
+        // Clear all subtable caches
+        this.parkFactorsCache.clear();
+        this.pitcherStatsCache.clear();
+        this.batterMatchupsCache.clear();
+        this.bullpenMatchupsCache.clear();
     }
 
-    // FIXED: Enhanced state management matching other tables
-    saveState() {
-        if (!this.table) return;
-        
-        console.log(`Saving state for ${this.elementId}`);
-        
-        // Save scroll position
-        this.lastScrollPosition = this.getTableScrollPosition();
-        
-        // Clear and rebuild expanded rows set
-        this.expandedRowsCache.clear();
-        this.expandedRowsSet.clear();
-        
-        const globalState = this.getGlobalState();
-        const rows = this.table.getRows();
-        
-        rows.forEach(row => {
-            const data = row.getData();
-            if (data._expanded) {
-                const id = this.generateRowId(data);
-                this.expandedRowsCache.add(id);
-                this.expandedRowsSet.add(id);
-                
-                // Store in global state with metadata
-                globalState.set(id, {
-                    timestamp: Date.now(),
-                    data: data
-                });
-                
-                console.log(`Preserving expanded state for row: ${id}`);
-            }
-        });
-        
-        this.setGlobalState(globalState);
-        console.log(`State saved: ${this.expandedRowsCache.size} expanded rows, scroll: ${this.lastScrollPosition}`);
-    }
-
-    restoreState() {
-        if (!this.table) return;
-        
-        console.log(`Restoring state for ${this.elementId}`);
-        this.isRestoringState = true;
-        
-        try {
-            // Restore scroll position
-            if (this.lastScrollPosition) {
-                this.setTableScrollPosition(this.lastScrollPosition);
-            }
-            
-            // Restore expanded rows from global state
-            const globalState = this.getGlobalState();
-            if (globalState.size > 0) {
-                console.log(`Restoring ${globalState.size} globally stored expanded rows`);
-                
-                const rows = this.table.getRows();
-                let restoredCount = 0;
-                
-                rows.forEach(row => {
-                    const data = row.getData();
-                    const rowId = this.generateRowId(data);
-                    
-                    if (globalState.has(rowId)) {
-                        if (!data._expanded) {
-                            data._expanded = true;
-                            row.update(data);
-                            restoredCount++;
-                            
-                            // Update the expander icon
-                            setTimeout(() => {
-                                const cellElement = row.getCells().find(cell => cell.getField() === "Matchup Team")?.getElement();
-                                const expanderIcon = cellElement?.querySelector('.row-expander');
-                                if (expanderIcon) {
-                                    expanderIcon.innerHTML = "−";
-                                }
-                                
-                                row.reformat();
-                            }, 50);
-                        }
-                    }
-                });
-                
-                console.log(`Successfully restored ${restoredCount} expanded rows`);
-            }
-            
-        } finally {
-            setTimeout(() => {
-                this.isRestoringState = false;
-            }, 500);
+    async refreshData() {
+        const cacheKey = `${this.endpoint}_data`;
+        if (typeof dataCache !== 'undefined' && dataCache && dataCache.delete) {
+            dataCache.delete(cacheKey);
         }
-    }
-
-    saveTemporaryExpandedState() {
-        this.temporaryExpandedRows.clear();
+        
+        // Clear all subtable caches
+        this.clearCache();
+        
         if (this.table) {
-            const rows = this.table.getRows();
-            rows.forEach(row => {
-                const data = row.getData();
-                if (data._expanded) {
-                    const id = this.generateRowId(data);
-                    this.temporaryExpandedRows.add(id);
-                }
-            });
+            this.table.setData();
         }
-        console.log(`Temporarily saved ${this.temporaryExpandedRows.size} expanded rows for ${this.elementId}`);
-    }
-
-    restoreTemporaryExpandedState() {
-        if (this.temporaryExpandedRows.size > 0 && this.table) {
-            console.log(`Restoring ${this.temporaryExpandedRows.size} temporarily expanded rows for ${this.elementId}`);
-            
-            setTimeout(() => {
-                const rows = this.table.getRows();
-                rows.forEach(row => {
-                    const data = row.getData();
-                    const id = this.generateRowId(data);
-                    
-                    if (this.temporaryExpandedRows.has(id) && !data._expanded) {
-                        data._expanded = true;
-                        row.update(data);
-                        row.reformat();
-                    }
-                });
-            }, 100);
-        }
-    }
-
-    // FIXED: Tab manager integration methods (Issue #7)
-    attachEventHandlers() {
-        console.log('Attaching matchups table event handlers');
-        
-        // Save state when tab is hidden
-        if (window.tabManager) {
-            const originalSaveState = window.tabManager.saveTabState;
-            if (originalSaveState) {
-                window.tabManager.saveTabState = (tabId) => {
-                    if (tabId === 'table0') {  // Matchups is typically table0
-                        this.saveState();
-                    }
-                    if (typeof originalSaveState === 'function') {
-                        originalSaveState.call(window.tabManager, tabId);
-                    }
-                };
-            }
-        }
-        
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            if (this.table) {
-                this.table.redraw();
-            }
-        });
-    }
-
-    // Public methods for tab manager integration (Issue #7)
-    onTabHidden() {
-        console.log(`Matchups table hidden - saving state`);
-        this.saveState();
-    }
-    
-    onTabShown() {
-        console.log(`Matchups table shown - restoring state`);
-        setTimeout(() => {
-            this.restoreState();
-            if (this.table) {
-                this.table.redraw();
-            }
-        }, 100);
-    }
-    
-    // Override redraw to preserve state
-    redraw(force) {
-        this.saveState();
-        if (this.table) {
-            this.table.redraw(force);
-        }
-        setTimeout(() => this.restoreState(), 100);
     }
 
     // Clean up method
