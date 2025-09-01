@@ -10,6 +10,7 @@ export class BatterPropsTable extends BaseTable {
     initialize() {
         const config = {
             ...this.tableConfig,
+            resizableColumns: false,
             placeholder: "Loading all batter props records...",
             columns: this.getColumns(),
             // FIXED: Use correct field names that match the column definitions
