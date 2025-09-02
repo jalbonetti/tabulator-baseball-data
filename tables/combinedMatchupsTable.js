@@ -18,14 +18,11 @@ export class MatchupsTable extends BaseTable {
             }
         }, 0);
         
-        // Hardcode the working API configuration as fallback
+        // Hardcode the working API base URL
         this.BASE_URL = 'https://hcwolbvmffkmjcxsumwn.supabase.co/rest/v1/';
         
-        // Fallback headers
-        this.HEADERS = {
-            'Accept': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE5MjIyMzIsImV4cCI6MjAzNzQ5ODIzMn0.6z6R6SgCQKlgqMuRCA5gLBe5H-qUJV2nPuQVKiXkFms'
-        };
+        // Initialize empty headers - will be populated from BaseTable
+        this.HEADERS = null;
         
         console.log('MatchupsTable initialized with BASE_URL:', this.BASE_URL);
         
@@ -372,11 +369,25 @@ export class MatchupsTable extends BaseTable {
     async fetchSubtableData(endpoint, fieldName, gameId) {
         const url = `${this.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
         
-        // Create a new headers object each time to ensure it's clean
-        const headers = new Headers();
-        headers.append('Accept', 'application/json');
-        headers.append('apikey', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE5MjIyMzIsImV4cCI6MjAzNzQ5ODIzMn0.6z6R6SgCQKlgqMuRCA5gLBe5H-qUJV2nPuQVKiXkFms');
-        headers.append('Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE5MjIyMzIsImV4cCI6MjAzNzQ5ODIzMn0.6z6R6SgCQKlgqMuRCA5gLBe5H-qUJV2nPuQVKiXkFms');
+        // Use the headers we copied from BaseTable in the constructor
+        // Fall back to trying to get them from BaseTable if not available
+        let headers = this.HEADERS;
+        
+        if (!headers || !headers.apikey) {
+            // Try to get headers from BaseTable config
+            if (this.getBaseConfig) {
+                const config = this.getBaseConfig();
+                if (config.ajaxConfig?.headers) {
+                    headers = config.ajaxConfig.headers;
+                    console.log('Using headers from BaseTable config');
+                }
+            }
+        }
+        
+        if (!headers) {
+            console.error('No headers available!');
+            return [];
+        }
         
         console.log(`Fetching from: ${url}`);
         
