@@ -103,6 +103,7 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             placeholder: "Loading matchups data...",
+            resizableColumns: false,
             columns: this.getColumns(),
             initialSort: [
                 {column: this.F.TEAM, dir: "asc"}
@@ -129,6 +130,7 @@ export class MatchupsTable extends BaseTable {
                 field: "_expanded",
                 width: 40,
                 headerSort: false,
+                resizable: false,
                 formatter: (cell) => {
                     const data = cell.getData();
                     return `<span class="row-expander">${data._expanded ? "−" : "+"}</span>`;
@@ -142,57 +144,43 @@ export class MatchupsTable extends BaseTable {
                 title: "Team", 
                 field: F.TEAM, 
                 widthGrow: 1,
+                resizable: false,
                 headerFilter: createCustomMultiSelect
             },
             { 
                 title: "Game", 
                 field: F.GAME, 
-                widthGrow: 2,
+                widthGrow: 2.5,
+                resizable: false,
                 headerFilter: createCustomMultiSelect
             },
             { 
                 title: "Ballpark", 
                 field: F.PARK, 
-                widthGrow: 1,
+                widthGrow: 1.5,
+                resizable: false,
                 headerFilter: createCustomMultiSelect
             },
             { 
                 title: "Spread", 
                 field: F.SPREAD, 
                 widthGrow: 0.7,
+                resizable: false,
                 hozAlign: "center"
             },
             { 
                 title: "Total", 
                 field: F.TOTAL, 
                 widthGrow: 0.7,
+                resizable: false,
                 hozAlign: "center"
             },
             { 
                 title: "Lineup", 
                 field: F.LINEUP, 
-                widthGrow: 0.8,
+                widthGrow: 1,
+                resizable: false,
                 headerFilter: createCustomMultiSelect
-            },
-            { 
-                title: "Time", 
-                field: F.WX1, 
-                widthGrow: 1.6
-            },
-            { 
-                title: "Cond.", 
-                field: F.WX2, 
-                widthGrow: 1.6
-            },
-            { 
-                title: "Cond.", 
-                field: F.WX3, 
-                widthGrow: 1.6
-            },
-            { 
-                title: "Cond.", 
-                field: F.WX4, 
-                widthGrow: 1.6
             }
         ];
     }
@@ -357,11 +345,13 @@ export class MatchupsTable extends BaseTable {
     }
     
     async fetchSubtableData(endpoint, fieldName, gameId) {
-        const url = `${this.apiConfig.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
+        // Import API_CONFIG from shared config
+        const { API_CONFIG } = await import('../shared/config.js');
+        const url = `${API_CONFIG.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
         
         try {
             const response = await fetch(url, {
-                headers: this.apiConfig.HEADERS
+                headers: API_CONFIG.HEADERS
             });
             
             if (!response.ok) return [];
@@ -387,18 +377,19 @@ export class MatchupsTable extends BaseTable {
         new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
+            resizableColumns: false,
             data: parkData || [],
             columns: [
-                { title: "Stadium", field: F.PF_STADIUM, widthGrow: 2 },
-                { title: "Split", field: F.PF_SPLIT, widthGrow: 1 },
-                { title: "H", field: F.PF_H, widthGrow: 0.5, hozAlign: "center" },
-                { title: "1B", field: F.PF_1B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "2B", field: F.PF_2B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "3B", field: F.PF_3B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "HR", field: F.PF_HR, widthGrow: 0.5, hozAlign: "center" },
-                { title: "R", field: F.PF_R, widthGrow: 0.5, hozAlign: "center" },
-                { title: "BB", field: F.PF_BB, widthGrow: 0.5, hozAlign: "center" },
-                { title: "SO", field: F.PF_SO, widthGrow: 0.5, hozAlign: "center" }
+                { title: "Stadium", field: F.PF_STADIUM, widthGrow: 2, resizable: false },
+                { title: "Split", field: F.PF_SPLIT, widthGrow: 1, resizable: false },
+                { title: "H", field: F.PF_H, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "1B", field: F.PF_1B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "2B", field: F.PF_2B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "3B", field: F.PF_3B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "HR", field: F.PF_HR, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "R", field: F.PF_R, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "BB", field: F.PF_BB, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "SO", field: F.PF_SO, widthGrow: 0.5, hozAlign: "center", resizable: false }
             ]
         });
     }
@@ -437,10 +428,11 @@ export class MatchupsTable extends BaseTable {
         new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
+            resizableColumns: false,
             data: weatherData,
             columns: [
-                { title: "Condition", field: "condition", widthGrow: 1 },
-                { title: "Value", field: "value", widthGrow: 2 }
+                { title: "Condition", field: "condition", widthGrow: 1, resizable: false },
+                { title: "Value", field: "value", widthGrow: 2, resizable: false }
             ]
         });
     }
@@ -463,6 +455,7 @@ export class MatchupsTable extends BaseTable {
         const pitchersTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
+            resizableColumns: false,
             data: processedData,
             dataTree: true,
             dataTreeChildField: "_children",
@@ -472,6 +465,7 @@ export class MatchupsTable extends BaseTable {
                     title: "Name/Split", 
                     field: F.P_NAME,
                     widthGrow: 2,
+                    resizable: false,
                     formatter: (cell) => {
                         const data = cell.getData();
                         if (data._isParent) {
@@ -480,17 +474,17 @@ export class MatchupsTable extends BaseTable {
                         return data[F.P_SPLIT] || data[F.P_NAME];
                     }
                 },
-                { title: "TBF", field: F.P_TBF, widthGrow: 0.5, hozAlign: "center" },
-                { title: "H/TBF", field: F.P_H_TBF, widthGrow: 0.7, hozAlign: "center" },
-                { title: "H", field: F.P_H, widthGrow: 0.5, hozAlign: "center" },
-                { title: "1B", field: F.P_1B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "2B", field: F.P_2B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "3B", field: F.P_3B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "HR", field: F.P_HR, widthGrow: 0.5, hozAlign: "center" },
-                { title: "R", field: F.P_R, widthGrow: 0.5, hozAlign: "center" },
-                { title: "ERA", field: F.P_ERA, widthGrow: 0.7, hozAlign: "center" },
-                { title: "BB", field: F.P_BB, widthGrow: 0.5, hozAlign: "center" },
-                { title: "SO", field: F.P_SO, widthGrow: 0.5, hozAlign: "center" }
+                { title: "TBF", field: F.P_TBF, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "H/TBF", field: F.P_H_TBF, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { title: "H", field: F.P_H, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "1B", field: F.P_1B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "2B", field: F.P_2B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "3B", field: F.P_3B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "HR", field: F.P_HR, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "R", field: F.P_R, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "ERA", field: F.P_ERA, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { title: "BB", field: F.P_BB, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "SO", field: F.P_SO, widthGrow: 0.5, hozAlign: "center", resizable: false }
             ]
         });
         
@@ -516,6 +510,7 @@ export class MatchupsTable extends BaseTable {
         const battersTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
+            resizableColumns: false,
             data: processedData,
             dataTree: true,
             dataTreeChildField: "_children",
@@ -525,6 +520,7 @@ export class MatchupsTable extends BaseTable {
                     title: "Name/Split", 
                     field: F.B_NAME,
                     widthGrow: 2,
+                    resizable: false,
                     formatter: (cell) => {
                         const data = cell.getData();
                         if (data._isParent) {
@@ -533,17 +529,17 @@ export class MatchupsTable extends BaseTable {
                         return data[F.B_SPLIT] || data[F.B_NAME];
                     }
                 },
-                { title: "PA", field: F.B_PA, widthGrow: 0.5, hozAlign: "center" },
-                { title: "H/PA", field: F.B_H_PA, widthGrow: 0.7, hozAlign: "center" },
-                { title: "H", field: F.B_H, widthGrow: 0.5, hozAlign: "center" },
-                { title: "1B", field: F.B_1B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "2B", field: F.B_2B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "3B", field: F.B_3B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "HR", field: F.B_HR, widthGrow: 0.5, hozAlign: "center" },
-                { title: "R", field: F.B_R, widthGrow: 0.5, hozAlign: "center" },
-                { title: "RBI", field: F.B_RBI, widthGrow: 0.5, hozAlign: "center" },
-                { title: "BB", field: F.B_BB, widthGrow: 0.5, hozAlign: "center" },
-                { title: "SO", field: F.B_SO, widthGrow: 0.5, hozAlign: "center" }
+                { title: "PA", field: F.B_PA, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "H/PA", field: F.B_H_PA, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { title: "H", field: F.B_H, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "1B", field: F.B_1B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "2B", field: F.B_2B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "3B", field: F.B_3B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "HR", field: F.B_HR, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "R", field: F.B_R, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "RBI", field: F.B_RBI, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "BB", field: F.B_BB, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "SO", field: F.B_SO, widthGrow: 0.5, hozAlign: "center", resizable: false }
             ]
         });
         
@@ -569,12 +565,14 @@ export class MatchupsTable extends BaseTable {
         const bullpenTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
+            resizableColumns: false,
             data: processedData,
             columns: [
                 { 
                     title: "Group", 
                     field: F.BP_HAND_CNT, 
                     widthGrow: 1.5,
+                    resizable: false,
                     formatter: (cell) => {
                         const data = cell.getData();
                         if (data._isTotal) {
@@ -583,18 +581,18 @@ export class MatchupsTable extends BaseTable {
                         return data[F.BP_HAND_CNT];
                     }
                 },
-                { title: "Split", field: F.BP_SPLIT, widthGrow: 1 },
-                { title: "TBF", field: F.BP_TBF, widthGrow: 0.5, hozAlign: "center" },
-                { title: "H/TBF", field: F.BP_H_TBF, widthGrow: 0.7, hozAlign: "center" },
-                { title: "H", field: F.BP_H, widthGrow: 0.5, hozAlign: "center" },
-                { title: "1B", field: F.BP_1B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "2B", field: F.BP_2B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "3B", field: F.BP_3B, widthGrow: 0.5, hozAlign: "center" },
-                { title: "HR", field: F.BP_HR, widthGrow: 0.5, hozAlign: "center" },
-                { title: "R", field: F.BP_R, widthGrow: 0.5, hozAlign: "center" },
-                { title: "ERA", field: F.BP_ERA, widthGrow: 0.7, hozAlign: "center" },
-                { title: "BB", field: F.BP_BB, widthGrow: 0.5, hozAlign: "center" },
-                { title: "SO", field: F.BP_SO, widthGrow: 0.5, hozAlign: "center" }
+                { title: "Split", field: F.BP_SPLIT, widthGrow: 1, resizable: false },
+                { title: "TBF", field: F.BP_TBF, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "H/TBF", field: F.BP_H_TBF, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { title: "H", field: F.BP_H, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "1B", field: F.BP_1B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "2B", field: F.BP_2B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "3B", field: F.BP_3B, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "HR", field: F.BP_HR, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "R", field: F.BP_R, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "ERA", field: F.BP_ERA, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { title: "BB", field: F.BP_BB, widthGrow: 0.5, hozAlign: "center", resizable: false },
+                { title: "SO", field: F.BP_SO, widthGrow: 0.5, hozAlign: "center", resizable: false }
             ]
         });
         
@@ -745,4 +743,3 @@ export class MatchupsTable extends BaseTable {
 
 // Default export for compatibility with different import styles
 export default MatchupsTable;
-
