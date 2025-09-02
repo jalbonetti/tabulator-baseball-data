@@ -743,8 +743,6 @@ export class MatchupsTable extends BaseTable {
     }
 }
 
-// Export both named and default for compatibility
+// Default export for compatibility with different import styles
 export default MatchupsTable;
-export { MatchupsTable };
-
 
