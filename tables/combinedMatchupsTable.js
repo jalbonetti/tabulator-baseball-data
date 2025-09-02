@@ -1,7 +1,6 @@
 // tables/combinedMatchupsTable.js - COMPLETELY REFACTORED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
-import { API_CONFIG } from '../shared/config.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
@@ -325,6 +324,8 @@ export class MatchupsTable extends BaseTable {
             return this.subtableDataCache.get(gameId);
         }
         
+        console.log(`Loading subtable data for game ID: ${gameId}`);
+        
         // Load all data in parallel
         const [park, pitchers, batters, bullpen] = await Promise.all([
             this.fetchSubtableData(this.ENDPOINTS.PARK, this.F.PF_GAME_ID, gameId),
@@ -333,21 +334,40 @@ export class MatchupsTable extends BaseTable {
             this.fetchSubtableData(this.ENDPOINTS.BULLPEN, this.F.BP_GAME_ID, gameId)
         ]);
         
+        console.log(`Loaded data for game ${gameId}:`, {
+            park: park?.length || 0,
+            pitchers: pitchers?.length || 0,
+            batters: batters?.length || 0,
+            bullpen: bullpen?.length || 0
+        });
+        
         const data = { park, pitchers, batters, bullpen };
         this.subtableDataCache.set(gameId, data);
         return data;
     }
     
     async fetchSubtableData(endpoint, fieldName, gameId) {
-        const url = `${API_CONFIG.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
+        // Ensure apiConfig is available
+        if (!this.apiConfig || !this.apiConfig.BASE_URL) {
+            console.error('API config not available:', this.apiConfig);
+            return [];
+        }
+        
+        const url = `${this.apiConfig.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
+        console.log(`Fetching from: ${url}`);
         
         try {
             const response = await fetch(url, {
-                headers: API_CONFIG.HEADERS
+                headers: this.apiConfig.HEADERS
             });
             
-            if (!response.ok) return [];
-            return await response.json();
+            if (!response.ok) {
+                console.error(`Failed to fetch ${endpoint}: ${response.status} ${response.statusText}`);
+                return [];
+            }
+            const data = await response.json();
+            console.log(`Fetched ${data.length} records from ${endpoint}`);
+            return data;
         } catch (error) {
             console.error(`Error fetching ${endpoint} data:`, error);
             return [];
@@ -357,12 +377,13 @@ export class MatchupsTable extends BaseTable {
     createParkFactorsTable(container, parkData, matchupData) {
         const F = this.F;
         
-        // Get stadium name from matchup data
-        const stadiumName = matchupData[F.PARK] || "Park Factors";
+        // Get stadium name from matchup data, removing "(Retractable Roof)" if present
+        let stadiumName = matchupData[F.PARK] || "Stadium";
+        stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
         
         // Add title with stadium name
         const title = document.createElement("h4");
-        title.textContent = stadiumName;
+        title.textContent = `${stadiumName} Park Factors`;
         title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center;";
         container.appendChild(title);
         
