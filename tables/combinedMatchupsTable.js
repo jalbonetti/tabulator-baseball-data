@@ -1,11 +1,26 @@
 // tables/combinedMatchupsTable.js - COMPLETELY REFACTORED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
-import { API_CONFIG } from '../shared/config.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
         super(elementId, 'ModMatchupsData');
+        
+        // Hardcode the working API configuration
+        this.BASE_URL = 'https://hcwolbvmffkmjcxsumwn.supabase.co/rest/v1/';
+        
+        // Build headers - include apikey if available
+        this.HEADERS = {
+            'Accept': 'application/json'
+        };
+        
+        // Add API key if available
+        if (window.SUPABASE_ANON_KEY) {
+            this.HEADERS['apikey'] = window.SUPABASE_ANON_KEY;
+        }
+        
+        console.log('MatchupsTable initialized with BASE_URL:', this.BASE_URL);
+        console.log('Headers configured:', Object.keys(this.HEADERS));
         
         // Define endpoints for subtable data
         this.ENDPOINTS = {
@@ -348,13 +363,13 @@ export class MatchupsTable extends BaseTable {
     }
     
     async fetchSubtableData(endpoint, fieldName, gameId) {
-        // Use API_CONFIG directly since this.apiConfig is not available
-        const url = `${API_CONFIG.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
+        // Use the hardcoded configuration
+        const url = `${this.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
         console.log(`Fetching from: ${url}`);
         
         try {
             const response = await fetch(url, {
-                headers: API_CONFIG.HEADERS
+                headers: this.HEADERS
             });
             
             if (!response.ok) {
