@@ -6,21 +6,28 @@ export class MatchupsTable extends BaseTable {
     constructor(elementId) {
         super(elementId, 'ModMatchupsData');
         
-        // Hardcode the working API configuration
+        // Wait for BaseTable to initialize, then copy its config
+        setTimeout(() => {
+            if (this.getBaseConfig) {
+                const config = this.getBaseConfig();
+                console.log('BaseTable config available:', config);
+                if (config.ajaxConfig?.headers) {
+                    this.HEADERS = config.ajaxConfig.headers;
+                    console.log('Copied headers from BaseTable:', this.HEADERS);
+                }
+            }
+        }, 0);
+        
+        // Hardcode the working API configuration as fallback
         this.BASE_URL = 'https://hcwolbvmffkmjcxsumwn.supabase.co/rest/v1/';
         
-        // Build headers - include apikey if available
+        // Fallback headers
         this.HEADERS = {
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE5MjIyMzIsImV4cCI6MjAzNzQ5ODIzMn0.6z6R6SgCQKlgqMuRCA5gLBe5H-qUJV2nPuQVKiXkFms'
         };
         
-        // Add API key if available
-        if (window.SUPABASE_ANON_KEY) {
-            this.HEADERS['apikey'] = window.SUPABASE_ANON_KEY;
-        }
-        
         console.log('MatchupsTable initialized with BASE_URL:', this.BASE_URL);
-        console.log('Headers configured:', Object.keys(this.HEADERS));
         
         // Define endpoints for subtable data
         this.ENDPOINTS = {
@@ -363,33 +370,35 @@ export class MatchupsTable extends BaseTable {
     }
     
     async fetchSubtableData(endpoint, fieldName, gameId) {
-        // Build headers at fetch time to ensure we have the API key
-        const headers = {
-            'Accept': 'application/json'
-        };
-        
-        // Try multiple ways to get the API key
-        const apiKey = window.SUPABASE_ANON_KEY || 
-                      this.apiConfig?.HEADERS?.apikey || 
-                      this.apiConfig?.HEADERS?.['apikey'] ||
-                      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE5MjIyMzIsImV4cCI6MjAzNzQ5ODIzMn0.6z6R6SgCQKlgqMuRCA5gLBe5H-qUJV2nPuQVKiXkFms';
-        
-        if (apiKey) {
-            headers['apikey'] = apiKey;
-        }
-        
         const url = `${this.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
-        console.log(`Fetching from: ${url} with apikey: ${apiKey ? 'present' : 'missing'}`);
+        
+        // Create a new headers object each time to ensure it's clean
+        const headers = new Headers();
+        headers.append('Accept', 'application/json');
+        headers.append('apikey', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE5MjIyMzIsImV4cCI6MjAzNzQ5ODIzMn0.6z6R6SgCQKlgqMuRCA5gLBe5H-qUJV2nPuQVKiXkFms');
+        headers.append('Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE5MjIyMzIsImV4cCI6MjAzNzQ5ODIzMn0.6z6R6SgCQKlgqMuRCA5gLBe5H-qUJV2nPuQVKiXkFms');
+        
+        console.log(`Fetching from: ${url}`);
         
         try {
-            const response = await fetch(url, { headers });
+            const response = await fetch(url, { 
+                method: 'GET',
+                headers: headers 
+            });
             
             if (!response.ok) {
                 console.error(`Failed to fetch ${endpoint}: ${response.status} ${response.statusText}`);
+                try {
+                    const errorText = await response.text();
+                    console.error('Error response body:', errorText);
+                } catch (e) {
+                    console.error('Could not read error response');
+                }
                 return [];
             }
+            
             const data = await response.json();
-            console.log(`Fetched ${data.length} records from ${endpoint}`);
+            console.log(`Successfully fetched ${data.length} records from ${endpoint}`);
             return data;
         } catch (error) {
             console.error(`Error fetching ${endpoint} data:`, error);
