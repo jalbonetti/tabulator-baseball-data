@@ -363,14 +363,26 @@ export class MatchupsTable extends BaseTable {
     }
     
     async fetchSubtableData(endpoint, fieldName, gameId) {
-        // Use the hardcoded configuration
+        // Build headers at fetch time to ensure we have the API key
+        const headers = {
+            'Accept': 'application/json'
+        };
+        
+        // Try multiple ways to get the API key
+        const apiKey = window.SUPABASE_ANON_KEY || 
+                      this.apiConfig?.HEADERS?.apikey || 
+                      this.apiConfig?.HEADERS?.['apikey'] ||
+                      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd29sYnZtZmZrbWpjeHN1bXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE5MjIyMzIsImV4cCI6MjAzNzQ5ODIzMn0.6z6R6SgCQKlgqMuRCA5gLBe5H-qUJV2nPuQVKiXkFms';
+        
+        if (apiKey) {
+            headers['apikey'] = apiKey;
+        }
+        
         const url = `${this.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
-        console.log(`Fetching from: ${url}`);
+        console.log(`Fetching from: ${url} with apikey: ${apiKey ? 'present' : 'missing'}`);
         
         try {
-            const response = await fetch(url, {
-                headers: this.HEADERS
-            });
+            const response = await fetch(url, { headers });
             
             if (!response.ok) {
                 console.error(`Failed to fetch ${endpoint}: ${response.status} ${response.statusText}`);
