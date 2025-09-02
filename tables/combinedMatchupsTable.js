@@ -1,6 +1,7 @@
 // tables/combinedMatchupsTable.js - COMPLETELY REFACTORED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+import { API_CONFIG } from '../shared/config.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
@@ -347,18 +348,13 @@ export class MatchupsTable extends BaseTable {
     }
     
     async fetchSubtableData(endpoint, fieldName, gameId) {
-        // Ensure apiConfig is available
-        if (!this.apiConfig || !this.apiConfig.BASE_URL) {
-            console.error('API config not available:', this.apiConfig);
-            return [];
-        }
-        
-        const url = `${this.apiConfig.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
+        // Use API_CONFIG directly since this.apiConfig is not available
+        const url = `${API_CONFIG.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
         console.log(`Fetching from: ${url}`);
         
         try {
             const response = await fetch(url, {
-                headers: this.apiConfig.HEADERS
+                headers: API_CONFIG.HEADERS
             });
             
             if (!response.ok) {
