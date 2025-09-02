@@ -1,6 +1,7 @@
 // tables/combinedMatchupsTable.js - COMPLETELY REFACTORED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
+import { API_CONFIG } from '../shared/config.js';
 
 export class MatchupsTable extends BaseTable {
     constructor(elementId) {
@@ -143,42 +144,35 @@ export class MatchupsTable extends BaseTable {
             { 
                 title: "Team", 
                 field: F.TEAM, 
-                widthGrow: 1,
+                widthGrow: 1.5,
                 resizable: false,
                 headerFilter: createCustomMultiSelect
             },
             { 
                 title: "Game", 
                 field: F.GAME, 
-                widthGrow: 2.5,
-                resizable: false,
-                headerFilter: createCustomMultiSelect
-            },
-            { 
-                title: "Ballpark", 
-                field: F.PARK, 
-                widthGrow: 1.5,
+                widthGrow: 3,
                 resizable: false,
                 headerFilter: createCustomMultiSelect
             },
             { 
                 title: "Spread", 
                 field: F.SPREAD, 
-                widthGrow: 0.7,
+                widthGrow: 0.8,
                 resizable: false,
                 hozAlign: "center"
             },
             { 
                 title: "Total", 
                 field: F.TOTAL, 
-                widthGrow: 0.7,
+                widthGrow: 0.8,
                 resizable: false,
                 hozAlign: "center"
             },
             { 
                 title: "Lineup", 
                 field: F.LINEUP, 
-                widthGrow: 1,
+                widthGrow: 1.2,
                 resizable: false,
                 headerFilter: createCustomMultiSelect
             }
@@ -318,7 +312,7 @@ export class MatchupsTable extends BaseTable {
         rowElement.appendChild(holderEl);
         
         // Create all subtables
-        this.createParkFactorsTable(parkContainer, subtableData.park);
+        this.createParkFactorsTable(parkContainer, subtableData.park, data);
         this.createWeatherTable(weatherContainer, data);
         this.createPitchersTable(pitchersContainer, subtableData.pitchers, gameId);
         this.createBattersTable(battersContainer, subtableData.batters, gameId);
@@ -345,8 +339,6 @@ export class MatchupsTable extends BaseTable {
     }
     
     async fetchSubtableData(endpoint, fieldName, gameId) {
-        // Import API_CONFIG from shared config
-        const { API_CONFIG } = await import('../shared/config.js');
         const url = `${API_CONFIG.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
         
         try {
@@ -362,12 +354,15 @@ export class MatchupsTable extends BaseTable {
         }
     }
     
-    createParkFactorsTable(container, parkData) {
+    createParkFactorsTable(container, parkData, matchupData) {
         const F = this.F;
         
-        // Add title
+        // Get stadium name from matchup data
+        const stadiumName = matchupData[F.PARK] || "Park Factors";
+        
+        // Add title with stadium name
         const title = document.createElement("h4");
-        title.textContent = "Park Factors";
+        title.textContent = stadiumName;
         title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center;";
         container.appendChild(title);
         
@@ -380,16 +375,15 @@ export class MatchupsTable extends BaseTable {
             resizableColumns: false,
             data: parkData || [],
             columns: [
-                { title: "Stadium", field: F.PF_STADIUM, widthGrow: 2, resizable: false },
-                { title: "Split", field: F.PF_SPLIT, widthGrow: 1, resizable: false },
-                { title: "H", field: F.PF_H, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "1B", field: F.PF_1B, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "2B", field: F.PF_2B, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "3B", field: F.PF_3B, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "HR", field: F.PF_HR, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "R", field: F.PF_R, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "BB", field: F.PF_BB, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "SO", field: F.PF_SO, widthGrow: 0.5, hozAlign: "center", resizable: false }
+                { title: "Split", field: F.PF_SPLIT, widthGrow: 1.5, resizable: false },
+                { title: "H", field: F.PF_H, widthGrow: 0.6, hozAlign: "center", resizable: false },
+                { title: "1B", field: F.PF_1B, widthGrow: 0.6, hozAlign: "center", resizable: false },
+                { title: "2B", field: F.PF_2B, widthGrow: 0.6, hozAlign: "center", resizable: false },
+                { title: "3B", field: F.PF_3B, widthGrow: 0.6, hozAlign: "center", resizable: false },
+                { title: "HR", field: F.PF_HR, widthGrow: 0.6, hozAlign: "center", resizable: false },
+                { title: "R", field: F.PF_R, widthGrow: 0.6, hozAlign: "center", resizable: false },
+                { title: "BB", field: F.PF_BB, widthGrow: 0.6, hozAlign: "center", resizable: false },
+                { title: "SO", field: F.PF_SO, widthGrow: 0.6, hozAlign: "center", resizable: false }
             ]
         });
     }
@@ -397,9 +391,13 @@ export class MatchupsTable extends BaseTable {
     createWeatherTable(container, matchupData) {
         const F = this.F;
         
+        // Check if stadium has retractable roof
+        const stadiumName = matchupData[F.PARK] || "";
+        const hasRetractableRoof = stadiumName.includes("(Retractable Roof)");
+        
         // Add title
         const title = document.createElement("h4");
-        title.textContent = "Weather Conditions";
+        title.textContent = hasRetractableRoof ? "Weather Conditions (Retractable Roof)" : "Weather Conditions";
         title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center;";
         container.appendChild(title);
         
