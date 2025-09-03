@@ -1,4 +1,5 @@
 // tables/combinedMatchupsTable.js - FULLY REFACTORED VERSION
+// tables/combinedMatchupsTable.js - FULLY REFACTORED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -1049,4 +1050,3 @@ export class MatchupsTable extends BaseTable {
 
 // Default export for compatibility
 export default MatchupsTable;
-export { MatchupsTable };
