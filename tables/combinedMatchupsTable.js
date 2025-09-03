@@ -1,5 +1,4 @@
-// tables/combinedMatchupsTable.js - FULLY REFACTORED VERSION
-// tables/combinedMatchupsTable.js - FULLY REFACTORED VERSION
+// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -118,6 +117,12 @@ export class MatchupsTable extends BaseTable {
         
         // Track expanded player rows within subtables
         this.expandedSubtableRows = new Map();
+        
+        // Track main row expansion state
+        this.expandedMainRows = new Set();
+        
+        // Prevent scroll jumping
+        this.isExpandingRow = false;
     }
     
     initialize() {
@@ -127,7 +132,7 @@ export class MatchupsTable extends BaseTable {
             resizableColumns: false,
             columns: this.getColumns(),
             initialSort: [
-                {column: this.F.TEAM, dir: "asc"}
+                {column: this.F.MATCH_ID, dir: "asc"}  // FIX #3: Sort by matchup ID
             ],
             rowFormatter: this.createRowFormatter()
         };
@@ -154,47 +159,41 @@ export class MatchupsTable extends BaseTable {
                 resizable: false,
                 formatter: (cell) => {
                     const data = cell.getData();
-                    return `<span class="row-expander">${data._expanded ? "−" : "+"}</span>`;
-                },
-                cellClick: (e, cell) => {
-                    e.stopPropagation();
-                    this.toggleRowExpansion(cell.getRow());
+                    const isExpanded = this.expandedMainRows.has(data[F.MATCH_ID]);
+                    return `<span class="row-expander">${isExpanded ? '−' : '+'}</span>`;
                 }
             },
-            { 
-                title: "Team", 
-                field: F.TEAM, 
-                widthGrow: 1.5,
-                resizable: false,
-                headerFilter: createCustomMultiSelect
+            {
+                title: "Team",
+                field: F.TEAM,
+                widthGrow: 1,
+                resizable: false
             },
-            { 
+            {
                 title: "Game", 
                 field: F.GAME, 
-                widthGrow: 3,
-                resizable: false,
-                headerFilter: createCustomMultiSelect
+                widthGrow: 2,
+                resizable: false
             },
-            { 
-                title: "Spread", 
-                field: F.SPREAD, 
-                widthGrow: 0.8,
-                resizable: false,
-                hozAlign: "center"
+            {
+                title: "Spread",
+                field: F.SPREAD,
+                widthGrow: 0.7,
+                hozAlign: "center",
+                resizable: false
             },
-            { 
-                title: "Total", 
-                field: F.TOTAL, 
-                widthGrow: 0.8,
-                resizable: false,
-                hozAlign: "center"
+            {
+                title: "Total",
+                field: F.TOTAL,
+                widthGrow: 0.7,
+                hozAlign: "center",
+                resizable: false
             },
-            { 
-                title: "Lineup", 
-                field: F.LINEUP, 
-                widthGrow: 1.2,
-                resizable: false,
-                headerFilter: createCustomMultiSelect
+            {
+                title: "Lineup",
+                field: F.LINEUP,
+                widthGrow: 1,
+                resizable: false
             }
         ];
     }
@@ -202,84 +201,83 @@ export class MatchupsTable extends BaseTable {
     createRowFormatter() {
         const self = this;
         
-        return function(row) {
+        return (row) => {
             const data = row.getData();
             const rowElement = row.getElement();
             
-            // Initialize expansion state
-            if (data._expanded === undefined) {
-                data._expanded = false;
+            // Check if this row is expanded
+            const isExpanded = this.expandedMainRows.has(data[this.F.MATCH_ID]);
+            
+            // Update expander icon
+            const expander = rowElement.querySelector('.row-expander');
+            if (expander) {
+                expander.textContent = isExpanded ? '−' : '+';
             }
             
-            // Add/remove expanded class
-            if (data._expanded) {
-                rowElement.classList.add('row-expanded');
-            } else {
-                rowElement.classList.remove('row-expanded');
+            // Restore subtables if expanded
+            if (isExpanded && !rowElement.querySelector('.subrow-container')) {
+                setTimeout(() => {
+                    this.createMatchupSubtables(row, data);
+                }, 100);
             }
             
-            // Handle expansion
-            if (data._expanded) {
-                // Check if subtables already exist
-                let existingSubrow = rowElement.querySelector('.subrow-container');
+            // Add click handler for the first cell (expander)
+            const firstCell = rowElement.querySelector('.tabulator-cell:first-child');
+            if (firstCell && !firstCell.hasAttribute('data-click-bound')) {
+                firstCell.setAttribute('data-click-bound', 'true');
+                firstCell.style.cursor = 'pointer';
                 
-                // During restoration or if doesn't exist, create subtables
-                if (!existingSubrow || self.isRestoringState) {
-                    if (existingSubrow && self.isRestoringState) {
-                        existingSubrow.remove();
-                        existingSubrow = null;
-                    }
-                    
-                    if (!existingSubrow) {
-                        // Don't use requestAnimationFrame to avoid scroll issues
-                        self.createMatchupSubtables(row, data);
-                    }
-                }
-            } else {
-                // Remove subtables when collapsed
-                const existingSubrow = rowElement.querySelector('.subrow-container');
-                if (existingSubrow) {
-                    existingSubrow.remove();
-                    rowElement.classList.remove('row-expanded');
-                    
-                    setTimeout(() => {
-                        row.normalizeHeight();
-                    }, 50);
-                }
+                firstCell.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.toggleRow(row, data);
+                });
             }
         };
     }
     
-    toggleRowExpansion(row) {
-        const data = row.getData();
-        data._expanded = !data._expanded;
+    toggleRow(row, data) {
+        const rowElement = row.getElement();
+        const gameId = data[this.F.MATCH_ID];
+        const isExpanded = this.expandedMainRows.has(gameId);
         
-        // Update global state
-        const rowId = this.generateRowId(data);
-        const globalState = this.getGlobalState();
+        // Prevent scroll jumping
+        this.isExpandingRow = true;
+        const scrollTop = this.table.element.querySelector('.tabulator-tableHolder').scrollTop;
         
-        if (data._expanded) {
-            globalState.set(rowId, {
-                timestamp: Date.now(),
-                data: data,
-                expandedSubrows: Array.from(this.expandedSubtableRows.get(rowId) || [])
-            });
+        if (isExpanded) {
+            // Collapse
+            this.expandedMainRows.delete(gameId);
+            const container = rowElement.querySelector('.subrow-container');
+            if (container) {
+                container.remove();
+            }
+            rowElement.classList.remove('row-expanded');
+            
+            // Update expander
+            const expander = rowElement.querySelector('.row-expander');
+            if (expander) expander.textContent = '+';
         } else {
-            globalState.delete(rowId);
-            this.expandedSubtableRows.delete(rowId);
+            // Expand
+            this.expandedMainRows.add(gameId);
+            rowElement.classList.add('row-expanded');
+            
+            // Update expander
+            const expander = rowElement.querySelector('.row-expander');
+            if (expander) expander.textContent = '−';
+            
+            // Create subtables
+            this.createMatchupSubtables(row, data);
         }
         
-        this.setGlobalState(globalState);
-        row.update(data);
-        row.reformat();
-    }
-    
-    generateRowId(data) {
-        return `matchup_${data[this.F.MATCH_ID]}`;
+        // Restore scroll position
+        setTimeout(() => {
+            this.table.element.querySelector('.tabulator-tableHolder').scrollTop = scrollTop;
+            this.isExpandingRow = false;
+        }, 50);
     }
     
     getOpponentGameId(gameId) {
-        // Games are paired: 11-12, 21-22, 31-32, etc.
         const id = parseInt(gameId);
         if (id % 10 === 1) {
             return id + 1; // 11 -> 12, 21 -> 22
@@ -453,14 +451,29 @@ export class MatchupsTable extends BaseTable {
     formatSplitName(split) {
         if (!split) return '';
         
-        // Convert @ to at Home/Away
-        let formatted = split.replace(/@/g, 'at Home');
+        // FIX #7: Prevent doubling of text
+        let formatted = split;
         
-        // Handle specific replacements
-        formatted = formatted.replace(/vs L/g, 'vs Lefties');
-        formatted = formatted.replace(/vs R/g, 'vs Righties');
-        formatted = formatted.replace(/L @/g, 'Lefties at Home');
-        formatted = formatted.replace(/R @/g, 'Righties at Home');
+        // Only replace if not already replaced
+        if (!formatted.includes('at Home')) {
+            formatted = formatted.replace(/@/g, 'at Home');
+        }
+        
+        // Only replace if not already replaced (check for full word)
+        if (formatted.includes('vs L') && !formatted.includes('Lefties')) {
+            formatted = formatted.replace(/vs L/g, 'vs Lefties');
+        }
+        if (formatted.includes('vs R') && !formatted.includes('Righties')) {
+            formatted = formatted.replace(/vs R/g, 'vs Righties');
+        }
+        
+        // Handle specific cases
+        if (formatted === 'L at Home' || formatted === 'L @ ') {
+            return 'vs Lefties at Home';
+        }
+        if (formatted === 'R at Home' || formatted === 'R @ ') {
+            return 'vs Righties at Home';
+        }
         
         return formatted;
     }
@@ -481,7 +494,7 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process park data to rename splits
+        // Process park data to rename splits - FIX #4: Ensure correct order
         const processedData = (parkData || []).map(row => ({
             ...row,
             [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
@@ -530,48 +543,38 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Extract time values and weather conditions
+        // Extract time values and weather conditions - FIX #1: Better parsing
         const weatherData = [];
         
         // Parse weather fields - extract time and conditions
-        if (matchupData[F.WX1]) {
-            const parts = matchupData[F.WX1].split(' - ');
-            if (parts.length >= 2) {
-                weatherData.push({
-                    time: parts[0] || '-',
-                    conditions: parts.slice(1).join(' - ') || '-'
-                });
+        const weatherFields = [F.WX1, F.WX2, F.WX3, F.WX4];
+        weatherFields.forEach(field => {
+            if (matchupData[field]) {
+                const fullText = matchupData[field];
+                // Try different parsing patterns
+                let time = '-';
+                let conditions = '-';
+                
+                // Pattern 1: "Time - Conditions"
+                if (fullText.includes(' - ')) {
+                    const parts = fullText.split(' - ');
+                    time = parts[0] || '-';
+                    conditions = parts.slice(1).join(' - ') || '-';
+                } 
+                // Pattern 2: Just conditions (no time)
+                else if (fullText.trim()) {
+                    conditions = fullText.trim();
+                }
+                
+                if (time !== '-' || conditions !== '-') {
+                    weatherData.push({ time, conditions });
+                }
             }
-        }
+        });
         
-        if (matchupData[F.WX2]) {
-            const parts = matchupData[F.WX2].split(' - ');
-            if (parts.length >= 2) {
-                weatherData.push({
-                    time: parts[0] || '-',
-                    conditions: parts.slice(1).join(' - ') || '-'
-                });
-            }
-        }
-        
-        if (matchupData[F.WX3]) {
-            const parts = matchupData[F.WX3].split(' - ');
-            if (parts.length >= 2) {
-                weatherData.push({
-                    time: parts[0] || '-',
-                    conditions: parts.slice(1).join(' - ') || '-'
-                });
-            }
-        }
-        
-        if (matchupData[F.WX4]) {
-            const parts = matchupData[F.WX4].split(' - ');
-            if (parts.length >= 2) {
-                weatherData.push({
-                    time: parts[0] || '-',
-                    conditions: parts.slice(1).join(' - ') || '-'
-                });
-            }
+        // If no weather data found, add a placeholder row
+        if (weatherData.length === 0) {
+            weatherData.push({ time: '-', conditions: 'No weather data available' });
         }
         
         new Tabulator(tableContainer, {
@@ -599,7 +602,7 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process and sort data
+        // Process pitcher data with proper ordering - FIX #5
         const processedData = this.processPlayerData(pitchersData, 'pitcher');
         
         const pitchersTable = new Tabulator(tableContainer, {
@@ -613,15 +616,15 @@ export class MatchupsTable extends BaseTable {
             columns: [
                 { 
                     title: "Name/Split", 
-                    field: F.P_NAME,
-                    widthGrow: 2,
+                    field: F.P_NAME, 
+                    widthGrow: 1.5,
                     resizable: false,
                     formatter: (cell) => {
                         const data = cell.getData();
                         if (data._isParent) {
                             return `<strong>${data[F.P_NAME]}</strong>`;
                         }
-                        return this.formatSplitName(data[F.P_SPLIT] || data[F.P_NAME]);
+                        return this.formatSplitName(data[F.P_SPLIT] || '');
                     }
                 },
                 { title: "TBF", field: F.P_TBF, widthGrow: 0.5, hozAlign: "center", resizable: false },
@@ -669,7 +672,7 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process and sort data
+        // Process batter data with proper ordering - FIX #5
         const processedData = this.processPlayerData(battersData, 'batter');
         
         const battersTable = new Tabulator(tableContainer, {
@@ -683,15 +686,15 @@ export class MatchupsTable extends BaseTable {
             columns: [
                 { 
                     title: "Name/Split", 
-                    field: F.B_NAME,
-                    widthGrow: 2,
+                    field: F.B_NAME, 
+                    widthGrow: 1.5,
                     resizable: false,
                     formatter: (cell) => {
                         const data = cell.getData();
                         if (data._isParent) {
                             return `<strong>${data[F.B_NAME]}</strong>`;
                         }
-                        return this.formatSplitName(data[F.B_SPLIT] || data[F.B_NAME]);
+                        return this.formatSplitName(data[F.B_SPLIT] || '');
                     }
                 },
                 { title: "PA", field: F.B_PA, widthGrow: 0.5, hozAlign: "center", resizable: false },
@@ -732,7 +735,7 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process bullpen data into groups
+        // Process bullpen data into groups - FIX #2: Count unique pitchers correctly
         const processedData = this.processBullpenDataGrouped(bullpenData);
         
         const bullpenTable = new Tabulator(tableContainer, {
@@ -818,24 +821,24 @@ export class MatchupsTable extends BaseTable {
             }
         });
         
-        // Build final data structure
+        // Build final data structure with correct ordering - FIX #5
         const result = [];
         
         Object.values(grouped).forEach(group => {
             if (group.parent) {
-                // Sort children: R before L, non-@ before @
+                // Sort children: Season, R, L, Season @, R @, L @
                 group.children.sort((a, b) => {
                     const splitA = a[splitField] || '';
                     const splitB = b[splitField] || '';
                     
                     // Priority order
                     const getPriority = (split) => {
-                        if (split.includes('vs R') && !split.includes('@')) return 0;
-                        if (split.includes('vs L') && !split.includes('@')) return 1;
-                        if (split.includes('@ ') || split.includes('at Home')) return 2;
-                        if (split.includes('vs R') && split.includes('@')) return 3;
-                        if (split.includes('vs L') && split.includes('@')) return 4;
-                        return 5;
+                        if (split.includes('vs R') && !split.includes('@')) return 1;  // R
+                        if (split.includes('vs L') && !split.includes('@')) return 2;  // L
+                        if (split.includes('@') && !split.includes('vs')) return 3;    // Season @
+                        if (split.includes('vs R') && split.includes('@')) return 4;   // R @
+                        if (split.includes('vs L') && split.includes('@')) return 5;   // L @
+                        return 6;
                     };
                     
                     return getPriority(splitA) - getPriority(splitB);
@@ -874,13 +877,17 @@ export class MatchupsTable extends BaseTable {
         
         const result = [];
         
-        // Create Righties group
+        // Create Righties group - FIX #2: Count unique pitchers correctly
         if (righties.length > 0) {
-            // Count unique pitchers (number in parentheses)
-            const rightCount = new Set(righties.map(r => {
+            // Extract unique pitcher numbers from the BP_HAND_CNT field
+            const uniqueRighties = new Set();
+            righties.forEach(r => {
                 const match = (r[F.BP_HAND_CNT] || '').match(/\((\d+)\)/);
-                return match ? match[1] : '';
-            })).size;
+                if (match) {
+                    uniqueRighties.add(match[1]);
+                }
+            });
+            const rightCount = uniqueRighties.size || 1;
             
             const rightGroup = {
                 [F.BP_HAND_CNT]: `Righties (${rightCount})`,
@@ -896,12 +903,16 @@ export class MatchupsTable extends BaseTable {
             result.push(rightGroup);
         }
         
-        // Create Lefties group
+        // Create Lefties group - FIX #2: Count unique pitchers correctly
         if (lefties.length > 0) {
-            const leftCount = new Set(lefties.map(r => {
+            const uniqueLefties = new Set();
+            lefties.forEach(r => {
                 const match = (r[F.BP_HAND_CNT] || '').match(/\((\d+)\)/);
-                return match ? match[1] : '';
-            })).size;
+                if (match) {
+                    uniqueLefties.add(match[1]);
+                }
+            });
+            const leftCount = uniqueLefties.size || 1;
             
             const leftGroup = {
                 [F.BP_HAND_CNT]: `Lefties (${leftCount})`,
@@ -953,14 +964,24 @@ export class MatchupsTable extends BaseTable {
                 const tbf = parseFloat(row[F.BP_TBF] || 0);
                 return sum + (htbf * tbf);
             }, 0) / totals[F.BP_TBF];
-            
-            totals[F.BP_H_TBF] = weightedHTBF;
+            totals[F.BP_H_TBF] = weightedHTBF.toFixed(3);
         }
         
-        // Calculate ERA
-        if (totals[F.BP_R] > 0 && totals[F.BP_TBF] > 0) {
-            const innings = totals[F.BP_TBF] / 3; // Approximate
-            totals[F.BP_ERA] = (totals[F.BP_R] * 9) / innings;
+        // Calculate weighted ERA
+        const totalEarnedRuns = rows.reduce((sum, row) => {
+            const era = parseFloat(row[F.BP_ERA] || 0);
+            const tbf = parseFloat(row[F.BP_TBF] || 0);
+            // ERA = (Earned Runs * 9) / Innings Pitched
+            // Approximate innings from TBF (3 TBF ≈ 1 inning)
+            const innings = tbf / 3;
+            const earnedRuns = (era * innings) / 9;
+            return sum + earnedRuns;
+        }, 0);
+        
+        if (totals[F.BP_TBF] > 0) {
+            const totalInnings = totals[F.BP_TBF] / 3;
+            const weightedERA = (earnedRuns * 9) / totalInnings;
+            totals[F.BP_ERA] = weightedERA.toFixed(2);
         }
         
         // Apply totals to group
@@ -970,83 +991,102 @@ export class MatchupsTable extends BaseTable {
     trackSubtableExpansion(gameId, tableType, table) {
         const key = `${gameId}_${tableType}`;
         
-        // Track expanded state for nested rows
-        table.on('dataTreeRowExpanded', (row) => {
-            if (!this.expandedSubtableRows.has(gameId)) {
-                this.expandedSubtableRows.set(gameId, new Set());
+        // Restore expanded state if exists
+        if (this.expandedSubtableRows.has(key)) {
+            const expandedRows = this.expandedSubtableRows.get(key);
+            setTimeout(() => {
+                const rows = table.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    if (data._isParent && expandedRows.has(JSON.stringify(data))) {
+                        row.treeExpand();
+                    }
+                });
+            }, 100);
+        }
+        
+        // Track expansion changes
+        table.on("dataTreeRowExpanded", (row) => {
+            const data = row.getData();
+            if (!this.expandedSubtableRows.has(key)) {
+                this.expandedSubtableRows.set(key, new Set());
             }
-            const expandedSet = this.expandedSubtableRows.get(gameId);
-            expandedSet.add(`${tableType}_${row.getIndex()}`);
-            
-            // Update global state
-            const globalState = this.getGlobalState();
-            const mainRowId = `matchup_${gameId}`;
-            if (globalState.has(mainRowId)) {
-                const state = globalState.get(mainRowId);
-                state.expandedSubrows = Array.from(expandedSet);
-                globalState.set(mainRowId, state);
-                this.setGlobalState(globalState);
-            }
+            this.expandedSubtableRows.get(key).add(JSON.stringify(data));
         });
         
-        table.on('dataTreeRowCollapsed', (row) => {
-            const expandedSet = this.expandedSubtableRows.get(gameId);
-            if (expandedSet) {
-                expandedSet.delete(`${tableType}_${row.getIndex()}`);
-                
-                // Update global state
-                const globalState = this.getGlobalState();
-                const mainRowId = `matchup_${gameId}`;
-                if (globalState.has(mainRowId)) {
-                    const state = globalState.get(mainRowId);
-                    state.expandedSubrows = Array.from(expandedSet);
-                    globalState.set(mainRowId, state);
-                    this.setGlobalState(globalState);
-                }
+        table.on("dataTreeRowCollapsed", (row) => {
+            const data = row.getData();
+            if (this.expandedSubtableRows.has(key)) {
+                this.expandedSubtableRows.get(key).delete(JSON.stringify(data));
             }
         });
     }
     
     restoreSubtableExpandedState(gameId) {
-        // Get expanded state from global state
-        const globalState = this.getGlobalState();
-        const mainRowId = `matchup_${gameId}`;
-        
-        if (globalState.has(mainRowId)) {
-            const state = globalState.get(mainRowId);
-            if (state.expandedSubrows && state.expandedSubrows.length > 0) {
-                // Store for later restoration
-                if (!this.expandedSubtableRows.has(gameId)) {
-                    this.expandedSubtableRows.set(gameId, new Set(state.expandedSubrows));
-                }
-                
-                // The actual expansion will happen when the tables are created
-                // and the dataTree rows are available
-            }
-        }
+        // This is called after subtables are created to restore any expanded states
+        // The actual restoration happens in trackSubtableExpansion
     }
     
-    // Override methods from BaseTable that need special handling
+    // Override setupRowExpansion to use our custom expansion tracking
     setupRowExpansion() {
-        // Use the base class method but with our custom handler
+        // Don't use the base class expansion - we handle it ourselves
+        // This prevents conflicts with the base class state management
+    }
+    
+    // Override saveState to include our custom state
+    saveState() {
         if (!this.table) return;
         
-        const self = this;
+        console.log(`Saving state for ${this.elementId}`);
         
-        this.table.on("cellClick", (e, cell) => {
-            const field = cell.getField();
-            
-            // Allow full cell click on Team column for expand/collapse
-            if (field === this.F.TEAM) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const row = cell.getRow();
-                this.toggleRowExpansion(row);
-            }
-        });
+        // Save scroll position
+        const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+        if (tableHolder && !this.isExpandingRow) {
+            this.lastScrollPosition = tableHolder.scrollTop;
+        }
+        
+        // Save expanded main rows
+        const globalState = window.globalExpandedState || new Map();
+        globalState.set(`${this.elementId}_mainRows`, new Set(this.expandedMainRows));
+        globalState.set(`${this.elementId}_subtableRows`, new Map(this.expandedSubtableRows));
+        window.globalExpandedState = globalState;
+    }
+    
+    // Override restoreState to restore our custom state
+    restoreState() {
+        if (!this.table) return;
+        
+        console.log(`Restoring state for ${this.elementId}`);
+        
+        const globalState = window.globalExpandedState || new Map();
+        
+        // Restore expanded main rows
+        const savedMainRows = globalState.get(`${this.elementId}_mainRows`);
+        if (savedMainRows) {
+            this.expandedMainRows = new Set(savedMainRows);
+        }
+        
+        // Restore expanded subtable rows
+        const savedSubtableRows = globalState.get(`${this.elementId}_subtableRows`);
+        if (savedSubtableRows) {
+            this.expandedSubtableRows = new Map(savedSubtableRows);
+        }
+        
+        // Reformat rows to show expansion state
+        if (this.expandedMainRows.size > 0) {
+            setTimeout(() => {
+                this.table.redraw();
+            }, 100);
+        }
+        
+        // Restore scroll position
+        if (this.lastScrollPosition) {
+            setTimeout(() => {
+                const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+                if (tableHolder) {
+                    tableHolder.scrollTop = this.lastScrollPosition;
+                }
+            }, 200);
+        }
     }
 }
-
-// Default export for compatibility
-export default MatchupsTable;
