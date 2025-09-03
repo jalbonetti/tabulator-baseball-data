@@ -243,7 +243,8 @@ export class MatchupsTable extends BaseTable {
         
         // Prevent scroll jumping
         this.isExpandingRow = true;
-        const scrollTop = this.table.element.querySelector('.tabulator-tableHolder').scrollTop;
+        const tableHolder = this.table?.element?.querySelector('.tabulator-tableHolder');
+        const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
         
         if (isExpanded) {
             // Collapse
@@ -272,7 +273,9 @@ export class MatchupsTable extends BaseTable {
         
         // Restore scroll position
         setTimeout(() => {
-            this.table.element.querySelector('.tabulator-tableHolder').scrollTop = scrollTop;
+            if (tableHolder) {
+                tableHolder.scrollTop = scrollTop;
+            }
             this.isExpandingRow = false;
         }, 50);
     }
