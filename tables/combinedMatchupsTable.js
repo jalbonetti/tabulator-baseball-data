@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETELY REFACTORED VERSION
+// tables/combinedMatchupsTable.js - FULLY REFACTORED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -116,7 +116,7 @@ export class MatchupsTable extends BaseTable {
         this.subtableDataCache = new Map();
         
         // Track expanded player rows within subtables
-        this.expandedPlayerRows = new Map();
+        this.expandedSubtableRows = new Map();
     }
     
     initialize() {
@@ -147,7 +147,7 @@ export class MatchupsTable extends BaseTable {
         return [
             {
                 title: "",
-                field: "_expanded",
+                field: F.TEAM,
                 width: 40,
                 headerSort: false,
                 resizable: false,
@@ -230,9 +230,8 @@ export class MatchupsTable extends BaseTable {
                     }
                     
                     if (!existingSubrow) {
-                        requestAnimationFrame(() => {
-                            self.createMatchupSubtables(row, data);
-                        });
+                        // Don't use requestAnimationFrame to avoid scroll issues
+                        self.createMatchupSubtables(row, data);
                     }
                 }
             } else {
@@ -261,10 +260,12 @@ export class MatchupsTable extends BaseTable {
         if (data._expanded) {
             globalState.set(rowId, {
                 timestamp: Date.now(),
-                data: data
+                data: data,
+                expandedSubrows: Array.from(this.expandedSubtableRows.get(rowId) || [])
             });
         } else {
             globalState.delete(rowId);
+            this.expandedSubtableRows.delete(rowId);
         }
         
         this.setGlobalState(globalState);
@@ -276,15 +277,26 @@ export class MatchupsTable extends BaseTable {
         return `matchup_${data[this.F.MATCH_ID]}`;
     }
     
+    getOpponentGameId(gameId) {
+        // Games are paired: 11-12, 21-22, 31-32, etc.
+        const id = parseInt(gameId);
+        if (id % 10 === 1) {
+            return id + 1; // 11 -> 12, 21 -> 22
+        } else {
+            return id - 1; // 12 -> 11, 22 -> 21
+        }
+    }
+    
     async createMatchupSubtables(row, data) {
         const rowElement = row.getElement();
         const gameId = data[this.F.MATCH_ID];
+        const opponentGameId = this.getOpponentGameId(gameId);
         
         // Create main container
         const holderEl = document.createElement("div");
         holderEl.classList.add('subrow-container');
         holderEl.style.cssText = `
-            padding: 15px;
+            padding: 10px;
             background: #f8f9fa;
             margin: 10px 0;
             border-radius: 4px;
@@ -294,8 +306,8 @@ export class MatchupsTable extends BaseTable {
             z-index: 1;
         `;
         
-        // Load all subtable data
-        const subtableData = await this.loadSubtableData(gameId);
+        // Load all subtable data (use opponent ID for pitcher/bullpen)
+        const subtableData = await this.loadSubtableData(gameId, opponentGameId);
         
         // Create layout structure
         // Row 1: Park Factors and Weather (side by side)
@@ -312,7 +324,7 @@ export class MatchupsTable extends BaseTable {
         topRow.appendChild(weatherContainer);
         holderEl.appendChild(topRow);
         
-        // Row 2: Starting Pitchers
+        // Row 2: Starting Pitchers (opponent's)
         const pitchersContainer = document.createElement("div");
         pitchersContainer.style.cssText = "margin-bottom: 15px;";
         holderEl.appendChild(pitchersContainer);
@@ -322,7 +334,7 @@ export class MatchupsTable extends BaseTable {
         battersContainer.style.cssText = "margin-bottom: 15px;";
         holderEl.appendChild(battersContainer);
         
-        // Row 4: Bullpen
+        // Row 4: Bullpen (opponent's)
         const bullpenContainer = document.createElement("div");
         bullpenContainer.style.cssText = "margin-bottom: 15px;";
         holderEl.appendChild(bullpenContainer);
@@ -336,22 +348,26 @@ export class MatchupsTable extends BaseTable {
         this.createPitchersTable(pitchersContainer, subtableData.pitchers, gameId);
         this.createBattersTable(battersContainer, subtableData.batters, gameId);
         this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
+        
+        // Restore expanded state for subtables
+        this.restoreSubtableExpandedState(gameId);
     }
     
-    async loadSubtableData(gameId) {
+    async loadSubtableData(gameId, opponentGameId) {
         // Check cache first
-        if (this.subtableDataCache.has(gameId)) {
-            return this.subtableDataCache.get(gameId);
+        const cacheKey = `${gameId}_${opponentGameId}`;
+        if (this.subtableDataCache.has(cacheKey)) {
+            return this.subtableDataCache.get(cacheKey);
         }
         
-        console.log(`Loading subtable data for game ID: ${gameId}`);
+        console.log(`Loading subtable data for game ID: ${gameId}, opponent: ${opponentGameId}`);
         
-        // Load all data in parallel
+        // Load all data in parallel (use opponent ID for pitcher/bullpen)
         const [park, pitchers, batters, bullpen] = await Promise.all([
             this.fetchSubtableData(this.ENDPOINTS.PARK, this.F.PF_GAME_ID, gameId),
-            this.fetchSubtableData(this.ENDPOINTS.PITCHERS, this.F.P_GAME_ID, gameId),
+            this.fetchSubtableData(this.ENDPOINTS.PITCHERS, this.F.P_GAME_ID, opponentGameId),
             this.fetchSubtableData(this.ENDPOINTS.BATTERS, this.F.B_GAME_ID, gameId),
-            this.fetchSubtableData(this.ENDPOINTS.BULLPEN, this.F.BP_GAME_ID, gameId)
+            this.fetchSubtableData(this.ENDPOINTS.BULLPEN, this.F.BP_GAME_ID, opponentGameId)
         ]);
         
         console.log(`Loaded data for game ${gameId}:`, {
@@ -362,7 +378,7 @@ export class MatchupsTable extends BaseTable {
         });
         
         const data = { park, pitchers, batters, bullpen };
-        this.subtableDataCache.set(gameId, data);
+        this.subtableDataCache.set(cacheKey, data);
         return data;
     }
     
@@ -370,7 +386,6 @@ export class MatchupsTable extends BaseTable {
         const url = `${this.BASE_URL}${endpoint}?${encodeURIComponent(fieldName)}=eq.${encodeURIComponent(gameId)}&select=*`;
         
         // Use the headers we copied from BaseTable in the constructor
-        // Fall back to trying to get them from BaseTable if not available
         let headers = this.HEADERS;
         
         if (!headers || !headers.apikey) {
@@ -417,6 +432,38 @@ export class MatchupsTable extends BaseTable {
         }
     }
     
+    formatRatio(value) {
+        // Format to 3 decimal places, no leading zero
+        if (value == null || value === '') return '-';
+        const num = parseFloat(value);
+        if (isNaN(num)) return '-';
+        const formatted = num.toFixed(3);
+        return formatted.startsWith('0.') ? formatted.substring(1) : formatted;
+    }
+    
+    formatERA(value) {
+        // Format to 2 decimal places
+        if (value == null || value === '') return '-';
+        const num = parseFloat(value);
+        if (isNaN(num)) return '-';
+        return num.toFixed(2);
+    }
+    
+    formatSplitName(split) {
+        if (!split) return '';
+        
+        // Convert @ to at Home/Away
+        let formatted = split.replace(/@/g, 'at Home');
+        
+        // Handle specific replacements
+        formatted = formatted.replace(/vs L/g, 'vs Lefties');
+        formatted = formatted.replace(/vs R/g, 'vs Righties');
+        formatted = formatted.replace(/L @/g, 'Lefties at Home');
+        formatted = formatted.replace(/R @/g, 'Righties at Home');
+        
+        return formatted;
+    }
+    
     createParkFactorsTable(container, parkData, matchupData) {
         const F = this.F;
         
@@ -427,17 +474,31 @@ export class MatchupsTable extends BaseTable {
         // Add title with stadium name
         const title = document.createElement("h4");
         title.textContent = `${stadiumName} Park Factors`;
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center;";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
         container.appendChild(title);
         
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
+        // Process park data to rename splits
+        const processedData = (parkData || []).map(row => ({
+            ...row,
+            [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
+                         row[F.PF_SPLIT] === 'R' ? 'Right' : 
+                         row[F.PF_SPLIT] === 'L' ? 'Left' : row[F.PF_SPLIT]
+        }));
+        
+        // Sort: All first, then Right, then Left
+        processedData.sort((a, b) => {
+            const order = { 'All': 0, 'Right': 1, 'Left': 2 };
+            return (order[a[F.PF_SPLIT]] || 99) - (order[b[F.PF_SPLIT]] || 99);
+        });
+        
         new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
-            data: parkData || [],
+            data: processedData,
             columns: [
                 { title: "Split", field: F.PF_SPLIT, widthGrow: 1.5, resizable: false },
                 { title: "H", field: F.PF_H, widthGrow: 0.6, hozAlign: "center", resizable: false },
@@ -462,30 +523,55 @@ export class MatchupsTable extends BaseTable {
         // Add title
         const title = document.createElement("h4");
         title.textContent = hasRetractableRoof ? "Weather Conditions (Retractable Roof)" : "Weather Conditions";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center;";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
         container.appendChild(title);
         
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        const weatherData = [
-            { 
-                condition: "Game Time",
-                value: matchupData[F.WX1] || "-"
-            },
-            { 
-                condition: "Temperature",
-                value: matchupData[F.WX2] || "-"
-            },
-            { 
-                condition: "Wind",
-                value: matchupData[F.WX3] || "-"
-            },
-            { 
-                condition: "Precipitation",
-                value: matchupData[F.WX4] || "-"
+        // Extract time values and weather conditions
+        const weatherData = [];
+        
+        // Parse weather fields - extract time and conditions
+        if (matchupData[F.WX1]) {
+            const parts = matchupData[F.WX1].split(' - ');
+            if (parts.length >= 2) {
+                weatherData.push({
+                    time: parts[0] || '-',
+                    conditions: parts.slice(1).join(' - ') || '-'
+                });
             }
-        ];
+        }
+        
+        if (matchupData[F.WX2]) {
+            const parts = matchupData[F.WX2].split(' - ');
+            if (parts.length >= 2) {
+                weatherData.push({
+                    time: parts[0] || '-',
+                    conditions: parts.slice(1).join(' - ') || '-'
+                });
+            }
+        }
+        
+        if (matchupData[F.WX3]) {
+            const parts = matchupData[F.WX3].split(' - ');
+            if (parts.length >= 2) {
+                weatherData.push({
+                    time: parts[0] || '-',
+                    conditions: parts.slice(1).join(' - ') || '-'
+                });
+            }
+        }
+        
+        if (matchupData[F.WX4]) {
+            const parts = matchupData[F.WX4].split(' - ');
+            if (parts.length >= 2) {
+                weatherData.push({
+                    time: parts[0] || '-',
+                    conditions: parts.slice(1).join(' - ') || '-'
+                });
+            }
+        }
         
         new Tabulator(tableContainer, {
             layout: "fitColumns",
@@ -493,25 +579,26 @@ export class MatchupsTable extends BaseTable {
             resizableColumns: false,
             data: weatherData,
             columns: [
-                { title: "Condition", field: "condition", widthGrow: 1, resizable: false },
-                { title: "Value", field: "value", widthGrow: 2, resizable: false }
+                { title: "Time", field: "time", widthGrow: 1, resizable: false },
+                { title: "Weather Conditions", field: "conditions", widthGrow: 3, resizable: false }
             ]
         });
     }
     
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
+        const self = this;
         
         // Add title
         const title = document.createElement("h4");
-        title.textContent = "Starting Pitchers";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center;";
+        title.textContent = "Opposing Starting Pitcher";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
         container.appendChild(title);
         
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process data to group by split
+        // Process and sort data
         const processedData = this.processPlayerData(pitchersData, 'pitcher');
         
         const pitchersTable = new Tabulator(tableContainer, {
@@ -533,40 +620,55 @@ export class MatchupsTable extends BaseTable {
                         if (data._isParent) {
                             return `<strong>${data[F.P_NAME]}</strong>`;
                         }
-                        return data[F.P_SPLIT] || data[F.P_NAME];
+                        return this.formatSplitName(data[F.P_SPLIT] || data[F.P_NAME]);
                     }
                 },
                 { title: "TBF", field: F.P_TBF, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "H/TBF", field: F.P_H_TBF, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { 
+                    title: "H/TBF", 
+                    field: F.P_H_TBF, 
+                    widthGrow: 0.7, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    formatter: (cell) => this.formatRatio(cell.getValue())
+                },
                 { title: "H", field: F.P_H, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "1B", field: F.P_1B, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "2B", field: F.P_2B, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "3B", field: F.P_3B, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "HR", field: F.P_HR, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "R", field: F.P_R, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "ERA", field: F.P_ERA, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { 
+                    title: "ERA", 
+                    field: F.P_ERA, 
+                    widthGrow: 0.7, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    formatter: (cell) => this.formatERA(cell.getValue())
+                },
                 { title: "BB", field: F.P_BB, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "SO", field: F.P_SO, widthGrow: 0.5, hozAlign: "center", resizable: false }
             ]
         });
         
-        // Store table reference for state management
-        this.storeSubtableReference(gameId, 'pitchers', pitchersTable);
+        // Track expansion state
+        this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
     }
     
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
+        const self = this;
         
         // Add title
         const title = document.createElement("h4");
         title.textContent = "Batters";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center;";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
         container.appendChild(title);
         
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process data to group by batter
+        // Process and sort data
         const processedData = this.processPlayerData(battersData, 'batter');
         
         const battersTable = new Tabulator(tableContainer, {
@@ -588,11 +690,18 @@ export class MatchupsTable extends BaseTable {
                         if (data._isParent) {
                             return `<strong>${data[F.B_NAME]}</strong>`;
                         }
-                        return data[F.B_SPLIT] || data[F.B_NAME];
+                        return this.formatSplitName(data[F.B_SPLIT] || data[F.B_NAME]);
                     }
                 },
                 { title: "PA", field: F.B_PA, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "H/PA", field: F.B_H_PA, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { 
+                    title: "H/PA", 
+                    field: F.B_H_PA, 
+                    widthGrow: 0.7, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    formatter: (cell) => this.formatRatio(cell.getValue())
+                },
                 { title: "H", field: F.B_H, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "1B", field: F.B_1B, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "2B", field: F.B_2B, widthGrow: 0.5, hozAlign: "center", resizable: false },
@@ -605,61 +714,78 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // Store table reference for state management
-        this.storeSubtableReference(gameId, 'batters', battersTable);
+        // Track expansion state
+        this.trackSubtableExpansion(gameId, 'batters', battersTable);
     }
     
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
+        const self = this;
         
         // Add title
         const title = document.createElement("h4");
-        title.textContent = "Bullpen";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center;";
+        title.textContent = "Opposing Bullpen";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
         container.appendChild(title);
         
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process and add totals row
-        const processedData = this.processBullpenData(bullpenData);
+        // Process bullpen data into groups
+        const processedData = this.processBullpenDataGrouped(bullpenData);
         
         const bullpenTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
             data: processedData,
+            dataTree: true,
+            dataTreeChildField: "_children",
+            dataTreeStartExpanded: false,
             columns: [
                 { 
-                    title: "Group", 
+                    title: "Bullpen Group", 
                     field: F.BP_HAND_CNT, 
                     widthGrow: 1.5,
                     resizable: false,
                     formatter: (cell) => {
                         const data = cell.getData();
-                        if (data._isTotal) {
+                        if (data._isGroup) {
                             return `<strong>${data[F.BP_HAND_CNT]}</strong>`;
                         }
-                        return data[F.BP_HAND_CNT];
+                        return this.formatSplitName(data[F.BP_SPLIT] || '');
                     }
                 },
-                { title: "Split", field: F.BP_SPLIT, widthGrow: 1, resizable: false },
                 { title: "TBF", field: F.BP_TBF, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "H/TBF", field: F.BP_H_TBF, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { 
+                    title: "H/TBF", 
+                    field: F.BP_H_TBF, 
+                    widthGrow: 0.7, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    formatter: (cell) => this.formatRatio(cell.getValue())
+                },
                 { title: "H", field: F.BP_H, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "1B", field: F.BP_1B, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "2B", field: F.BP_2B, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "3B", field: F.BP_3B, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "HR", field: F.BP_HR, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "R", field: F.BP_R, widthGrow: 0.5, hozAlign: "center", resizable: false },
-                { title: "ERA", field: F.BP_ERA, widthGrow: 0.7, hozAlign: "center", resizable: false },
+                { 
+                    title: "ERA", 
+                    field: F.BP_ERA, 
+                    widthGrow: 0.7, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    formatter: (cell) => this.formatERA(cell.getValue())
+                },
                 { title: "BB", field: F.BP_BB, widthGrow: 0.5, hozAlign: "center", resizable: false },
                 { title: "SO", field: F.BP_SO, widthGrow: 0.5, hozAlign: "center", resizable: false }
             ]
         });
         
-        // Store table reference for state management
-        this.storeSubtableReference(gameId, 'bullpen', bullpenTable);
+        // Track expansion state
+        this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
     }
     
     processPlayerData(data, type) {
@@ -681,9 +807,10 @@ export class MatchupsTable extends BaseTable {
                 };
             }
             
-            // Check if this is the full season row (usually has specific split ID pattern)
+            // Check split type
             const splitId = row[splitField];
-            if (splitId && (splitId.includes('Full') || splitId.includes('Season') || splitId === 'Total')) {
+            if (splitId && !splitId.includes('vs') && !splitId.includes('@')) {
+                // This is likely the parent row (full season)
                 grouped[name].parent = { ...row, _isParent: true };
             } else {
                 grouped[name].children.push(row);
@@ -695,7 +822,24 @@ export class MatchupsTable extends BaseTable {
         
         Object.values(grouped).forEach(group => {
             if (group.parent) {
-                // Use parent as main row with children
+                // Sort children: R before L, non-@ before @
+                group.children.sort((a, b) => {
+                    const splitA = a[splitField] || '';
+                    const splitB = b[splitField] || '';
+                    
+                    // Priority order
+                    const getPriority = (split) => {
+                        if (split.includes('vs R') && !split.includes('@')) return 0;
+                        if (split.includes('vs L') && !split.includes('@')) return 1;
+                        if (split.includes('@ ') || split.includes('at Home')) return 2;
+                        if (split.includes('vs R') && split.includes('@')) return 3;
+                        if (split.includes('vs L') && split.includes('@')) return 4;
+                        return 5;
+                    };
+                    
+                    return getPriority(splitA) - getPriority(splitB);
+                });
+                
                 group.parent._children = group.children;
                 result.push(group.parent);
             } else if (group.children.length > 0) {
@@ -709,16 +853,75 @@ export class MatchupsTable extends BaseTable {
         return result;
     }
     
-    processBullpenData(data) {
+    processBullpenDataGrouped(data) {
         if (!data || !data.length) return [];
         
         const F = this.F;
-        const processed = [...data];
         
-        // Calculate totals
-        const totals = {
-            [F.BP_HAND_CNT]: 'Total',
-            [F.BP_SPLIT]: '—',
+        // Separate into righties and lefties
+        const righties = [];
+        const lefties = [];
+        
+        data.forEach(row => {
+            const handCnt = row[F.BP_HAND_CNT] || '';
+            if (handCnt.includes('R')) {
+                righties.push(row);
+            } else if (handCnt.includes('L')) {
+                lefties.push(row);
+            }
+        });
+        
+        const result = [];
+        
+        // Create Righties group
+        if (righties.length > 0) {
+            // Count unique pitchers (number in parentheses)
+            const rightCount = new Set(righties.map(r => {
+                const match = (r[F.BP_HAND_CNT] || '').match(/\((\d+)\)/);
+                return match ? match[1] : '';
+            })).size;
+            
+            const rightGroup = {
+                [F.BP_HAND_CNT]: `Righties (${rightCount})`,
+                _isGroup: true,
+                _children: righties.map(r => ({
+                    ...r,
+                    [F.BP_SPLIT]: this.formatSplitName(r[F.BP_SPLIT] || '')
+                }))
+            };
+            
+            // Calculate totals for the group
+            this.calculateGroupTotals(rightGroup, righties, F);
+            result.push(rightGroup);
+        }
+        
+        // Create Lefties group
+        if (lefties.length > 0) {
+            const leftCount = new Set(lefties.map(r => {
+                const match = (r[F.BP_HAND_CNT] || '').match(/\((\d+)\)/);
+                return match ? match[1] : '';
+            })).size;
+            
+            const leftGroup = {
+                [F.BP_HAND_CNT]: `Lefties (${leftCount})`,
+                _isGroup: true,
+                _children: lefties.map(r => ({
+                    ...r,
+                    [F.BP_SPLIT]: this.formatSplitName(r[F.BP_SPLIT] || '')
+                }))
+            };
+            
+            // Calculate totals for the group
+            this.calculateGroupTotals(leftGroup, lefties, F);
+            result.push(leftGroup);
+        }
+        
+        return result;
+    }
+    
+    calculateGroupTotals(group, rows, F) {
+        // Calculate totals for the group row
+        let totals = {
             [F.BP_TBF]: 0,
             [F.BP_H]: 0,
             [F.BP_1B]: 0,
@@ -727,11 +930,10 @@ export class MatchupsTable extends BaseTable {
             [F.BP_HR]: 0,
             [F.BP_R]: 0,
             [F.BP_BB]: 0,
-            [F.BP_SO]: 0,
-            _isTotal: true
+            [F.BP_SO]: 0
         };
         
-        data.forEach(row => {
+        rows.forEach(row => {
             totals[F.BP_TBF] += parseFloat(row[F.BP_TBF] || 0);
             totals[F.BP_H] += parseFloat(row[F.BP_H] || 0);
             totals[F.BP_1B] += parseFloat(row[F.BP_1B] || 0);
@@ -745,41 +947,82 @@ export class MatchupsTable extends BaseTable {
         
         // Calculate weighted H/TBF
         if (totals[F.BP_TBF] > 0) {
-            const weightedHTBF = data.reduce((sum, row) => {
+            const weightedHTBF = rows.reduce((sum, row) => {
                 const htbf = parseFloat(row[F.BP_H_TBF] || 0);
                 const tbf = parseFloat(row[F.BP_TBF] || 0);
                 return sum + (htbf * tbf);
             }, 0) / totals[F.BP_TBF];
             
-            totals[F.BP_H_TBF] = weightedHTBF.toFixed(3);
+            totals[F.BP_H_TBF] = weightedHTBF;
         }
         
-        // Calculate ERA if applicable
+        // Calculate ERA
         if (totals[F.BP_R] > 0 && totals[F.BP_TBF] > 0) {
             const innings = totals[F.BP_TBF] / 3; // Approximate
-            totals[F.BP_ERA] = ((totals[F.BP_R] * 9) / innings).toFixed(2);
+            totals[F.BP_ERA] = (totals[F.BP_R] * 9) / innings;
         }
         
-        processed.push(totals);
-        return processed;
+        // Apply totals to group
+        Object.assign(group, totals);
     }
     
-    storeSubtableReference(gameId, tableType, table) {
+    trackSubtableExpansion(gameId, tableType, table) {
         const key = `${gameId}_${tableType}`;
-        if (!this.expandedPlayerRows.has(key)) {
-            this.expandedPlayerRows.set(key, new Set());
-        }
         
         // Track expanded state for nested rows
         table.on('dataTreeRowExpanded', (row) => {
-            const expandedSet = this.expandedPlayerRows.get(key);
-            expandedSet.add(row.getIndex());
+            if (!this.expandedSubtableRows.has(gameId)) {
+                this.expandedSubtableRows.set(gameId, new Set());
+            }
+            const expandedSet = this.expandedSubtableRows.get(gameId);
+            expandedSet.add(`${tableType}_${row.getIndex()}`);
+            
+            // Update global state
+            const globalState = this.getGlobalState();
+            const mainRowId = `matchup_${gameId}`;
+            if (globalState.has(mainRowId)) {
+                const state = globalState.get(mainRowId);
+                state.expandedSubrows = Array.from(expandedSet);
+                globalState.set(mainRowId, state);
+                this.setGlobalState(globalState);
+            }
         });
         
         table.on('dataTreeRowCollapsed', (row) => {
-            const expandedSet = this.expandedPlayerRows.get(key);
-            expandedSet.delete(row.getIndex());
+            const expandedSet = this.expandedSubtableRows.get(gameId);
+            if (expandedSet) {
+                expandedSet.delete(`${tableType}_${row.getIndex()}`);
+                
+                // Update global state
+                const globalState = this.getGlobalState();
+                const mainRowId = `matchup_${gameId}`;
+                if (globalState.has(mainRowId)) {
+                    const state = globalState.get(mainRowId);
+                    state.expandedSubrows = Array.from(expandedSet);
+                    globalState.set(mainRowId, state);
+                    this.setGlobalState(globalState);
+                }
+            }
         });
+    }
+    
+    restoreSubtableExpandedState(gameId) {
+        // Get expanded state from global state
+        const globalState = this.getGlobalState();
+        const mainRowId = `matchup_${gameId}`;
+        
+        if (globalState.has(mainRowId)) {
+            const state = globalState.get(mainRowId);
+            if (state.expandedSubrows && state.expandedSubrows.length > 0) {
+                // Store for later restoration
+                if (!this.expandedSubtableRows.has(gameId)) {
+                    this.expandedSubtableRows.set(gameId, new Set(state.expandedSubrows));
+                }
+                
+                // The actual expansion will happen when the tables are created
+                // and the dataTree rows are available
+            }
+        }
     }
     
     // Override methods from BaseTable that need special handling
@@ -792,7 +1035,8 @@ export class MatchupsTable extends BaseTable {
         this.table.on("cellClick", (e, cell) => {
             const field = cell.getField();
             
-            if (field === "_expanded" || field === this.F.TEAM) {
+            // Allow full cell click on Team column for expand/collapse
+            if (field === this.F.TEAM) {
                 e.preventDefault();
                 e.stopPropagation();
                 
@@ -803,5 +1047,6 @@ export class MatchupsTable extends BaseTable {
     }
 }
 
-// Default export for compatibility with different import styles
+// Default export for compatibility
 export default MatchupsTable;
+export { MatchupsTable };
