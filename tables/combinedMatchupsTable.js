@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FULLY FIXED VERSION
+// tables/combinedMatchupsTable.js - FULLY FIXED VERSION WITH ALL CHANGES
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -133,7 +133,7 @@ export class MatchupsTable extends BaseTable {
         
         this.table = new Tabulator(this.elementId, config);
         
-        // FIX #6: Use the base class setupRowExpansion for proper state management
+        // Use the base class setupRowExpansion for proper state management
         this.setupRowExpansion();
         
         this.table.on("tableBuilt", () => {
@@ -146,12 +146,12 @@ export class MatchupsTable extends BaseTable {
         
         return [
             {
-                // FIX #1: Make the entire Team column clickable like other tables
                 title: "Team",
                 field: F.TEAM,
                 widthGrow: 1,
                 resizable: false,
-                formatter: this.createNameFormatter()  // Use the same formatter as other tables
+                formatter: this.createNameFormatter(),
+                headerFilter: createCustomMultiSelect  // ADD FILTER
             },
             {
                 title: "Game", 
@@ -210,6 +210,18 @@ export class MatchupsTable extends BaseTable {
         } else {
             return id - 1; // 12 -> 11, 22 -> 21
         }
+    }
+    
+    determineLocation(gameId) {
+        // Game IDs ending in 1 are home games, ending in 2 are away games
+        const id = parseInt(gameId);
+        return (id % 10 === 1) ? 'At Home' : 'Away';
+    }
+    
+    determineOpposingLocation(gameId) {
+        // Opposite of regular location
+        const id = parseInt(gameId);
+        return (id % 10 === 1) ? 'Away' : 'At Home';
     }
     
     async createMatchupSubtables(row, data) {
@@ -373,59 +385,99 @@ export class MatchupsTable extends BaseTable {
         return num.toFixed(2);
     }
     
-    formatSplitName(split) {
-        const splitMappings = {
-            'Season': 'Full Season',
-            'Last 30': 'Last 30 Days',
-            'Last 14': 'Last 14 Days',
-            'Last 7': 'Last 7 Days',
-            'Home': 'Home',
-            'Away': 'Away',
-            'vs R': 'vs Righties',
-            'vs L': 'vs Lefties'
-        };
-        return splitMappings[split] || split;
+    formatSplitName(split, location) {
+        if (!split) return '';
+        
+        let formatted = split;
+        
+        // Replace single letters with full words
+        if (formatted === 'R' || formatted === 'L') {
+            formatted = `vs ${formatted}`;
+        }
+        
+        // Replace vs R/L with full words
+        formatted = formatted.replace(/\bvs R\b/g, 'vs Righties');
+        formatted = formatted.replace(/\bvs L\b/g, 'vs Lefties');
+        
+        // Handle @ replacements with location
+        if (formatted.includes('@')) {
+            // Replace @ with the actual location
+            formatted = formatted.replace(/@/g, location || 'Away');
+            
+            // Clean up any resulting duplicates
+            if (formatted === 'Season Away' || formatted === 'Season At Home') {
+                formatted = `Full Season ${location}`;
+            } else if (formatted === 'vs Righties Away' || formatted === 'vs Righties At Home') {
+                formatted = `vs Righties ${location}`;
+            } else if (formatted === 'vs Lefties Away' || formatted === 'vs Lefties At Home') {
+                formatted = `vs Lefties ${location}`;
+            }
+        }
+        
+        // Map common base values
+        if (formatted === 'Season') {
+            formatted = 'Full Season';
+        } else if (formatted === 'Last 30') {
+            formatted = 'Last 30 Days';
+        } else if (formatted === 'Last 14') {
+            formatted = 'Last 14 Days';
+        } else if (formatted === 'Last 7') {
+            formatted = 'Last 7 Days';
+        }
+        
+        return formatted;
     }
     
     createParkFactorsTable(container, parkData, matchupData) {
         const F = this.F;
         
-        // Add title
+        // Get stadium name from matchup data, removing "(Retractable Roof)" if present
+        let stadiumName = matchupData[F.PARK] || "Stadium";
+        stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
+        
+        // Add title with stadium name
         const title = document.createElement("h4");
-        title.textContent = "Park Factors";
+        title.textContent = `${stadiumName} Park Factors`;
         title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
         container.appendChild(title);
         
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process park factor data
-        const processedData = parkData.map(row => ({
+        // Process and sort park data - Ensure correct order (All, Right, Left)
+        const processedData = (parkData || []).map(row => ({
             ...row,
-            [F.PF_SPLIT]: this.formatSplitName(row[F.PF_SPLIT] || '')
-        }));
+            [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
+                         row[F.PF_SPLIT] === 'R' ? 'Right' : 
+                         row[F.PF_SPLIT] === 'L' ? 'Left' : 
+                         row[F.PF_SPLIT]
+        })).sort((a, b) => {
+            const order = {'All': 0, 'Right': 1, 'Left': 2};
+            return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
+        });
         
-        // FIX #2: Adjust column widths for Park Factors table
         new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
+            headerSort: false,  // Disable sorting on subtables
             data: processedData,
             columns: [
                 { 
                     title: "Split", 
                     field: F.PF_SPLIT, 
-                    widthGrow: 1,  // Reduced from 1.5 to make room
-                    resizable: false 
+                    widthGrow: 1,
+                    resizable: false,
+                    headerSort: false 
                 },
-                { title: "H", field: F.PF_H, width: 45, hozAlign: "center", resizable: false },
-                { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center", resizable: false },
-                { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center", resizable: false },
-                { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center", resizable: false },
-                { title: "HR", field: F.PF_HR, width: 45, hozAlign: "center", resizable: false },
-                { title: "R", field: F.PF_R, width: 45, hozAlign: "center", resizable: false },
-                { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center", resizable: false },
-                { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center", resizable: false }
+                { title: "H", field: F.PF_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.PF_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.PF_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
         });
     }
@@ -443,7 +495,7 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // FIX #3: Parse weather fields correctly - extract time and conditions
+        // Parse weather fields correctly - only time in Time column
         const weatherData = [];
         
         const weatherFields = [F.WX1, F.WX2, F.WX3, F.WX4];
@@ -453,13 +505,20 @@ export class MatchupsTable extends BaseTable {
                 let time = '-';
                 let conditions = '-';
                 
-                // Parse format: "TIME/conditions/more/data"
+                // Parse format: "TIME/temperature/conditions/more/data"
                 const parts = fullText.split('/');
                 if (parts.length > 0) {
-                    // First part is the time
-                    time = parts[0].trim() || '-';
-                    // Rest is conditions
-                    conditions = parts.slice(1).join('/').trim() || '-';
+                    // First part is ONLY the time (e.g., "7:00 PM EST")
+                    const firstPart = parts[0].trim();
+                    // Check if this looks like a time
+                    if (firstPart.match(/\d{1,2}:\d{2}/) || firstPart.includes('PM') || firstPart.includes('AM')) {
+                        time = firstPart;
+                        // Everything else (including temperature) is conditions
+                        conditions = parts.slice(1).join('/').trim() || '-';
+                    } else {
+                        // If no clear time format, put everything in conditions
+                        conditions = fullText;
+                    }
                 }
                 
                 if (time !== '-' || conditions !== '-') {
@@ -477,10 +536,11 @@ export class MatchupsTable extends BaseTable {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
+            headerSort: false,  // Disable sorting on subtables
             data: weatherData,
             columns: [
-                { title: "Time", field: "time", widthGrow: 1, resizable: false },
-                { title: "Weather Conditions", field: "conditions", widthGrow: 3, resizable: false }
+                { title: "Time", field: "time", widthGrow: 1, resizable: false, headerSort: false },
+                { title: "Weather Conditions", field: "conditions", widthGrow: 3, resizable: false, headerSort: false }
             ]
         });
     }
@@ -488,6 +548,7 @@ export class MatchupsTable extends BaseTable {
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
         const self = this;
+        const location = this.determineOpposingLocation(gameId);
         
         // Add title
         const title = document.createElement("h4");
@@ -498,14 +559,14 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process pitcher data with proper ordering
-        const processedData = this.processPlayerData(pitchersData, 'pitcher');
+        // Process pitcher data with proper ordering and location
+        const processedData = this.processPlayerData(pitchersData, 'pitcher', gameId);
         
-        // FIX #5: Consistent column widths with other tables
         const pitchersTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
+            headerSort: false,  // Disable sorting on subtables
             data: processedData,
             dataTree: true,
             dataTreeChildField: "_children",
@@ -514,41 +575,44 @@ export class MatchupsTable extends BaseTable {
                 { 
                     title: "Name/Split", 
                     field: F.P_NAME, 
-                    widthGrow: 1.8,  // Consistent width
+                    widthGrow: 1.8,
                     resizable: false,
+                    headerSort: false,
                     formatter: (cell) => {
                         const data = cell.getData();
                         if (data._isParent) {
                             return `<strong>${data[F.P_NAME]}</strong>`;
                         }
-                        return this.formatSplitName(data[F.P_SPLIT] || '');
+                        return data[F.P_SPLIT] || '';
                     }
                 },
-                { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false },
+                { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "H/TBF", 
                     field: F.P_H_TBF, 
                     width: 70, 
                     hozAlign: "center", 
                     resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
-                { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false },
-                { title: "1B", field: F.P_1B, width: 45, hozAlign: "center", resizable: false },
-                { title: "2B", field: F.P_2B, width: 45, hozAlign: "center", resizable: false },
-                { title: "3B", field: F.P_3B, width: 45, hozAlign: "center", resizable: false },
-                { title: "HR", field: F.P_HR, width: 45, hozAlign: "center", resizable: false },
-                { title: "R", field: F.P_R, width: 45, hozAlign: "center", resizable: false },
+                { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.P_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.P_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.P_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.P_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.P_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "ERA", 
                     field: F.P_ERA, 
                     width: 60, 
                     hozAlign: "center", 
                     resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatERA(cell.getValue())
                 },
-                { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false },
-                { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false }
+                { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
         });
         
@@ -559,6 +623,7 @@ export class MatchupsTable extends BaseTable {
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
         const self = this;
+        const location = this.determineLocation(gameId);
         
         // Add title
         const title = document.createElement("h4");
@@ -569,14 +634,14 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Process batter data with proper ordering
-        const processedData = this.processPlayerData(battersData, 'batter');
+        // Process batter data with proper ordering and location
+        const processedData = this.processPlayerData(battersData, 'batter', gameId);
         
-        // FIX #5: Consistent column widths with other tables
         const battersTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
+            headerSort: false,  // Disable sorting on subtables
             data: processedData,
             dataTree: true,
             dataTreeChildField: "_children",
@@ -585,34 +650,36 @@ export class MatchupsTable extends BaseTable {
                 { 
                     title: "Name/Split", 
                     field: F.B_NAME, 
-                    widthGrow: 1.8,  // Consistent width
+                    widthGrow: 1.8,
                     resizable: false,
+                    headerSort: false,
                     formatter: (cell) => {
                         const data = cell.getData();
                         if (data._isParent) {
                             return `<strong>${data[F.B_NAME]}</strong>`;
                         }
-                        return this.formatSplitName(data[F.B_SPLIT] || '');
+                        return data[F.B_SPLIT] || '';
                     }
                 },
-                { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false },
+                { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "H/PA", 
                     field: F.B_H_PA, 
                     width: 70, 
                     hozAlign: "center", 
                     resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
-                { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false },
-                { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", resizable: false },
-                { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", resizable: false },
-                { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", resizable: false },
-                { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", resizable: false },
-                { title: "R", field: F.B_R, width: 45, hozAlign: "center", resizable: false },
-                { title: "RBI", field: F.B_RBI, width: 45, hozAlign: "center", resizable: false },
-                { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false },
-                { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false }
+                { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.B_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "RBI", field: F.B_RBI, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
         });
         
@@ -623,6 +690,7 @@ export class MatchupsTable extends BaseTable {
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
         const self = this;
+        const location = this.determineOpposingLocation(gameId);
         
         // Add title
         const title = document.createElement("h4");
@@ -633,7 +701,7 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // FIX #4: Handle empty bullpen data gracefully
+        // Handle empty bullpen data gracefully
         if (!bullpenData || bullpenData.length === 0) {
             const noDataMsg = document.createElement("div");
             noDataMsg.textContent = "No bullpen data available";
@@ -642,14 +710,14 @@ export class MatchupsTable extends BaseTable {
             return;
         }
         
-        // Process bullpen data into groups
-        const processedData = this.processBullpenDataGrouped(bullpenData);
+        // Process bullpen data into groups with correct pitcher counts
+        const processedData = this.processBullpenDataGrouped(bullpenData, location);
         
-        // FIX #5: Consistent column widths with other tables
         const bullpenTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
+            headerSort: false,  // Disable sorting on subtables
             data: processedData,
             dataTree: true,
             dataTreeChildField: "_children",
@@ -658,41 +726,44 @@ export class MatchupsTable extends BaseTable {
                 { 
                     title: "Bullpen Group", 
                     field: F.BP_HAND_CNT, 
-                    widthGrow: 1.8,  // Consistent width
+                    widthGrow: 1.8,
                     resizable: false,
+                    headerSort: false,
                     formatter: (cell) => {
                         const data = cell.getData();
                         if (data._isGroup) {
                             return `<strong>${data[F.BP_HAND_CNT]}</strong>`;
                         }
-                        return this.formatSplitName(data[F.BP_SPLIT] || '');
+                        return data[F.BP_SPLIT] || '';
                     }
                 },
-                { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false },
+                { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "H/TBF", 
                     field: F.BP_H_TBF, 
                     width: 70, 
                     hozAlign: "center", 
                     resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
-                { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false },
-                { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", resizable: false },
-                { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", resizable: false },
-                { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", resizable: false },
-                { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", resizable: false },
-                { title: "R", field: F.BP_R, width: 45, hozAlign: "center", resizable: false },
+                { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.BP_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "ERA", 
                     field: F.BP_ERA, 
                     width: 60, 
                     hozAlign: "center", 
                     resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatERA(cell.getValue())
                 },
-                { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false },
-                { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false }
+                { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
         });
         
@@ -700,15 +771,21 @@ export class MatchupsTable extends BaseTable {
         this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
     }
     
-    processPlayerData(data, type) {
+    processPlayerData(data, type, gameId) {
         if (!data || !data.length) return [];
         
         const F = this.F;
         const nameField = type === 'pitcher' ? F.P_NAME : F.B_NAME;
         const splitField = type === 'pitcher' ? F.P_SPLIT : F.B_SPLIT;
         
+        // Determine location for proper formatting
+        const location = type === 'pitcher' ? 
+                        this.determineOpposingLocation(gameId) : 
+                        this.determineLocation(gameId);
+        
         // Group by player name
         const grouped = {};
+        
         data.forEach(row => {
             const name = row[nameField];
             if (!grouped[name]) {
@@ -718,26 +795,70 @@ export class MatchupsTable extends BaseTable {
                 };
             }
             
-            if (row[splitField] === 'Season' || row[splitField] === 'Full Season') {
-                grouped[name].parent = row;
+            // Check split type
+            const splitId = row[splitField];
+            if (splitId === 'Season' || splitId === 'Full Season' || 
+                (!splitId.includes('vs') && !splitId.includes('@') && !splitId.includes('R') && !splitId.includes('L'))) {
+                // This is the parent row (full season)
+                grouped[name].parent = { ...row, _isParent: true };
             } else {
                 grouped[name].children.push(row);
             }
         });
         
-        // Build tree structure
+        // Build final data structure with correct ordering
         const result = [];
+        
         Object.values(grouped).forEach(group => {
             if (group.parent) {
-                const parent = { ...group.parent, _isParent: true };
-                if (group.children.length > 0) {
-                    parent._children = group.children;
-                }
-                result.push(parent);
+                // Sort children in correct order: vs R, vs L, Season @, vs R @, vs L @
+                group.children.sort((a, b) => {
+                    const splitA = a[splitField] || '';
+                    const splitB = b[splitField] || '';
+                    
+                    const getPriority = (split) => {
+                        // Check for basic patterns
+                        if (split === 'R' || split === 'vs R') return 1;
+                        if (split === 'L' || split === 'vs L') return 2;
+                        if (split === '@' || split === 'Season @') return 3;
+                        if (split === 'R @' || split === 'vs R @') return 4;
+                        if (split === 'L @' || split === 'vs L @') return 5;
+                        
+                        // Check for patterns with 'vs' and '@'
+                        const hasAt = split.includes('@');
+                        const hasR = split.includes('R') || split.includes('Right');
+                        const hasL = split.includes('L') || split.includes('Left');
+                        
+                        if (!hasAt) {
+                            if (hasR) return 1;
+                            if (hasL) return 2;
+                        } else {
+                            if (!hasR && !hasL) return 3; // Season @
+                            if (hasR) return 4;
+                            if (hasL) return 5;
+                        }
+                        
+                        return 6;
+                    };
+                    
+                    return getPriority(splitA) - getPriority(splitB);
+                });
+                
+                // Format split names for children
+                group.children = group.children.map(child => ({
+                    ...child,
+                    [splitField]: this.formatSplitName(child[splitField], location)
+                }));
+                
+                group.parent._children = group.children;
+                result.push(group.parent);
             } else if (group.children.length > 0) {
-                // If no parent (Season) row, use first child as parent
+                // No clear parent, use first child as parent
                 const parent = { ...group.children[0], _isParent: true };
-                parent._children = group.children.slice(1);
+                parent._children = group.children.slice(1).map(child => ({
+                    ...child,
+                    [splitField]: this.formatSplitName(child[splitField], location)
+                }));
                 result.push(parent);
             }
         });
@@ -745,7 +866,7 @@ export class MatchupsTable extends BaseTable {
         return result;
     }
     
-    processBullpenDataGrouped(data) {
+    processBullpenDataGrouped(data, location) {
         if (!data || !data.length) return [];
         
         const F = this.F;
@@ -765,24 +886,33 @@ export class MatchupsTable extends BaseTable {
         
         const result = [];
         
-        // Create Righties group
+        // Create Righties group with actual pitcher count
         if (righties.length > 0) {
-            // Extract unique pitcher numbers from the BP_HAND_CNT field
-            const uniqueRighties = new Set();
+            // Extract the actual number from the BP_HAND_CNT field
+            let rightCount = 0;
             righties.forEach(r => {
-                const match = (r[F.BP_HAND_CNT] || '').match(/\((\d+)\)/);
+                const handCnt = r[F.BP_HAND_CNT] || '';
+                // Extract number from format like "R (3)"
+                const match = handCnt.match(/\((\d+)\)/);
                 if (match) {
-                    uniqueRighties.add(match[1]);
+                    const num = parseInt(match[1]);
+                    if (num > rightCount) {
+                        rightCount = num;
+                    }
                 }
             });
-            const rightCount = uniqueRighties.size || 1;
+            
+            // If no number found, default to 1
+            if (rightCount === 0) {
+                rightCount = 1;
+            }
             
             const rightGroup = {
                 [F.BP_HAND_CNT]: `Righties (${rightCount})`,
                 _isGroup: true,
                 _children: righties.map(r => ({
                     ...r,
-                    [F.BP_SPLIT]: this.formatSplitName(r[F.BP_SPLIT] || '')
+                    [F.BP_SPLIT]: this.formatSplitName(r[F.BP_SPLIT] || '', location)
                 }))
             };
             
@@ -791,23 +921,32 @@ export class MatchupsTable extends BaseTable {
             result.push(rightGroup);
         }
         
-        // Create Lefties group
+        // Create Lefties group with actual pitcher count
         if (lefties.length > 0) {
-            const uniqueLefties = new Set();
-            lefties.forEach(r => {
-                const match = (r[F.BP_HAND_CNT] || '').match(/\((\d+)\)/);
+            let leftCount = 0;
+            lefties.forEach(l => {
+                const handCnt = l[F.BP_HAND_CNT] || '';
+                // Extract number from format like "L (2)"
+                const match = handCnt.match(/\((\d+)\)/);
                 if (match) {
-                    uniqueLefties.add(match[1]);
+                    const num = parseInt(match[1]);
+                    if (num > leftCount) {
+                        leftCount = num;
+                    }
                 }
             });
-            const leftCount = uniqueLefties.size || 1;
+            
+            // If no number found, default to 1
+            if (leftCount === 0) {
+                leftCount = 1;
+            }
             
             const leftGroup = {
                 [F.BP_HAND_CNT]: `Lefties (${leftCount})`,
                 _isGroup: true,
                 _children: lefties.map(l => ({
                     ...l,
-                    [F.BP_SPLIT]: this.formatSplitName(l[F.BP_SPLIT] || '')
+                    [F.BP_SPLIT]: this.formatSplitName(l[F.BP_SPLIT] || '', location)
                 }))
             };
             
