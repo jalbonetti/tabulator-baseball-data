@@ -1037,7 +1037,7 @@ export class MatchupsTable extends BaseTable {
     }
     
     restoreSubtableExpandedState(gameId) {
-        // This is called after subtables are created to restore any expanded states
-        // The actual restoration happens in trackSubtableExpansion
+        // Subtable expansion state is handled in trackSubtableExpansion
+        // This method is called after subtables are created for consistency
     }
 }
