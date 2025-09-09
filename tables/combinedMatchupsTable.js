@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FULLY FIXED VERSION WITH ALL CHANGES
+// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION WITH ALL CHANGES
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -147,11 +147,11 @@ export class MatchupsTable extends BaseTable {
         return [
             {
                 title: "Team",
-                field: F.TEAM,
+                field: "Matchup Team",  // Use exact field name for BaseTable compatibility
                 widthGrow: 1,
                 resizable: false,
-                formatter: this.createNameFormatter(),
-                headerFilter: createCustomMultiSelect  // ADD FILTER
+                formatter: this.createNameFormatter(),  // Makes it fully clickable
+                headerFilter: createCustomMultiSelect  // Add filter
             },
             {
                 title: "Game", 
@@ -182,6 +182,7 @@ export class MatchupsTable extends BaseTable {
         ];
     }
     
+    // FIX SCROLL: Use BaseTable's row formatter pattern
     createRowFormatter() {
         const self = this;
         
@@ -189,18 +190,50 @@ export class MatchupsTable extends BaseTable {
             const data = row.getData();
             const rowElement = row.getElement();
             
-            // Check if this row is expanded using BaseTable's state management
-            const rowId = self.generateRowId(data);
-            const globalState = self.getGlobalState();
-            const isExpanded = globalState.has(rowId) || data._expanded === true;
+            // Initialize _expanded if undefined
+            if (data._expanded === undefined) {
+                data._expanded = false;
+            }
             
-            // Restore subtables if expanded
-            if (isExpanded && !rowElement.querySelector('.subrow-container')) {
-                setTimeout(() => {
-                    self.createMatchupSubtables(row, data);
-                }, 100);
+            // Apply expanded class
+            if (data._expanded) {
+                rowElement.classList.add('row-expanded');
+            } else {
+                rowElement.classList.remove('row-expanded');
+            }
+            
+            // Create subtables if expanded and not already present
+            if (data._expanded) {
+                let existingSubrow = rowElement.querySelector('.subrow-container');
+                
+                if (!existingSubrow) {
+                    // Create subtables after a delay to ensure DOM is ready
+                    requestAnimationFrame(() => {
+                        self.createMatchupSubtables(row, data);
+                    });
+                }
+            } else {
+                // Remove subtables if collapsed
+                const existingSubrow = rowElement.querySelector('.subrow-container');
+                if (existingSubrow) {
+                    existingSubrow.remove();
+                }
             }
         };
+    }
+    
+    // Override from BaseTable for proper ID generation
+    generateRowId(data) {
+        if (data[this.F.MATCH_ID]) {
+            return `matchup_${data[this.F.MATCH_ID]}`;
+        }
+        return super.generateRowId(data);
+    }
+    
+    // Required override from BaseTable
+    createSubtable2(container, data) {
+        // Not used for matchups table
+        return;
     }
     
     getOpponentGameId(gameId) {
@@ -482,6 +515,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
+    // FIX WEATHER PARSING: Split on dash between time and temperature
     createWeatherTable(container, matchupData) {
         const F = this.F;
         
@@ -495,7 +529,7 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Parse weather fields correctly - only time in Time column
+        // Parse weather fields correctly - format: "9:00 PM EST – 80° / Clear Sky / 11 MPH Winds / 0% Rain"
         const weatherData = [];
         
         const weatherFields = [F.WX1, F.WX2, F.WX3, F.WX4];
@@ -505,20 +539,18 @@ export class MatchupsTable extends BaseTable {
                 let time = '-';
                 let conditions = '-';
                 
-                // Parse format: "TIME/temperature/conditions/more/data"
-                const parts = fullText.split('/');
-                if (parts.length > 0) {
-                    // First part is ONLY the time (e.g., "7:00 PM EST")
-                    const firstPart = parts[0].trim();
-                    // Check if this looks like a time
-                    if (firstPart.match(/\d{1,2}:\d{2}/) || firstPart.includes('PM') || firstPart.includes('AM')) {
-                        time = firstPart;
-                        // Everything else (including temperature) is conditions
-                        conditions = parts.slice(1).join('/').trim() || '-';
-                    } else {
-                        // If no clear time format, put everything in conditions
-                        conditions = fullText;
-                    }
+                // Look for the dash separator (could be – em dash or - regular dash)
+                if (fullText.includes('–')) {
+                    const parts = fullText.split('–');
+                    time = parts[0].trim();
+                    conditions = parts.slice(1).join('–').trim();
+                } else if (fullText.includes(' - ')) {
+                    const parts = fullText.split(' - ');
+                    time = parts[0].trim();
+                    conditions = parts.slice(1).join(' - ').trim();
+                } else {
+                    // No dash found, put everything in conditions
+                    conditions = fullText;
                 }
                 
                 if (time !== '-' || conditions !== '-') {
@@ -545,6 +577,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
+    // FIX CLICKABLE PLAYER NAMES: Add custom formatter with click handler
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
         const self = this;
@@ -566,7 +599,7 @@ export class MatchupsTable extends BaseTable {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
-            headerSort: false,  // Disable sorting on subtables
+            headerSort: false,
             data: processedData,
             dataTree: true,
             dataTreeChildField: "_children",
@@ -578,12 +611,46 @@ export class MatchupsTable extends BaseTable {
                     widthGrow: 1.8,
                     resizable: false,
                     headerSort: false,
-                    formatter: (cell) => {
+                    formatter: function(cell) {
                         const data = cell.getData();
+                        const row = cell.getRow();
+                        const isExpanded = row.getTreeParent() ? false : (row.getTreeChildren().length > 0 && row.getElement().classList.contains('tabulator-tree-level-0'));
+                        
                         if (data._isParent) {
-                            return `<strong>${data[F.P_NAME]}</strong>`;
+                            // Create clickable cell with expander
+                            const container = document.createElement('div');
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
+                            
+                            const expander = document.createElement('span');
+                            expander.className = 'row-expander';
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            const name = document.createElement('strong');
+                            name.textContent = data[F.P_NAME];
+                            
+                            container.appendChild(expander);
+                            container.appendChild(name);
+                            
+                            // Add click handler to entire cell
+                            container.onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                // Update expander after toggle
+                                setTimeout(() => {
+                                    const expanded = row.getTreeChildren().length > 0 && !row.getElement().classList.contains('tabulator-row-collapsed');
+                                    expander.textContent = expanded ? '−' : '+';
+                                }, 50);
+                            };
+                            
+                            return container;
+                        } else {
+                            // Child row - indented
+                            const container = document.createElement('div');
+                            container.style.marginLeft = '20px';
+                            container.textContent = data[F.P_SPLIT] || '';
+                            return container;
                         }
-                        return data[F.P_SPLIT] || '';
                     }
                 },
                 { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
@@ -620,6 +687,7 @@ export class MatchupsTable extends BaseTable {
         this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
     }
     
+    // FIX CLICKABLE PLAYER NAMES: Add custom formatter with click handler
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
         const self = this;
@@ -641,7 +709,7 @@ export class MatchupsTable extends BaseTable {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
-            headerSort: false,  // Disable sorting on subtables
+            headerSort: false,
             data: processedData,
             dataTree: true,
             dataTreeChildField: "_children",
@@ -653,12 +721,46 @@ export class MatchupsTable extends BaseTable {
                     widthGrow: 1.8,
                     resizable: false,
                     headerSort: false,
-                    formatter: (cell) => {
+                    formatter: function(cell) {
                         const data = cell.getData();
+                        const row = cell.getRow();
+                        const isExpanded = row.getTreeParent() ? false : (row.getTreeChildren().length > 0 && row.getElement().classList.contains('tabulator-tree-level-0'));
+                        
                         if (data._isParent) {
-                            return `<strong>${data[F.B_NAME]}</strong>`;
+                            // Create clickable cell with expander
+                            const container = document.createElement('div');
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
+                            
+                            const expander = document.createElement('span');
+                            expander.className = 'row-expander';
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            const name = document.createElement('strong');
+                            name.textContent = data[F.B_NAME];
+                            
+                            container.appendChild(expander);
+                            container.appendChild(name);
+                            
+                            // Add click handler to entire cell
+                            container.onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                // Update expander after toggle
+                                setTimeout(() => {
+                                    const expanded = row.getTreeChildren().length > 0 && !row.getElement().classList.contains('tabulator-row-collapsed');
+                                    expander.textContent = expanded ? '−' : '+';
+                                }, 50);
+                            };
+                            
+                            return container;
+                        } else {
+                            // Child row - indented
+                            const container = document.createElement('div');
+                            container.style.marginLeft = '20px';
+                            container.textContent = data[F.B_SPLIT] || '';
+                            return container;
                         }
-                        return data[F.B_SPLIT] || '';
                     }
                 },
                 { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
@@ -687,6 +789,7 @@ export class MatchupsTable extends BaseTable {
         this.trackSubtableExpansion(gameId, 'batters', battersTable);
     }
     
+    // FIX CLICKABLE PLAYER NAMES: Add custom formatter with click handler
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
         const self = this;
@@ -717,7 +820,7 @@ export class MatchupsTable extends BaseTable {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
-            headerSort: false,  // Disable sorting on subtables
+            headerSort: false,
             data: processedData,
             dataTree: true,
             dataTreeChildField: "_children",
@@ -729,12 +832,46 @@ export class MatchupsTable extends BaseTable {
                     widthGrow: 1.8,
                     resizable: false,
                     headerSort: false,
-                    formatter: (cell) => {
+                    formatter: function(cell) {
                         const data = cell.getData();
+                        const row = cell.getRow();
+                        const isExpanded = row.getTreeParent() ? false : (row.getTreeChildren().length > 0 && row.getElement().classList.contains('tabulator-tree-level-0'));
+                        
                         if (data._isGroup) {
-                            return `<strong>${data[F.BP_HAND_CNT]}</strong>`;
+                            // Create clickable cell with expander
+                            const container = document.createElement('div');
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
+                            
+                            const expander = document.createElement('span');
+                            expander.className = 'row-expander';
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            const name = document.createElement('strong');
+                            name.textContent = data[F.BP_HAND_CNT];
+                            
+                            container.appendChild(expander);
+                            container.appendChild(name);
+                            
+                            // Add click handler to entire cell
+                            container.onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                // Update expander after toggle
+                                setTimeout(() => {
+                                    const expanded = row.getTreeChildren().length > 0 && !row.getElement().classList.contains('tabulator-row-collapsed');
+                                    expander.textContent = expanded ? '−' : '+';
+                                }, 50);
+                            };
+                            
+                            return container;
+                        } else {
+                            // Child row - indented
+                            const container = document.createElement('div');
+                            container.style.marginLeft = '20px';
+                            container.textContent = data[F.BP_SPLIT] || '';
+                            return container;
                         }
-                        return data[F.BP_SPLIT] || '';
                     }
                 },
                 { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
@@ -1012,7 +1149,7 @@ export class MatchupsTable extends BaseTable {
                 const rows = table.getRows();
                 rows.forEach(row => {
                     const data = row.getData();
-                    if (data._isParent && expandedRows.has(JSON.stringify(data))) {
+                    if ((data._isParent || data._isGroup) && expandedRows.has(JSON.stringify(data))) {
                         row.treeExpand();
                     }
                 });
@@ -1038,6 +1175,5 @@ export class MatchupsTable extends BaseTable {
     
     restoreSubtableExpandedState(gameId) {
         // Subtable expansion state is handled in trackSubtableExpansion
-        // This method is called after subtables are created for consistency
     }
 }
