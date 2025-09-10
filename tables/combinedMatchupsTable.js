@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION WITH ALL CHANGES
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH SCROLL AND DUPLICATE ISSUES RESOLVED
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -182,7 +182,7 @@ export class MatchupsTable extends BaseTable {
         ];
     }
     
-    // FIX SCROLL: Use BaseTable's row formatter pattern
+    // FIX SCROLL: Preserve scroll position when creating/removing subtables
     createRowFormatter() {
         const self = this;
         
@@ -207,16 +207,34 @@ export class MatchupsTable extends BaseTable {
                 let existingSubrow = rowElement.querySelector('.subrow-container');
                 
                 if (!existingSubrow) {
+                    // FIX: Save scroll position before creating subtables
+                    const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                    
                     // Create subtables after a delay to ensure DOM is ready
                     requestAnimationFrame(() => {
-                        self.createMatchupSubtables(row, data);
+                        self.createMatchupSubtables(row, data).then(() => {
+                            // FIX: Restore scroll position after subtables are created
+                            if (tableHolder) {
+                                tableHolder.scrollTop = scrollTop;
+                            }
+                        });
                     });
                 }
             } else {
                 // Remove subtables if collapsed
                 const existingSubrow = rowElement.querySelector('.subrow-container');
                 if (existingSubrow) {
+                    // FIX: Save scroll position before removing
+                    const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                    
                     existingSubrow.remove();
+                    
+                    // FIX: Restore scroll position after removal
+                    if (tableHolder) {
+                        tableHolder.scrollTop = scrollTop;
+                    }
                 }
             }
         };
@@ -402,512 +420,7 @@ export class MatchupsTable extends BaseTable {
         }
     }
     
-    formatRatio(value) {
-        // Format to 3 decimal places, no leading zero
-        if (value == null || value === '') return '-';
-        const num = parseFloat(value);
-        if (isNaN(num)) return '-';
-        const formatted = num.toFixed(3);
-        return formatted.startsWith('0.') ? formatted.substring(1) : formatted;
-    }
-    
-    formatERA(value) {
-        if (value == null || value === '') return '-';
-        const num = parseFloat(value);
-        if (isNaN(num)) return '-';
-        return num.toFixed(2);
-    }
-    
-    formatSplitName(split, location) {
-        if (!split) return '';
-        
-        let formatted = split;
-        
-        // Replace single letters with full words
-        if (formatted === 'R' || formatted === 'L') {
-            formatted = `vs ${formatted}`;
-        }
-        
-        // Replace vs R/L with full words
-        formatted = formatted.replace(/\bvs R\b/g, 'vs Righties');
-        formatted = formatted.replace(/\bvs L\b/g, 'vs Lefties');
-        
-        // Handle @ replacements with location
-        if (formatted.includes('@')) {
-            // Replace @ with the actual location
-            formatted = formatted.replace(/@/g, location || 'Away');
-            
-            // Clean up any resulting duplicates
-            if (formatted === 'Season Away' || formatted === 'Season At Home') {
-                formatted = `Full Season ${location}`;
-            } else if (formatted === 'vs Righties Away' || formatted === 'vs Righties At Home') {
-                formatted = `vs Righties ${location}`;
-            } else if (formatted === 'vs Lefties Away' || formatted === 'vs Lefties At Home') {
-                formatted = `vs Lefties ${location}`;
-            }
-        }
-        
-        // Map common base values
-        if (formatted === 'Season') {
-            formatted = 'Full Season';
-        } else if (formatted === 'Last 30') {
-            formatted = 'Last 30 Days';
-        } else if (formatted === 'Last 14') {
-            formatted = 'Last 14 Days';
-        } else if (formatted === 'Last 7') {
-            formatted = 'Last 7 Days';
-        }
-        
-        return formatted;
-    }
-    
-    createParkFactorsTable(container, parkData, matchupData) {
-        const F = this.F;
-        
-        // Get stadium name from matchup data, removing "(Retractable Roof)" if present
-        let stadiumName = matchupData[F.PARK] || "Stadium";
-        stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
-        
-        // Add title with stadium name
-        const title = document.createElement("h4");
-        title.textContent = `${stadiumName} Park Factors`;
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process and sort park data - Ensure correct order (All, Right, Left)
-        const processedData = (parkData || []).map(row => ({
-            ...row,
-            [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
-                         row[F.PF_SPLIT] === 'R' ? 'Right' : 
-                         row[F.PF_SPLIT] === 'L' ? 'Left' : 
-                         row[F.PF_SPLIT]
-        })).sort((a, b) => {
-            const order = {'All': 0, 'Right': 1, 'Left': 2};
-            return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
-        });
-        
-        new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,  // Disable sorting on subtables
-            data: processedData,
-            columns: [
-                { 
-                    title: "Split", 
-                    field: F.PF_SPLIT, 
-                    widthGrow: 1,
-                    resizable: false,
-                    headerSort: false 
-                },
-                { title: "H", field: F.PF_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.PF_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.PF_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-    }
-    
-    // FIX WEATHER PARSING: Split on dash between time and temperature
-    createWeatherTable(container, matchupData) {
-        const F = this.F;
-        
-        // Add title
-        const title = document.createElement("h4");
-        const hasRoof = matchupData[F.PARK] && matchupData[F.PARK].includes("Retractable");
-        title.textContent = hasRoof ? "Weather Conditions (Retractable Roof)" : "Weather Conditions";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Parse weather fields correctly - format: "9:00 PM EST – 80° / Clear Sky / 11 MPH Winds / 0% Rain"
-        const weatherData = [];
-        
-        const weatherFields = [F.WX1, F.WX2, F.WX3, F.WX4];
-        weatherFields.forEach(field => {
-            if (matchupData[field]) {
-                const fullText = matchupData[field];
-                let time = '-';
-                let conditions = '-';
-                
-                // Look for the dash separator (could be – em dash or - regular dash)
-                if (fullText.includes('–')) {
-                    const parts = fullText.split('–');
-                    time = parts[0].trim();
-                    conditions = parts.slice(1).join('–').trim();
-                } else if (fullText.includes(' - ')) {
-                    const parts = fullText.split(' - ');
-                    time = parts[0].trim();
-                    conditions = parts.slice(1).join(' - ').trim();
-                } else {
-                    // No dash found, put everything in conditions
-                    conditions = fullText;
-                }
-                
-                if (time !== '-' || conditions !== '-') {
-                    weatherData.push({ time, conditions });
-                }
-            }
-        });
-        
-        // If no weather data found, add a placeholder row
-        if (weatherData.length === 0) {
-            weatherData.push({ time: '-', conditions: 'No weather data available' });
-        }
-        
-        new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,  // Disable sorting on subtables
-            data: weatherData,
-            columns: [
-                { title: "Time", field: "time", widthGrow: 1, resizable: false, headerSort: false },
-                { title: "Weather Conditions", field: "conditions", widthGrow: 3, resizable: false, headerSort: false }
-            ]
-        });
-    }
-    
-    // FIX CLICKABLE PLAYER NAMES: Add custom formatter with click handler
-    createPitchersTable(container, pitchersData, gameId) {
-        const F = this.F;
-        const self = this;
-        const location = this.determineOpposingLocation(gameId);
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Opposing Starting Pitcher";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process pitcher data with proper ordering and location
-        const processedData = this.processPlayerData(pitchersData, 'pitcher', gameId);
-        
-        const pitchersTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: processedData,
-            dataTree: true,
-            dataTreeChildField: "_children",
-            dataTreeStartExpanded: false,
-            columns: [
-                { 
-                    title: "Name/Split", 
-                    field: F.P_NAME, 
-                    widthGrow: 1.8,
-                    resizable: false,
-                    headerSort: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        const row = cell.getRow();
-                        const isExpanded = row.getTreeParent() ? false : (row.getTreeChildren().length > 0 && row.getElement().classList.contains('tabulator-tree-level-0'));
-                        
-                        if (data._isParent) {
-                            // Create clickable cell with expander
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            const expander = document.createElement('span');
-                            expander.className = 'row-expander';
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            const name = document.createElement('strong');
-                            name.textContent = data[F.P_NAME];
-                            
-                            container.appendChild(expander);
-                            container.appendChild(name);
-                            
-                            // Add click handler to entire cell
-                            container.onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                // Update expander after toggle
-                                setTimeout(() => {
-                                    const expanded = row.getTreeChildren().length > 0 && !row.getElement().classList.contains('tabulator-row-collapsed');
-                                    expander.textContent = expanded ? '−' : '+';
-                                }, 50);
-                            };
-                            
-                            return container;
-                        } else {
-                            // Child row - indented
-                            const container = document.createElement('div');
-                            container.style.marginLeft = '20px';
-                            container.textContent = data[F.P_SPLIT] || '';
-                            return container;
-                        }
-                    }
-                },
-                { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "H/TBF", 
-                    field: F.P_H_TBF, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.P_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.P_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.P_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.P_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.P_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "ERA", 
-                    field: F.P_ERA, 
-                    width: 60, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatERA(cell.getValue())
-                },
-                { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-        
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
-    }
-    
-    // FIX CLICKABLE PLAYER NAMES: Add custom formatter with click handler
-    createBattersTable(container, battersData, gameId) {
-        const F = this.F;
-        const self = this;
-        const location = this.determineLocation(gameId);
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Batters";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process batter data with proper ordering and location
-        const processedData = this.processPlayerData(battersData, 'batter', gameId);
-        
-        const battersTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: processedData,
-            dataTree: true,
-            dataTreeChildField: "_children",
-            dataTreeStartExpanded: false,
-            columns: [
-                { 
-                    title: "Name/Split", 
-                    field: F.B_NAME, 
-                    widthGrow: 1.8,
-                    resizable: false,
-                    headerSort: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        const row = cell.getRow();
-                        const isExpanded = row.getTreeParent() ? false : (row.getTreeChildren().length > 0 && row.getElement().classList.contains('tabulator-tree-level-0'));
-                        
-                        if (data._isParent) {
-                            // Create clickable cell with expander
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            const expander = document.createElement('span');
-                            expander.className = 'row-expander';
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            const name = document.createElement('strong');
-                            name.textContent = data[F.B_NAME];
-                            
-                            container.appendChild(expander);
-                            container.appendChild(name);
-                            
-                            // Add click handler to entire cell
-                            container.onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                // Update expander after toggle
-                                setTimeout(() => {
-                                    const expanded = row.getTreeChildren().length > 0 && !row.getElement().classList.contains('tabulator-row-collapsed');
-                                    expander.textContent = expanded ? '−' : '+';
-                                }, 50);
-                            };
-                            
-                            return container;
-                        } else {
-                            // Child row - indented
-                            const container = document.createElement('div');
-                            container.style.marginLeft = '20px';
-                            container.textContent = data[F.B_SPLIT] || '';
-                            return container;
-                        }
-                    }
-                },
-                { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "H/PA", 
-                    field: F.B_H_PA, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.B_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "RBI", field: F.B_RBI, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-        
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'batters', battersTable);
-    }
-    
-    // FIX CLICKABLE PLAYER NAMES: Add custom formatter with click handler
-    createBullpenTable(container, bullpenData, gameId) {
-        const F = this.F;
-        const self = this;
-        const location = this.determineOpposingLocation(gameId);
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Opposing Bullpen";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Handle empty bullpen data gracefully
-        if (!bullpenData || bullpenData.length === 0) {
-            const noDataMsg = document.createElement("div");
-            noDataMsg.textContent = "No bullpen data available";
-            noDataMsg.style.cssText = "text-align: center; padding: 20px; color: #666;";
-            tableContainer.appendChild(noDataMsg);
-            return;
-        }
-        
-        // Process bullpen data into groups with correct pitcher counts
-        const processedData = this.processBullpenDataGrouped(bullpenData, location);
-        
-        const bullpenTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: processedData,
-            dataTree: true,
-            dataTreeChildField: "_children",
-            dataTreeStartExpanded: false,
-            columns: [
-                { 
-                    title: "Bullpen Group", 
-                    field: F.BP_HAND_CNT, 
-                    widthGrow: 1.8,
-                    resizable: false,
-                    headerSort: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        const row = cell.getRow();
-                        const isExpanded = row.getTreeParent() ? false : (row.getTreeChildren().length > 0 && row.getElement().classList.contains('tabulator-tree-level-0'));
-                        
-                        if (data._isGroup) {
-                            // Create clickable cell with expander
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            const expander = document.createElement('span');
-                            expander.className = 'row-expander';
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            const name = document.createElement('strong');
-                            name.textContent = data[F.BP_HAND_CNT];
-                            
-                            container.appendChild(expander);
-                            container.appendChild(name);
-                            
-                            // Add click handler to entire cell
-                            container.onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                // Update expander after toggle
-                                setTimeout(() => {
-                                    const expanded = row.getTreeChildren().length > 0 && !row.getElement().classList.contains('tabulator-row-collapsed');
-                                    expander.textContent = expanded ? '−' : '+';
-                                }, 50);
-                            };
-                            
-                            return container;
-                        } else {
-                            // Child row - indented
-                            const container = document.createElement('div');
-                            container.style.marginLeft = '20px';
-                            container.textContent = data[F.BP_SPLIT] || '';
-                            return container;
-                        }
-                    }
-                },
-                { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "H/TBF", 
-                    field: F.BP_H_TBF, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.BP_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "ERA", 
-                    field: F.BP_ERA, 
-                    width: 60, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatERA(cell.getValue())
-                },
-                { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-        
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
-    }
-    
+    // Helper method to process player data
     processPlayerData(data, type, gameId) {
         if (!data || !data.length) return [];
         
@@ -1139,6 +652,477 @@ export class MatchupsTable extends BaseTable {
         Object.assign(group, totals);
     }
     
+    // Create park factors table
+    createParkFactorsTable(container, parkData, matchupData) {
+        const F = this.F;
+        
+        // Get stadium name from matchup data, removing "(Retractable Roof)" if present
+        let stadiumName = matchupData[F.PARK] || "Stadium";
+        stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
+        
+        // Add title with stadium name
+        const title = document.createElement("h4");
+        title.textContent = `${stadiumName} Park Factors`;
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+        container.appendChild(title);
+        
+        const tableContainer = document.createElement("div");
+        container.appendChild(tableContainer);
+        
+        // Process and sort park data - Ensure correct order (All, Right, Left)
+        const processedData = (parkData || []).map(row => ({
+            ...row,
+            [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
+                         row[F.PF_SPLIT] === 'R' ? 'Right' : 
+                         row[F.PF_SPLIT] === 'L' ? 'Left' : row[F.PF_SPLIT]
+        })).sort((a, b) => {
+            const order = ['All', 'Right', 'Left'];
+            return order.indexOf(a[F.PF_SPLIT]) - order.indexOf(b[F.PF_SPLIT]);
+        });
+        
+        new Tabulator(tableContainer, {
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false,
+            headerSort: false,
+            data: processedData,
+            columns: [
+                { title: "Split", field: F.PF_SPLIT, widthGrow: 1, resizable: false, headerSort: false },
+                { title: "H", field: F.PF_H, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.PF_1B, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.PF_2B, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.PF_3B, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.PF_HR, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.PF_R, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "BB", field: F.PF_BB, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.PF_SO, width: 50, hozAlign: "center", resizable: false, headerSort: false }
+            ]
+        });
+    }
+    
+    // Create weather conditions table
+    createWeatherTable(container, data) {
+        const F = this.F;
+        
+        // Add title
+        const title = document.createElement("h4");
+        title.textContent = "Weather Conditions";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+        container.appendChild(title);
+        
+        const tableContainer = document.createElement("div");
+        container.appendChild(tableContainer);
+        
+        // Prepare weather data
+        const weatherData = [
+            { time: "9:00 PM EST", conditions: data[F.WX1] || "N/A" },
+            { time: "10:00 PM EST", conditions: data[F.WX2] || "N/A" },
+            { time: "11:00 PM EST", conditions: data[F.WX3] || "N/A" },
+            { time: "12:00 AM EST", conditions: data[F.WX4] || "N/A" }
+        ];
+        
+        new Tabulator(tableContainer, {
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false,
+            headerSort: false,
+            data: weatherData,
+            columns: [
+                { title: "Time", field: "time", widthGrow: 1, resizable: false, headerSort: false },
+                { title: "Weather Conditions", field: "conditions", widthGrow: 2, resizable: false, headerSort: false }
+            ]
+        });
+    }
+    
+    // FIX: Simplified pitcher table without duplicate click handlers
+    createPitchersTable(container, pitchersData, gameId) {
+        const F = this.F;
+        const self = this;
+        const location = this.determineOpposingLocation(gameId);
+        
+        // Add title
+        const title = document.createElement("h4");
+        title.textContent = "Opposing Starting Pitcher";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+        container.appendChild(title);
+        
+        const tableContainer = document.createElement("div");
+        container.appendChild(tableContainer);
+        
+        // Process pitcher data with proper ordering and location
+        const processedData = this.processPlayerData(pitchersData, 'pitcher', gameId);
+        
+        const pitchersTable = new Tabulator(tableContainer, {
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false,
+            headerSort: false,
+            data: processedData,
+            dataTree: true,
+            dataTreeChildField: "_children",
+            dataTreeStartExpanded: false,
+            columns: [
+                { 
+                    title: "Name/Split", 
+                    field: F.P_NAME, 
+                    widthGrow: 1.8,
+                    resizable: false,
+                    headerSort: false,
+                    formatter: function(cell) {
+                        const data = cell.getData();
+                        const row = cell.getRow();
+                        const isExpanded = row.getTreeParent() ? false : row.isTreeExpanded();
+                        
+                        if (!row.getTreeParent()) {
+                            // Parent row - use single expander without duplicate click handler
+                            const container = document.createElement('div');
+                            container.style.display = 'flex';
+                            container.style.alignItems = 'center';
+                            container.style.cursor = 'pointer';
+                            
+                            const expander = document.createElement('span');
+                            expander.style.marginRight = '8px';
+                            expander.style.fontWeight = 'bold';
+                            expander.style.color = '#007bff';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            const name = document.createElement('strong');
+                            name.textContent = data[F.P_NAME];
+                            
+                            container.appendChild(expander);
+                            container.appendChild(name);
+                            
+                            return container;
+                        } else {
+                            // Child row - indented
+                            const container = document.createElement('div');
+                            container.style.marginLeft = '20px';
+                            container.textContent = data[F.P_SPLIT] || '';
+                            return container;
+                        }
+                    },
+                    cellClick: function(e, cell) {
+                        const row = cell.getRow();
+                        if (!row.getTreeParent()) {
+                            e.stopPropagation();
+                            row.treeToggle();
+                        }
+                    }
+                },
+                { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
+                { 
+                    title: "H/TBF", 
+                    field: F.P_H_TBF, 
+                    width: 70, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    headerSort: false,
+                    formatter: (cell) => this.formatRatio(cell.getValue())
+                },
+                { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.P_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.P_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.P_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.P_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.P_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { 
+                    title: "ERA", 
+                    field: F.P_ERA, 
+                    width: 60, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    headerSort: false,
+                    formatter: (cell) => this.formatERA(cell.getValue())
+                },
+                { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
+            ]
+        });
+        
+        // Track expansion state
+        this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
+    }
+    
+    // FIX: Simplified batter table without duplicate click handlers
+    createBattersTable(container, battersData, gameId) {
+        const F = this.F;
+        const self = this;
+        const location = this.determineLocation(gameId);
+        
+        // Add title
+        const title = document.createElement("h4");
+        title.textContent = "Batters";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+        container.appendChild(title);
+        
+        const tableContainer = document.createElement("div");
+        container.appendChild(tableContainer);
+        
+        // Process batter data with proper ordering and location
+        const processedData = this.processPlayerData(battersData, 'batter', gameId);
+        
+        const battersTable = new Tabulator(tableContainer, {
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false,
+            headerSort: false,
+            data: processedData,
+            dataTree: true,
+            dataTreeChildField: "_children",
+            dataTreeStartExpanded: false,
+            columns: [
+                { 
+                    title: "Name/Split", 
+                    field: F.B_NAME, 
+                    widthGrow: 1.8,
+                    resizable: false,
+                    headerSort: false,
+                    formatter: function(cell) {
+                        const data = cell.getData();
+                        const row = cell.getRow();
+                        const isExpanded = row.getTreeParent() ? false : row.isTreeExpanded();
+                        
+                        if (!row.getTreeParent()) {
+                            // Parent row - use single expander without duplicate click handler
+                            const container = document.createElement('div');
+                            container.style.display = 'flex';
+                            container.style.alignItems = 'center';
+                            container.style.cursor = 'pointer';
+                            
+                            const expander = document.createElement('span');
+                            expander.style.marginRight = '8px';
+                            expander.style.fontWeight = 'bold';
+                            expander.style.color = '#007bff';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            const name = document.createElement('strong');
+                            name.textContent = data[F.B_NAME];
+                            
+                            container.appendChild(expander);
+                            container.appendChild(name);
+                            
+                            return container;
+                        } else {
+                            // Child row - indented
+                            const container = document.createElement('div');
+                            container.style.marginLeft = '20px';
+                            container.textContent = data[F.B_SPLIT] || '';
+                            return container;
+                        }
+                    },
+                    cellClick: function(e, cell) {
+                        const row = cell.getRow();
+                        if (!row.getTreeParent()) {
+                            e.stopPropagation();
+                            row.treeToggle();
+                        }
+                    }
+                },
+                { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
+                { 
+                    title: "H/PA", 
+                    field: F.B_H_PA, 
+                    width: 70, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    headerSort: false,
+                    formatter: (cell) => this.formatRatio(cell.getValue())
+                },
+                { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.B_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "RBI", field: F.B_RBI, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
+            ]
+        });
+        
+        // Track expansion state
+        this.trackSubtableExpansion(gameId, 'batters', battersTable);
+    }
+    
+    // FIX: Simplified bullpen table without duplicate click handlers
+    createBullpenTable(container, bullpenData, gameId) {
+        const F = this.F;
+        const self = this;
+        const location = this.determineOpposingLocation(gameId);
+        
+        // Add title
+        const title = document.createElement("h4");
+        title.textContent = "Opposing Bullpen";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+        container.appendChild(title);
+        
+        const tableContainer = document.createElement("div");
+        container.appendChild(tableContainer);
+        
+        // Handle empty bullpen data gracefully
+        if (!bullpenData || bullpenData.length === 0) {
+            const noDataMsg = document.createElement("div");
+            noDataMsg.textContent = "No bullpen data available";
+            noDataMsg.style.cssText = "text-align: center; padding: 20px; color: #666;";
+            tableContainer.appendChild(noDataMsg);
+            return;
+        }
+        
+        // Process bullpen data into groups with correct pitcher counts
+        const processedData = this.processBullpenDataGrouped(bullpenData, location);
+        
+        const bullpenTable = new Tabulator(tableContainer, {
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false,
+            headerSort: false,
+            data: processedData,
+            dataTree: true,
+            dataTreeChildField: "_children",
+            dataTreeStartExpanded: false,
+            columns: [
+                { 
+                    title: "Bullpen Group", 
+                    field: F.BP_HAND_CNT, 
+                    widthGrow: 1.8,
+                    resizable: false,
+                    headerSort: false,
+                    formatter: function(cell) {
+                        const data = cell.getData();
+                        const row = cell.getRow();
+                        const isExpanded = row.getTreeParent() ? false : row.isTreeExpanded();
+                        
+                        if (!row.getTreeParent()) {
+                            // Parent row - use single expander without duplicate click handler
+                            const container = document.createElement('div');
+                            container.style.display = 'flex';
+                            container.style.alignItems = 'center';
+                            container.style.cursor = 'pointer';
+                            
+                            const expander = document.createElement('span');
+                            expander.style.marginRight = '8px';
+                            expander.style.fontWeight = 'bold';
+                            expander.style.color = '#007bff';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            const name = document.createElement('strong');
+                            name.textContent = data[F.BP_HAND_CNT];
+                            
+                            container.appendChild(expander);
+                            container.appendChild(name);
+                            
+                            return container;
+                        } else {
+                            // Child row - indented
+                            const container = document.createElement('div');
+                            container.style.marginLeft = '20px';
+                            container.textContent = data[F.BP_SPLIT] || '';
+                            return container;
+                        }
+                    },
+                    cellClick: function(e, cell) {
+                        const row = cell.getRow();
+                        if (!row.getTreeParent()) {
+                            e.stopPropagation();
+                            row.treeToggle();
+                        }
+                    }
+                },
+                { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
+                { 
+                    title: "H/TBF", 
+                    field: F.BP_H_TBF, 
+                    width: 70, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    headerSort: false,
+                    formatter: (cell) => this.formatRatio(cell.getValue())
+                },
+                { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.BP_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { 
+                    title: "ERA", 
+                    field: F.BP_ERA, 
+                    width: 60, 
+                    hozAlign: "center", 
+                    resizable: false,
+                    headerSort: false,
+                    formatter: (cell) => this.formatERA(cell.getValue())
+                },
+                { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
+            ]
+        });
+        
+        // Track expansion state
+        this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
+    }
+    
+    // Utility formatting methods
+    formatRatio(value) {
+        // Format to 3 decimal places, no leading zero
+        if (value == null || value === '') return '-';
+        const num = parseFloat(value);
+        if (isNaN(num)) return '-';
+        const formatted = num.toFixed(3);
+        return formatted.startsWith('0.') ? formatted.substring(1) : formatted;
+    }
+    
+    formatERA(value) {
+        if (value == null || value === '') return '-';
+        const num = parseFloat(value);
+        if (isNaN(num)) return '-';
+        return num.toFixed(2);
+    }
+    
+    formatSplitName(split, location) {
+        if (!split) return '';
+        
+        let formatted = split;
+        
+        // Replace single letters with full words
+        if (formatted === 'R' || formatted === 'L') {
+            formatted = `vs ${formatted}`;
+        }
+        
+        // Replace vs R/L with full words
+        formatted = formatted.replace(/\bvs R\b/g, 'vs Righties');
+        formatted = formatted.replace(/\bvs L\b/g, 'vs Lefties');
+        
+        // Handle @ replacements with location
+        if (formatted.includes('@')) {
+            // Replace @ with the actual location
+            formatted = formatted.replace(/@/g, location || 'Away');
+            
+            // Clean up any resulting duplicates
+            if (formatted === 'Season Away' || formatted === 'Season At Home') {
+                formatted = `Full Season ${location}`;
+            } else if (formatted === 'vs Righties Away' || formatted === 'vs Righties At Home') {
+                formatted = `vs Righties ${location}`;
+            } else if (formatted === 'vs Lefties Away' || formatted === 'vs Lefties At Home') {
+                formatted = `vs Lefties ${location}`;
+            }
+        }
+        
+        // Map common base values
+        if (formatted === 'Season') {
+            formatted = 'Full Season';
+        } else if (formatted === 'Last 30') {
+            formatted = 'Last 30 Days';
+        } else if (formatted === 'Last 14') {
+            formatted = 'Last 14 Days';
+        } else if (formatted === 'Last 7') {
+            formatted = 'Last 7 Days';
+        }
+        
+        return formatted;
+    }
+    
+    // Track subtable expansion state
     trackSubtableExpansion(gameId, tableType, table) {
         const key = `${gameId}_${tableType}`;
         
@@ -1175,5 +1159,12 @@ export class MatchupsTable extends BaseTable {
     
     restoreSubtableExpandedState(gameId) {
         // Subtable expansion state is handled in trackSubtableExpansion
+    }
+    
+    // Override destroy to clean up subtable cache
+    destroy() {
+        this.subtableDataCache.clear();
+        this.expandedSubtableRows.clear();
+        super.destroy();
     }
 }
