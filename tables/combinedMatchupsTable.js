@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION WITH SCROLL AND DUPLICATE ISSUES RESOLVED
+// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -182,7 +182,7 @@ export class MatchupsTable extends BaseTable {
         ];
     }
     
-    // FIX SCROLL: Preserve scroll position when creating/removing subtables
+    // FIX: Better scroll preservation with placeholder
     createRowFormatter() {
         const self = this;
         
@@ -207,17 +207,32 @@ export class MatchupsTable extends BaseTable {
                 let existingSubrow = rowElement.querySelector('.subrow-container');
                 
                 if (!existingSubrow) {
-                    // FIX: Save scroll position before creating subtables
+                    // FIX: Synchronous scroll position preservation
                     const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                    const scrollPosition = tableHolder ? tableHolder.scrollTop : 0;
                     
-                    // Create subtables after a delay to ensure DOM is ready
+                    // Create placeholder to maintain height
+                    const placeholder = document.createElement('div');
+                    placeholder.style.height = '400px'; // Approximate height of subtables
+                    placeholder.className = 'subrow-placeholder';
+                    rowElement.appendChild(placeholder);
+                    
+                    // Create subtables asynchronously
                     requestAnimationFrame(() => {
+                        // Remove placeholder
+                        const placeholderEl = rowElement.querySelector('.subrow-placeholder');
+                        if (placeholderEl) {
+                            placeholderEl.remove();
+                        }
+                        
+                        // Create actual subtables
                         self.createMatchupSubtables(row, data).then(() => {
-                            // FIX: Restore scroll position after subtables are created
-                            if (tableHolder) {
-                                tableHolder.scrollTop = scrollTop;
-                            }
+                            // Restore scroll position after a micro-task
+                            Promise.resolve().then(() => {
+                                if (tableHolder) {
+                                    tableHolder.scrollTop = scrollPosition;
+                                }
+                            });
                         });
                     });
                 }
@@ -225,16 +240,18 @@ export class MatchupsTable extends BaseTable {
                 // Remove subtables if collapsed
                 const existingSubrow = rowElement.querySelector('.subrow-container');
                 if (existingSubrow) {
-                    // FIX: Save scroll position before removing
+                    // FIX: Preserve scroll during removal
                     const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                    const scrollPosition = tableHolder ? tableHolder.scrollTop : 0;
                     
                     existingSubrow.remove();
                     
-                    // FIX: Restore scroll position after removal
-                    if (tableHolder) {
-                        tableHolder.scrollTop = scrollTop;
-                    }
+                    // Restore scroll position
+                    Promise.resolve().then(() => {
+                        if (tableHolder) {
+                            tableHolder.scrollTop = scrollPosition;
+                        }
+                    });
                 }
             }
         };
@@ -734,7 +751,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-    // FIX: Simplified pitcher table without duplicate click handlers
+    // FIX: Fixed pitcher table without duplicate click handlers
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
         const self = this;
@@ -761,6 +778,7 @@ export class MatchupsTable extends BaseTable {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
+            dataTreeElementColumn: false,  // FIX: Disable Tabulator's automatic tree control
             columns: [
                 { 
                     title: "Name/Split", 
@@ -771,19 +789,15 @@ export class MatchupsTable extends BaseTable {
                     formatter: function(cell) {
                         const data = cell.getData();
                         const row = cell.getRow();
-                        const isExpanded = row.getTreeParent() ? false : row.isTreeExpanded();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - use single expander without duplicate click handler
+                            // Parent row - create custom expander
+                            const isExpanded = row.isTreeExpanded();
                             const container = document.createElement('div');
-                            container.style.display = 'flex';
-                            container.style.alignItems = 'center';
-                            container.style.cursor = 'pointer';
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
                             
                             const expander = document.createElement('span');
-                            expander.style.marginRight = '8px';
-                            expander.style.fontWeight = 'bold';
-                            expander.style.color = '#007bff';
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
                             expander.textContent = isExpanded ? '−' : '+';
                             
                             const name = document.createElement('strong');
@@ -792,6 +806,13 @@ export class MatchupsTable extends BaseTable {
                             container.appendChild(expander);
                             container.appendChild(name);
                             
+                            // Single click handler on the whole cell
+                            container.onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
+                            };
+                            
                             return container;
                         } else {
                             // Child row - indented
@@ -799,13 +820,6 @@ export class MatchupsTable extends BaseTable {
                             container.style.marginLeft = '20px';
                             container.textContent = data[F.P_SPLIT] || '';
                             return container;
-                        }
-                    },
-                    cellClick: function(e, cell) {
-                        const row = cell.getRow();
-                        if (!row.getTreeParent()) {
-                            e.stopPropagation();
-                            row.treeToggle();
                         }
                     }
                 },
@@ -843,7 +857,7 @@ export class MatchupsTable extends BaseTable {
         this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
     }
     
-    // FIX: Simplified batter table without duplicate click handlers
+    // FIX: Fixed batter table without duplicate click handlers
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
         const self = this;
@@ -870,6 +884,7 @@ export class MatchupsTable extends BaseTable {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
+            dataTreeElementColumn: false,  // FIX: Disable Tabulator's automatic tree control
             columns: [
                 { 
                     title: "Name/Split", 
@@ -880,19 +895,15 @@ export class MatchupsTable extends BaseTable {
                     formatter: function(cell) {
                         const data = cell.getData();
                         const row = cell.getRow();
-                        const isExpanded = row.getTreeParent() ? false : row.isTreeExpanded();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - use single expander without duplicate click handler
+                            // Parent row - create custom expander
+                            const isExpanded = row.isTreeExpanded();
                             const container = document.createElement('div');
-                            container.style.display = 'flex';
-                            container.style.alignItems = 'center';
-                            container.style.cursor = 'pointer';
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
                             
                             const expander = document.createElement('span');
-                            expander.style.marginRight = '8px';
-                            expander.style.fontWeight = 'bold';
-                            expander.style.color = '#007bff';
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
                             expander.textContent = isExpanded ? '−' : '+';
                             
                             const name = document.createElement('strong');
@@ -901,6 +912,13 @@ export class MatchupsTable extends BaseTable {
                             container.appendChild(expander);
                             container.appendChild(name);
                             
+                            // Single click handler on the whole cell
+                            container.onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
+                            };
+                            
                             return container;
                         } else {
                             // Child row - indented
@@ -908,13 +926,6 @@ export class MatchupsTable extends BaseTable {
                             container.style.marginLeft = '20px';
                             container.textContent = data[F.B_SPLIT] || '';
                             return container;
-                        }
-                    },
-                    cellClick: function(e, cell) {
-                        const row = cell.getRow();
-                        if (!row.getTreeParent()) {
-                            e.stopPropagation();
-                            row.treeToggle();
                         }
                     }
                 },
@@ -944,7 +955,7 @@ export class MatchupsTable extends BaseTable {
         this.trackSubtableExpansion(gameId, 'batters', battersTable);
     }
     
-    // FIX: Simplified bullpen table without duplicate click handlers
+    // FIX: Fixed bullpen table without duplicate click handlers
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
         const self = this;
@@ -980,6 +991,7 @@ export class MatchupsTable extends BaseTable {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
+            dataTreeElementColumn: false,  // FIX: Disable Tabulator's automatic tree control
             columns: [
                 { 
                     title: "Bullpen Group", 
@@ -990,19 +1002,15 @@ export class MatchupsTable extends BaseTable {
                     formatter: function(cell) {
                         const data = cell.getData();
                         const row = cell.getRow();
-                        const isExpanded = row.getTreeParent() ? false : row.isTreeExpanded();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - use single expander without duplicate click handler
+                            // Parent row - create custom expander
+                            const isExpanded = row.isTreeExpanded();
                             const container = document.createElement('div');
-                            container.style.display = 'flex';
-                            container.style.alignItems = 'center';
-                            container.style.cursor = 'pointer';
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
                             
                             const expander = document.createElement('span');
-                            expander.style.marginRight = '8px';
-                            expander.style.fontWeight = 'bold';
-                            expander.style.color = '#007bff';
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
                             expander.textContent = isExpanded ? '−' : '+';
                             
                             const name = document.createElement('strong');
@@ -1011,6 +1019,13 @@ export class MatchupsTable extends BaseTable {
                             container.appendChild(expander);
                             container.appendChild(name);
                             
+                            // Single click handler on the whole cell
+                            container.onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
+                            };
+                            
                             return container;
                         } else {
                             // Child row - indented
@@ -1018,13 +1033,6 @@ export class MatchupsTable extends BaseTable {
                             container.style.marginLeft = '20px';
                             container.textContent = data[F.BP_SPLIT] || '';
                             return container;
-                        }
-                    },
-                    cellClick: function(e, cell) {
-                        const row = cell.getRow();
-                        if (!row.getTreeParent()) {
-                            e.stopPropagation();
-                            row.treeToggle();
                         }
                     }
                 },
