@@ -771,7 +771,7 @@ createWeatherTable(container, data) {
     });
 }
     
-    // FIX: Fixed pitcher table without duplicate click handlers
+    // FIXED: Pitcher table with single expandable row showing Name/Split in one column
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
         const self = this;
@@ -798,7 +798,7 @@ createWeatherTable(container, data) {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
-            dataTreeElementColumn: false,  // FIX: Disable Tabulator's automatic tree control
+            dataTreeElementColumn: "Name/Split",  // Use the column name for tree controls
             columns: [
                 { 
                     title: "Name/Split", 
@@ -811,35 +811,11 @@ createWeatherTable(container, data) {
                         const row = cell.getRow();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create custom expander
-                            const isExpanded = row.isTreeExpanded();
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            const expander = document.createElement('span');
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            const name = document.createElement('strong');
-                            name.textContent = data[F.P_NAME];
-                            
-                            container.appendChild(expander);
-                            container.appendChild(name);
-                            
-                            // Single click handler on the whole cell
-                            container.onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
-                            };
-                            
-                            return container;
+                            // Parent row - just show the name
+                            return `<strong>${data[F.P_NAME]}</strong>`;
                         } else {
-                            // Child row - indented
-                            const container = document.createElement('div');
-                            container.style.marginLeft = '20px';
-                            container.textContent = data[F.P_SPLIT] || '';
-                            return container;
+                            // Child row - show the split
+                            return data[F.P_SPLIT] || '';
                         }
                     }
                 },
@@ -877,7 +853,7 @@ createWeatherTable(container, data) {
         this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
     }
     
-    // FIX: Fixed batter table without duplicate click handlers
+    // FIXED: Batter table with single expandable row showing Name/Split in one column
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
         const self = this;
@@ -904,7 +880,7 @@ createWeatherTable(container, data) {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
-            dataTreeElementColumn: false,  // FIX: Disable Tabulator's automatic tree control
+            dataTreeElementColumn: "Name/Split",  // Use the column name for tree controls
             columns: [
                 { 
                     title: "Name/Split", 
@@ -917,35 +893,11 @@ createWeatherTable(container, data) {
                         const row = cell.getRow();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create custom expander
-                            const isExpanded = row.isTreeExpanded();
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            const expander = document.createElement('span');
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            const name = document.createElement('strong');
-                            name.textContent = data[F.B_NAME];
-                            
-                            container.appendChild(expander);
-                            container.appendChild(name);
-                            
-                            // Single click handler on the whole cell
-                            container.onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
-                            };
-                            
-                            return container;
+                            // Parent row - just show the name
+                            return `<strong>${data[F.B_NAME]}</strong>`;
                         } else {
-                            // Child row - indented
-                            const container = document.createElement('div');
-                            container.style.marginLeft = '20px';
-                            container.textContent = data[F.B_SPLIT] || '';
-                            return container;
+                            // Child row - show the split
+                            return data[F.B_SPLIT] || '';
                         }
                     }
                 },
@@ -975,7 +927,7 @@ createWeatherTable(container, data) {
         this.trackSubtableExpansion(gameId, 'batters', battersTable);
     }
     
-    // FIX: Fixed bullpen table without duplicate click handlers
+    // FIXED: Bullpen table with single expandable row showing Group/Split in one column
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
         const self = this;
@@ -1011,7 +963,7 @@ createWeatherTable(container, data) {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
-            dataTreeElementColumn: false,  // FIX: Disable Tabulator's automatic tree control
+            dataTreeElementColumn: "Bullpen Group",  // Use the column name for tree controls
             columns: [
                 { 
                     title: "Bullpen Group", 
@@ -1024,35 +976,11 @@ createWeatherTable(container, data) {
                         const row = cell.getRow();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create custom expander
-                            const isExpanded = row.isTreeExpanded();
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            const expander = document.createElement('span');
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            const name = document.createElement('strong');
-                            name.textContent = data[F.BP_HAND_CNT];
-                            
-                            container.appendChild(expander);
-                            container.appendChild(name);
-                            
-                            // Single click handler on the whole cell
-                            container.onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
-                            };
-                            
-                            return container;
+                            // Parent row - show the group name
+                            return `<strong>${data[F.BP_HAND_CNT]}</strong>`;
                         } else {
-                            // Child row - indented
-                            const container = document.createElement('div');
-                            container.style.marginLeft = '20px';
-                            container.textContent = data[F.BP_SPLIT] || '';
-                            return container;
+                            // Child row - show the split
+                            return data[F.BP_SPLIT] || '';
                         }
                     }
                 },
