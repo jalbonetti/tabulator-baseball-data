@@ -717,39 +717,59 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-    // Create weather conditions table
-    createWeatherTable(container, data) {
-        const F = this.F;
+// Create weather conditions table
+createWeatherTable(container, data) {
+    const F = this.F;
+    
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Weather Conditions";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Helper function to parse weather data
+    const parseWeatherData = (weatherString) => {
+        if (!weatherString || weatherString === "N/A") {
+            return { time: "N/A", conditions: "N/A" };
+        }
         
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Weather Conditions";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
+        // Split by the dash character (–)
+        const parts = weatherString.split('–');
         
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Prepare weather data
-        const weatherData = [
-            { time: "9:00 PM EST", conditions: data[F.WX1] || "N/A" },
-            { time: "10:00 PM EST", conditions: data[F.WX2] || "N/A" },
-            { time: "11:00 PM EST", conditions: data[F.WX3] || "N/A" },
-            { time: "12:00 AM EST", conditions: data[F.WX4] || "N/A" }
-        ];
-        
-        new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: weatherData,
-            columns: [
-                { title: "Time", field: "time", widthGrow: 1, resizable: false, headerSort: false },
-                { title: "Weather Conditions", field: "conditions", widthGrow: 2, resizable: false, headerSort: false }
-            ]
-        });
-    }
+        if (parts.length >= 2) {
+            // Extract time (before the dash) and conditions (after the dash)
+            const time = parts[0].trim();
+            const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
+            return { time, conditions };
+        } else {
+            // If no dash found, return the whole string as conditions
+            return { time: "N/A", conditions: weatherString };
+        }
+    };
+    
+    // Prepare weather data by parsing each weather field
+    const weatherData = [
+        parseWeatherData(data[F.WX1]),
+        parseWeatherData(data[F.WX2]),
+        parseWeatherData(data[F.WX3]),
+        parseWeatherData(data[F.WX4])
+    ];
+    
+    new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: weatherData,
+        columns: [
+            { title: "Time", field: "time", widthGrow: 1, resizable: false, headerSort: false },
+            { title: "Weather Conditions", field: "conditions", widthGrow: 2, resizable: false, headerSort: false }
+        ]
+    });
+}
     
     // FIX: Fixed pitcher table without duplicate click handlers
     createPitchersTable(container, pitchersData, gameId) {
