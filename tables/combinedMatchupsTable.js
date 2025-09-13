@@ -771,7 +771,7 @@ createWeatherTable(container, data) {
     });
 }
     
-    // FIXED: Pitcher table with single expandable row showing Name/Split in one column
+    // FIXED: Pitcher table with properly styled single row display
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
         const self = this;
@@ -798,7 +798,7 @@ createWeatherTable(container, data) {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
-            dataTreeElementColumn: "Name/Split",  // Use the column name for tree controls
+            dataTreeElementColumn: false,  // Keep false to use custom formatter
             columns: [
                 { 
                     title: "Name/Split", 
@@ -811,11 +811,30 @@ createWeatherTable(container, data) {
                         const row = cell.getRow();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - just show the name
-                            return `<strong>${data[F.P_NAME]}</strong>`;
+                            // Parent row - create inline expander with name
+                            const isExpanded = row.isTreeExpanded();
+                            const html = `
+                                <div style="display: inline-flex; align-items: center; cursor: pointer; width: 100%;">
+                                    <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">
+                                        ${isExpanded ? '−' : '+'}
+                                    </span>
+                                    <strong style="display: inline;">${data[F.P_NAME]}</strong>
+                                </div>
+                            `;
+                            
+                            // Add click handler after rendering
+                            cell.getElement().innerHTML = html;
+                            cell.getElement().querySelector('div').onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                const expander = this.querySelector('span');
+                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
+                            };
+                            
+                            return html;
                         } else {
-                            // Child row - show the split
-                            return data[F.P_SPLIT] || '';
+                            // Child row - indented split
+                            return `<div style="margin-left: 20px;">${data[F.P_SPLIT] || ''}</div>`;
                         }
                     }
                 },
@@ -853,7 +872,7 @@ createWeatherTable(container, data) {
         this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
     }
     
-    // FIXED: Batter table with single expandable row showing Name/Split in one column
+    // FIXED: Batter table with properly styled single row display
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
         const self = this;
@@ -880,7 +899,7 @@ createWeatherTable(container, data) {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
-            dataTreeElementColumn: "Name/Split",  // Use the column name for tree controls
+            dataTreeElementColumn: false,  // Keep false to use custom formatter
             columns: [
                 { 
                     title: "Name/Split", 
@@ -893,11 +912,30 @@ createWeatherTable(container, data) {
                         const row = cell.getRow();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - just show the name
-                            return `<strong>${data[F.B_NAME]}</strong>`;
+                            // Parent row - create inline expander with name
+                            const isExpanded = row.isTreeExpanded();
+                            const html = `
+                                <div style="display: inline-flex; align-items: center; cursor: pointer; width: 100%;">
+                                    <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">
+                                        ${isExpanded ? '−' : '+'}
+                                    </span>
+                                    <strong style="display: inline;">${data[F.B_NAME]}</strong>
+                                </div>
+                            `;
+                            
+                            // Add click handler after rendering
+                            cell.getElement().innerHTML = html;
+                            cell.getElement().querySelector('div').onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                const expander = this.querySelector('span');
+                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
+                            };
+                            
+                            return html;
                         } else {
-                            // Child row - show the split
-                            return data[F.B_SPLIT] || '';
+                            // Child row - indented split
+                            return `<div style="margin-left: 20px;">${data[F.B_SPLIT] || ''}</div>`;
                         }
                     }
                 },
@@ -927,7 +965,7 @@ createWeatherTable(container, data) {
         this.trackSubtableExpansion(gameId, 'batters', battersTable);
     }
     
-    // FIXED: Bullpen table with single expandable row showing Group/Split in one column
+    // FIXED: Bullpen table with properly styled single row display
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
         const self = this;
@@ -963,7 +1001,7 @@ createWeatherTable(container, data) {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
-            dataTreeElementColumn: "Bullpen Group",  // Use the column name for tree controls
+            dataTreeElementColumn: false,  // Keep false to use custom formatter
             columns: [
                 { 
                     title: "Bullpen Group", 
@@ -976,11 +1014,30 @@ createWeatherTable(container, data) {
                         const row = cell.getRow();
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - show the group name
-                            return `<strong>${data[F.BP_HAND_CNT]}</strong>`;
+                            // Parent row - create inline expander with group name
+                            const isExpanded = row.isTreeExpanded();
+                            const html = `
+                                <div style="display: inline-flex; align-items: center; cursor: pointer; width: 100%;">
+                                    <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">
+                                        ${isExpanded ? '−' : '+'}
+                                    </span>
+                                    <strong style="display: inline;">${data[F.BP_HAND_CNT]}</strong>
+                                </div>
+                            `;
+                            
+                            // Add click handler after rendering
+                            cell.getElement().innerHTML = html;
+                            cell.getElement().querySelector('div').onclick = function(e) {
+                                e.stopPropagation();
+                                row.treeToggle();
+                                const expander = this.querySelector('span');
+                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
+                            };
+                            
+                            return html;
                         } else {
-                            // Child row - show the split
-                            return data[F.BP_SPLIT] || '';
+                            // Child row - indented split
+                            return `<div style="margin-left: 20px;">${data[F.BP_SPLIT] || ''}</div>`;
                         }
                     }
                 },
