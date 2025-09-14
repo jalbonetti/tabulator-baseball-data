@@ -252,29 +252,11 @@ export class MatchupsTable extends BaseTable {
                     const data = row.getData();
                     const expanded = data._expanded || false;
                     
-                    // Create container div
-                    const container = document.createElement('div');
-                    container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                    
-                    // Create expander span
-                    const expander = document.createElement('span');
-                    expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;';
-                    expander.className = 'row-expander';
-                    expander.textContent = expanded ? '−' : '+';
-                    
-                    // Create team name span
-                    const teamSpan = document.createElement('span');
-                    teamSpan.textContent = value || '';
-                    
-                    // Append elements
-                    container.appendChild(expander);
-                    container.appendChild(teamSpan);
-                    
-                    // Clear cell and add container
-                    cell.getElement().innerHTML = '';
-                    cell.getElement().appendChild(container);
-                    
-                    // No return statement at all - let DOM manipulation stand
+                    // Return HTML string directly instead of DOM manipulation
+                    return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                        <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${expanded ? '−' : '+'}</span>
+                        <span>${value || ''}</span>
+                    </div>`;
                 },
                 headerFilter: createCustomMultiSelect  // Add filter
             },
@@ -937,50 +919,15 @@ export class MatchupsTable extends BaseTable {
                         const value = data[F.P_NAME] || data[F.P_SPLIT] || '';
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create clickable area with inline expander and name
+                            // Parent row - return HTML string with expander and name
                             const isExpanded = row.isTreeExpanded();
-                            
-                            // Create container div
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            // Create expander span
-                            const expander = document.createElement('span');
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            // Create name span
-                            const nameSpan = document.createElement('strong');
-                            nameSpan.style.cssText = 'display: inline;';
-                            nameSpan.textContent = value;
-                            
-                            // Append elements
-                            container.appendChild(expander);
-                            container.appendChild(nameSpan);
-                            
-                            // Clear cell and add container
-                            cell.getElement().innerHTML = '';
-                            cell.getElement().appendChild(container);
-                            
-                            // Make entire cell clickable
-                            cell.getElement().style.cursor = 'pointer';
-                            cell.getElement().onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
-                            };
-                            
-                            // No return statement - let DOM manipulation stand
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">${isExpanded ? '−' : '+'}</span>
+                                <strong style="display: inline;">${value}</strong>
+                            </div>`;
                         } else {
-                            // Child row - indented split on same line
-                            const splitDiv = document.createElement('div');
-                            splitDiv.style.cssText = 'margin-left: 28px; display: inline;';
-                            splitDiv.textContent = data[F.P_SPLIT] || '';
-                            
-                            cell.getElement().innerHTML = '';
-                            cell.getElement().appendChild(splitDiv);
-                            
-                            // No return statement - let DOM manipulation stand
+                            // Child row - indented split
+                            return `<div style="margin-left: 28px; display: inline;">${data[F.P_SPLIT] || ''}</div>`;
                         }
                     }
                 },
@@ -1012,6 +959,16 @@ export class MatchupsTable extends BaseTable {
                 { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
                 { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
+        });
+        
+        // Add click handler for expanding/collapsing rows
+        pitchersTable.on("cellClick", function(e, cell) {
+            if (cell.getField() === F.P_NAME) {
+                const row = cell.getRow();
+                if (!row.getTreeParent()) {
+                    row.treeToggle();
+                }
+            }
         });
         
         // Track expansion state
@@ -1059,50 +1016,15 @@ export class MatchupsTable extends BaseTable {
                         const value = data[F.B_NAME] || data[F.B_SPLIT] || '';
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create clickable area with inline expander and name
+                            // Parent row - return HTML string with expander and name
                             const isExpanded = row.isTreeExpanded();
-                            
-                            // Create container div
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            // Create expander span
-                            const expander = document.createElement('span');
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            // Create name span
-                            const nameSpan = document.createElement('strong');
-                            nameSpan.style.cssText = 'display: inline;';
-                            nameSpan.textContent = value;
-                            
-                            // Append elements
-                            container.appendChild(expander);
-                            container.appendChild(nameSpan);
-                            
-                            // Clear cell and add container
-                            cell.getElement().innerHTML = '';
-                            cell.getElement().appendChild(container);
-                            
-                            // Make entire cell clickable
-                            cell.getElement().style.cursor = 'pointer';
-                            cell.getElement().onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
-                            };
-                            
-                            // No return statement - let DOM manipulation stand
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">${isExpanded ? '−' : '+'}</span>
+                                <strong style="display: inline;">${value}</strong>
+                            </div>`;
                         } else {
-                            // Child row - indented split on same line
-                            const splitDiv = document.createElement('div');
-                            splitDiv.style.cssText = 'margin-left: 28px; display: inline;';
-                            splitDiv.textContent = data[F.B_SPLIT] || '';
-                            
-                            cell.getElement().innerHTML = '';
-                            cell.getElement().appendChild(splitDiv);
-                            
-                            // No return statement - let DOM manipulation stand
+                            // Child row - indented split
+                            return `<div style="margin-left: 28px; display: inline;">${data[F.B_SPLIT] || ''}</div>`;
                         }
                     }
                 },
@@ -1126,6 +1048,16 @@ export class MatchupsTable extends BaseTable {
                 { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
                 { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
+        });
+        
+        // Add click handler for expanding/collapsing rows
+        battersTable.on("cellClick", function(e, cell) {
+            if (cell.getField() === F.B_NAME) {
+                const row = cell.getRow();
+                if (!row.getTreeParent()) {
+                    row.treeToggle();
+                }
+            }
         });
         
         // Track expansion state
@@ -1182,50 +1114,15 @@ export class MatchupsTable extends BaseTable {
                         const value = data[F.BP_HAND_CNT] || data[F.BP_SPLIT] || '';
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create clickable area with inline expander and group name
+                            // Parent row - return HTML string with expander and group name
                             const isExpanded = row.isTreeExpanded();
-                            
-                            // Create container div
-                            const container = document.createElement('div');
-                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
-                            
-                            // Create expander span
-                            const expander = document.createElement('span');
-                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
-                            expander.textContent = isExpanded ? '−' : '+';
-                            
-                            // Create name span
-                            const nameSpan = document.createElement('strong');
-                            nameSpan.style.cssText = 'display: inline;';
-                            nameSpan.textContent = value;
-                            
-                            // Append elements
-                            container.appendChild(expander);
-                            container.appendChild(nameSpan);
-                            
-                            // Clear cell and add container
-                            cell.getElement().innerHTML = '';
-                            cell.getElement().appendChild(container);
-                            
-                            // Make entire cell clickable
-                            cell.getElement().style.cursor = 'pointer';
-                            cell.getElement().onclick = function(e) {
-                                e.stopPropagation();
-                                row.treeToggle();
-                                expander.textContent = row.isTreeExpanded() ? '−' : '+';
-                            };
-                            
-                            // No return statement - let DOM manipulation stand
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">${isExpanded ? '−' : '+'}</span>
+                                <strong style="display: inline;">${value}</strong>
+                            </div>`;
                         } else {
-                            // Child row - indented split on same line
-                            const splitDiv = document.createElement('div');
-                            splitDiv.style.cssText = 'margin-left: 28px; display: inline;';
-                            splitDiv.textContent = data[F.BP_SPLIT] || '';
-                            
-                            cell.getElement().innerHTML = '';
-                            cell.getElement().appendChild(splitDiv);
-                            
-                            // No return statement - let DOM manipulation stand
+                            // Child row - indented split
+                            return `<div style="margin-left: 28px; display: inline;">${data[F.BP_SPLIT] || ''}</div>`;
                         }
                     }
                 },
@@ -1257,6 +1154,16 @@ export class MatchupsTable extends BaseTable {
                 { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
                 { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
+        });
+        
+        // Add click handler for expanding/collapsing rows
+        bullpenTable.on("cellClick", function(e, cell) {
+            if (cell.getField() === F.BP_HAND_CNT) {
+                const row = cell.getRow();
+                if (!row.getTreeParent()) {
+                    row.treeToggle();
+                }
+            }
         });
         
         // Track expansion state
