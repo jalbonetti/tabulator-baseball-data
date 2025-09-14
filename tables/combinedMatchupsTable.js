@@ -133,11 +133,107 @@ export class MatchupsTable extends BaseTable {
         
         this.table = new Tabulator(this.elementId, config);
         
-        // Use the base class setupRowExpansion for proper state management
-        this.setupRowExpansion();
+        // Override setupRowExpansion to handle Team field clicks properly
+        this.setupMatchupsRowExpansion();
         
         this.table.on("tableBuilt", () => {
             console.log("Matchups table built successfully");
+        });
+    }
+    
+    // Custom row expansion for matchups table
+    setupMatchupsRowExpansion() {
+        if (!this.table) return;
+        
+        const self = this;
+        let expansionTimeout;
+        
+        this.table.on("cellClick", (e, cell) => {
+            const field = cell.getField();
+            
+            // Handle clicks on the Team field
+            if (field === "Matchup Team") {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (self.isRestoringState) {
+                    console.log("Click during restoration - queueing for later");
+                    setTimeout(() => {
+                        if (!self.isRestoringState) {
+                            cell.getElement().click();
+                        }
+                    }, 500);
+                    return;
+                }
+                
+                if (expansionTimeout) {
+                    clearTimeout(expansionTimeout);
+                }
+                
+                expansionTimeout = setTimeout(() => {
+                    if (self.isRestoringState) {
+                        console.log("Still restoring, ignoring click");
+                        return;
+                    }
+                    
+                    var row = cell.getRow();
+                    var data = row.getData();
+                    
+                    if (data._expanded === undefined) {
+                        data._expanded = false;
+                    }
+                    
+                    // Toggle expansion
+                    data._expanded = !data._expanded;
+                    
+                    // Update global state
+                    const rowId = self.generateRowId(data);
+                    const globalState = self.getGlobalState();
+                    
+                    if (data._expanded) {
+                        globalState.set(rowId, {
+                            timestamp: Date.now(),
+                            data: data
+                        });
+                    } else {
+                        globalState.delete(rowId);
+                    }
+                    
+                    self.setGlobalState(globalState);
+                    
+                    console.log(`Row ${rowId} ${data._expanded ? 'expanded' : 'collapsed'}. Global state now has ${globalState.size} expanded rows.`);
+                    
+                    // Update row
+                    row.update(data);
+                    
+                    // Update expander icon
+                    var cellElement = cell.getElement();
+                    var expanderIcon = cellElement.querySelector('.row-expander');
+                    if (expanderIcon) {
+                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                    }
+                    
+                    // Reformat row
+                    requestAnimationFrame(() => {
+                        row.reformat();
+                        
+                        // Ensure icon stays correct after reformat
+                        requestAnimationFrame(() => {
+                            try {
+                                var updatedCellElement = cell.getElement();
+                                if (updatedCellElement) {
+                                    var updatedExpanderIcon = updatedCellElement.querySelector('.row-expander');
+                                    if (updatedExpanderIcon) {
+                                        updatedExpanderIcon.innerHTML = data._expanded ? "−" : "+";
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error updating expander icon:", error);
+                            }
+                        });
+                    });
+                }, 50);
+            }
         });
     }
     
@@ -150,7 +246,36 @@ export class MatchupsTable extends BaseTable {
                 field: "Matchup Team",  // Use exact field name for BaseTable compatibility
                 widthGrow: 1,
                 resizable: false,
-                formatter: this.createNameFormatter(),  // Makes it fully clickable
+                formatter: function(cell) {
+                    const value = cell.getValue();
+                    const row = cell.getRow();
+                    const data = row.getData();
+                    const expanded = data._expanded || false;
+                    
+                    // Create container div
+                    const container = document.createElement('div');
+                    container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
+                    
+                    // Create expander span
+                    const expander = document.createElement('span');
+                    expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;';
+                    expander.className = 'row-expander';
+                    expander.textContent = expanded ? '−' : '+';
+                    
+                    // Create team name span
+                    const teamSpan = document.createElement('span');
+                    teamSpan.textContent = value || '';
+                    
+                    // Append elements
+                    container.appendChild(expander);
+                    container.appendChild(teamSpan);
+                    
+                    // Clear cell and add container
+                    cell.getElement().innerHTML = '';
+                    cell.getElement().appendChild(container);
+                    
+                    return false; // Prevent default rendering
+                },
                 headerFilter: createCustomMultiSelect  // Add filter
             },
             {
@@ -717,59 +842,59 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-// Create weather conditions table
-createWeatherTable(container, data) {
-    const F = this.F;
-    
-    // Add title
-    const title = document.createElement("h4");
-    title.textContent = "Weather Conditions";
-    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-    container.appendChild(title);
-    
-    const tableContainer = document.createElement("div");
-    container.appendChild(tableContainer);
-    
-    // Helper function to parse weather data
-    const parseWeatherData = (weatherString) => {
-        if (!weatherString || weatherString === "N/A") {
-            return { time: "N/A", conditions: "N/A" };
-        }
+    // Create weather conditions table
+    createWeatherTable(container, data) {
+        const F = this.F;
         
-        // Split by the dash character (–)
-        const parts = weatherString.split('–');
+        // Add title
+        const title = document.createElement("h4");
+        title.textContent = "Weather Conditions";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+        container.appendChild(title);
         
-        if (parts.length >= 2) {
-            // Extract time (before the dash) and conditions (after the dash)
-            const time = parts[0].trim();
-            const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
-            return { time, conditions };
-        } else {
-            // If no dash found, return the whole string as conditions
-            return { time: "N/A", conditions: weatherString };
-        }
-    };
-    
-    // Prepare weather data by parsing each weather field
-    const weatherData = [
-        parseWeatherData(data[F.WX1]),
-        parseWeatherData(data[F.WX2]),
-        parseWeatherData(data[F.WX3]),
-        parseWeatherData(data[F.WX4])
-    ];
-    
-    new Tabulator(tableContainer, {
-        layout: "fitColumns",
-        height: false,
-        resizableColumns: false,
-        headerSort: false,
-        data: weatherData,
-        columns: [
-            { title: "Time", field: "time", widthGrow: 1, resizable: false, headerSort: false },
-            { title: "Weather Conditions", field: "conditions", widthGrow: 2, resizable: false, headerSort: false }
-        ]
-    });
-}
+        const tableContainer = document.createElement("div");
+        container.appendChild(tableContainer);
+        
+        // Helper function to parse weather data
+        const parseWeatherData = (weatherString) => {
+            if (!weatherString || weatherString === "N/A") {
+                return { time: "N/A", conditions: "N/A" };
+            }
+            
+            // Split by the dash character (–)
+            const parts = weatherString.split('–');
+            
+            if (parts.length >= 2) {
+                // Extract time (before the dash) and conditions (after the dash)
+                const time = parts[0].trim();
+                const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
+                return { time, conditions };
+            } else {
+                // If no dash found, return the whole string as conditions
+                return { time: "N/A", conditions: weatherString };
+            }
+        };
+        
+        // Prepare weather data by parsing each weather field
+        const weatherData = [
+            parseWeatherData(data[F.WX1]),
+            parseWeatherData(data[F.WX2]),
+            parseWeatherData(data[F.WX3]),
+            parseWeatherData(data[F.WX4])
+        ];
+        
+        new Tabulator(tableContainer, {
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false,
+            headerSort: false,
+            data: weatherData,
+            columns: [
+                { title: "Time", field: "time", widthGrow: 1, resizable: false, headerSort: false },
+                { title: "Weather Conditions", field: "conditions", widthGrow: 2, resizable: false, headerSort: false }
+            ]
+        });
+    }
     
     // FIXED: Pitcher table with properly styled single row display
     createPitchersTable(container, pitchersData, gameId) {
@@ -809,32 +934,53 @@ createWeatherTable(container, data) {
                     formatter: function(cell) {
                         const data = cell.getData();
                         const row = cell.getRow();
+                        const value = data[F.P_NAME] || data[F.P_SPLIT] || '';
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create inline expander with name
+                            // Parent row - create clickable area with inline expander and name
                             const isExpanded = row.isTreeExpanded();
-                            const html = `
-                                <div style="display: inline-flex; align-items: center; cursor: pointer; width: 100%;">
-                                    <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">
-                                        ${isExpanded ? '−' : '+'}
-                                    </span>
-                                    <strong style="display: inline;">${data[F.P_NAME]}</strong>
-                                </div>
-                            `;
                             
-                            // Add click handler after rendering
-                            cell.getElement().innerHTML = html;
-                            cell.getElement().querySelector('div').onclick = function(e) {
+                            // Create container div
+                            const container = document.createElement('div');
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
+                            
+                            // Create expander span
+                            const expander = document.createElement('span');
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            // Create name span
+                            const nameSpan = document.createElement('strong');
+                            nameSpan.style.cssText = 'display: inline;';
+                            nameSpan.textContent = value;
+                            
+                            // Append elements
+                            container.appendChild(expander);
+                            container.appendChild(nameSpan);
+                            
+                            // Clear cell and add container
+                            cell.getElement().innerHTML = '';
+                            cell.getElement().appendChild(container);
+                            
+                            // Make entire cell clickable
+                            cell.getElement().style.cursor = 'pointer';
+                            cell.getElement().onclick = function(e) {
                                 e.stopPropagation();
                                 row.treeToggle();
-                                const expander = this.querySelector('span');
                                 expander.textContent = row.isTreeExpanded() ? '−' : '+';
                             };
                             
-                            return html;
+                            return false; // Prevent default rendering
                         } else {
-                            // Child row - indented split
-                            return `<div style="margin-left: 20px;">${data[F.P_SPLIT] || ''}</div>`;
+                            // Child row - indented split on same line
+                            const splitDiv = document.createElement('div');
+                            splitDiv.style.cssText = 'margin-left: 28px; display: inline;';
+                            splitDiv.textContent = data[F.P_SPLIT] || '';
+                            
+                            cell.getElement().innerHTML = '';
+                            cell.getElement().appendChild(splitDiv);
+                            
+                            return false;
                         }
                     }
                 },
@@ -910,32 +1056,53 @@ createWeatherTable(container, data) {
                     formatter: function(cell) {
                         const data = cell.getData();
                         const row = cell.getRow();
+                        const value = data[F.B_NAME] || data[F.B_SPLIT] || '';
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create inline expander with name
+                            // Parent row - create clickable area with inline expander and name
                             const isExpanded = row.isTreeExpanded();
-                            const html = `
-                                <div style="display: inline-flex; align-items: center; cursor: pointer; width: 100%;">
-                                    <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">
-                                        ${isExpanded ? '−' : '+'}
-                                    </span>
-                                    <strong style="display: inline;">${data[F.B_NAME]}</strong>
-                                </div>
-                            `;
                             
-                            // Add click handler after rendering
-                            cell.getElement().innerHTML = html;
-                            cell.getElement().querySelector('div').onclick = function(e) {
+                            // Create container div
+                            const container = document.createElement('div');
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
+                            
+                            // Create expander span
+                            const expander = document.createElement('span');
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            // Create name span
+                            const nameSpan = document.createElement('strong');
+                            nameSpan.style.cssText = 'display: inline;';
+                            nameSpan.textContent = value;
+                            
+                            // Append elements
+                            container.appendChild(expander);
+                            container.appendChild(nameSpan);
+                            
+                            // Clear cell and add container
+                            cell.getElement().innerHTML = '';
+                            cell.getElement().appendChild(container);
+                            
+                            // Make entire cell clickable
+                            cell.getElement().style.cursor = 'pointer';
+                            cell.getElement().onclick = function(e) {
                                 e.stopPropagation();
                                 row.treeToggle();
-                                const expander = this.querySelector('span');
                                 expander.textContent = row.isTreeExpanded() ? '−' : '+';
                             };
                             
-                            return html;
+                            return false; // Prevent default rendering
                         } else {
-                            // Child row - indented split
-                            return `<div style="margin-left: 20px;">${data[F.B_SPLIT] || ''}</div>`;
+                            // Child row - indented split on same line
+                            const splitDiv = document.createElement('div');
+                            splitDiv.style.cssText = 'margin-left: 28px; display: inline;';
+                            splitDiv.textContent = data[F.B_SPLIT] || '';
+                            
+                            cell.getElement().innerHTML = '';
+                            cell.getElement().appendChild(splitDiv);
+                            
+                            return false;
                         }
                     }
                 },
@@ -1012,32 +1179,53 @@ createWeatherTable(container, data) {
                     formatter: function(cell) {
                         const data = cell.getData();
                         const row = cell.getRow();
+                        const value = data[F.BP_HAND_CNT] || data[F.BP_SPLIT] || '';
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - create inline expander with group name
+                            // Parent row - create clickable area with inline expander and group name
                             const isExpanded = row.isTreeExpanded();
-                            const html = `
-                                <div style="display: inline-flex; align-items: center; cursor: pointer; width: 100%;">
-                                    <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">
-                                        ${isExpanded ? '−' : '+'}
-                                    </span>
-                                    <strong style="display: inline;">${data[F.BP_HAND_CNT]}</strong>
-                                </div>
-                            `;
                             
-                            // Add click handler after rendering
-                            cell.getElement().innerHTML = html;
-                            cell.getElement().querySelector('div').onclick = function(e) {
+                            // Create container div
+                            const container = document.createElement('div');
+                            container.style.cssText = 'display: flex; align-items: center; cursor: pointer; width: 100%;';
+                            
+                            // Create expander span
+                            const expander = document.createElement('span');
+                            expander.style.cssText = 'margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;';
+                            expander.textContent = isExpanded ? '−' : '+';
+                            
+                            // Create name span
+                            const nameSpan = document.createElement('strong');
+                            nameSpan.style.cssText = 'display: inline;';
+                            nameSpan.textContent = value;
+                            
+                            // Append elements
+                            container.appendChild(expander);
+                            container.appendChild(nameSpan);
+                            
+                            // Clear cell and add container
+                            cell.getElement().innerHTML = '';
+                            cell.getElement().appendChild(container);
+                            
+                            // Make entire cell clickable
+                            cell.getElement().style.cursor = 'pointer';
+                            cell.getElement().onclick = function(e) {
                                 e.stopPropagation();
                                 row.treeToggle();
-                                const expander = this.querySelector('span');
                                 expander.textContent = row.isTreeExpanded() ? '−' : '+';
                             };
                             
-                            return html;
+                            return false; // Prevent default rendering
                         } else {
-                            // Child row - indented split
-                            return `<div style="margin-left: 20px;">${data[F.BP_SPLIT] || ''}</div>`;
+                            // Child row - indented split on same line
+                            const splitDiv = document.createElement('div');
+                            splitDiv.style.cssText = 'margin-left: 28px; display: inline;';
+                            splitDiv.textContent = data[F.BP_SPLIT] || '';
+                            
+                            cell.getElement().innerHTML = '';
+                            cell.getElement().appendChild(splitDiv);
+                            
+                            return false;
                         }
                     }
                 },
