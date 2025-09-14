@@ -1100,7 +1100,9 @@ export class MatchupsTable extends BaseTable {
             dataTree: true,
             dataTreeChildField: "_children",
             dataTreeStartExpanded: false,
-            dataTreeElementColumn: false,  // Keep false to use custom formatter
+            dataTreeElementColumn: "Bullpen Hand & Number",  // Set to the name column to integrate expander
+            dataTreeCollapseElement: "−",
+            dataTreeExpandElement: "+",
             columns: [
                 { 
                     title: "Bullpen Group", 
@@ -1114,15 +1116,11 @@ export class MatchupsTable extends BaseTable {
                         const value = data[F.BP_HAND_CNT] || data[F.BP_SPLIT] || '';
                         
                         if (!row.getTreeParent()) {
-                            // Parent row - return HTML string with expander and group name
-                            const isExpanded = row.isTreeExpanded();
-                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                                <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">${isExpanded ? '−' : '+'}</span>
-                                <strong style="display: inline;">${value}</strong>
-                            </div>`;
+                            // Parent row - just return the group name, Tabulator will add the expander
+                            return `<strong>${value}</strong>`;
                         } else {
-                            // Child row - indented split
-                            return `<div style="margin-left: 28px; display: inline;">${data[F.BP_SPLIT] || ''}</div>`;
+                            // Child row - the split value
+                            return data[F.BP_SPLIT] || '';
                         }
                     }
                 },
@@ -1154,16 +1152,6 @@ export class MatchupsTable extends BaseTable {
                 { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
                 { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
-        });
-        
-        // Add click handler for expanding/collapsing rows
-        bullpenTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.BP_HAND_CNT) {
-                const row = cell.getRow();
-                if (!row.getTreeParent()) {
-                    row.treeToggle();
-                }
-            }
         });
         
         // Track expansion state
