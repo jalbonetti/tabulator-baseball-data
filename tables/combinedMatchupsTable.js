@@ -274,7 +274,7 @@ export class MatchupsTable extends BaseTable {
                     cell.getElement().innerHTML = '';
                     cell.getElement().appendChild(container);
                     
-                    return; // FIX: Don't return false, just return nothing
+                    // No return statement at all - let DOM manipulation stand
                 },
                 headerFilter: createCustomMultiSelect  // Add filter
             },
@@ -970,7 +970,7 @@ export class MatchupsTable extends BaseTable {
                                 expander.textContent = row.isTreeExpanded() ? '−' : '+';
                             };
                             
-                            return; // FIX: Don't return false
+                            // No return statement - let DOM manipulation stand
                         } else {
                             // Child row - indented split on same line
                             const splitDiv = document.createElement('div');
@@ -980,7 +980,7 @@ export class MatchupsTable extends BaseTable {
                             cell.getElement().innerHTML = '';
                             cell.getElement().appendChild(splitDiv);
                             
-                            return; // FIX: Don't return false
+                            // No return statement - let DOM manipulation stand
                         }
                     }
                 },
@@ -1092,7 +1092,7 @@ export class MatchupsTable extends BaseTable {
                                 expander.textContent = row.isTreeExpanded() ? '−' : '+';
                             };
                             
-                            return; // FIX: Don't return false
+                            // No return statement - let DOM manipulation stand
                         } else {
                             // Child row - indented split on same line
                             const splitDiv = document.createElement('div');
@@ -1102,7 +1102,7 @@ export class MatchupsTable extends BaseTable {
                             cell.getElement().innerHTML = '';
                             cell.getElement().appendChild(splitDiv);
                             
-                            return; // FIX: Don't return false
+                            // No return statement - let DOM manipulation stand
                         }
                     }
                 },
@@ -1215,7 +1215,7 @@ export class MatchupsTable extends BaseTable {
                                 expander.textContent = row.isTreeExpanded() ? '−' : '+';
                             };
                             
-                            return; // FIX: Don't return false
+                            // No return statement - let DOM manipulation stand
                         } else {
                             // Child row - indented split on same line
                             const splitDiv = document.createElement('div');
@@ -1225,7 +1225,7 @@ export class MatchupsTable extends BaseTable {
                             cell.getElement().innerHTML = '';
                             cell.getElement().appendChild(splitDiv);
                             
-                            return; // FIX: Don't return false
+                            // No return statement - let DOM manipulation stand
                         }
                     }
                 },
