@@ -1229,7 +1229,7 @@ export class MatchupsTable extends BaseTable {
                 const rows = table.getRows();
                 rows.forEach(row => {
                     const data = row.getData();
-                    if ((data._isParent || data._isGroup) && expandedRows.has(JSON.stringify(data))) {
+                    if (data._isParent && expandedRows.has(JSON.stringify(data))) {
                         row.treeExpand();
                     }
                 });
