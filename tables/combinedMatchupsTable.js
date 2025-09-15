@@ -641,6 +641,7 @@ export class MatchupsTable extends BaseTable {
     }
     
    // Fixed processBullpenDataGrouped method
+// Fixed processBullpenDataGrouped method
 processBullpenDataGrouped(data, location) {
     if (!data || !data.length) return [];
     
@@ -745,14 +746,24 @@ processBullpenDataGrouped(data, location) {
         // Sort and filter lefties splits to ensure correct 6-split order
         const sortedLefties = this.sortBullpenSplits(lefties, location);
         
+        // Find the Full Season data to use for the parent row
+        const fullSeasonData = lefties.find(l => {
+            const split = l[F.BP_SPLIT] || '';
+            return split === 'Season' || split === 'Full Season';
+        });
+        
+        // Create the parent row using Full Season data
         const leftGroup = {
             [F.BP_HAND_CNT]: `Lefties (${leftCount})`,
             _isGroup: true,
-            _children: sortedLefties
+            _children: sortedLefties.filter(child => {
+                // Exclude Full Season from children since it's now the parent
+                const split = child[F.BP_SPLIT] || '';
+                return !(split.includes('Full Season') && !split.includes('@'));
+            }),
+            // Copy all Full Season stats to the parent row
+            ...(fullSeasonData || {})
         };
-        
-        // Calculate totals for the group using the parent row (Full Season)
-        this.calculateGroupTotals(leftGroup, lefties, F);
         result.push(leftGroup);
     }
     
