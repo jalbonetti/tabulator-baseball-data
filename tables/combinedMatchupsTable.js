@@ -1043,98 +1043,111 @@ createBattersTable(container, battersData, gameId) {
 }
     
     // FIXED: Bullpen table with properly styled single row display
-    createBullpenTable(container, bullpenData, gameId) {
-        const F = this.F;
-        const self = this;
-        const location = this.determineOpposingLocation(gameId);
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Opposing Bullpen";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Handle empty bullpen data gracefully
-        if (!bullpenData || bullpenData.length === 0) {
-            const noDataMsg = document.createElement("div");
-            noDataMsg.textContent = "No bullpen data available";
-            noDataMsg.style.cssText = "text-align: center; padding: 20px; color: #666;";
-            tableContainer.appendChild(noDataMsg);
-            return;
-        }
-        
-        // Process bullpen data into groups with correct pitcher counts
-        const processedData = this.processBullpenDataGrouped(bullpenData, location);
-        
-        const bullpenTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: processedData,
-            dataTree: true,
-            dataTreeChildField: "_children",
-            dataTreeStartExpanded: false,
-            dataTreeElementColumn: "Bullpen Hand & Number",  // Set to the name column to integrate expander
-            dataTreeCollapseElement: "−",
-            dataTreeExpandElement: "+",
-            columns: [
-                { 
-                    title: "Bullpen Group", 
-                    field: F.BP_HAND_CNT, 
-                    widthGrow: 1.8,
-                    resizable: false,
-                    headerSort: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        const row = cell.getRow();
-                        const value = data[F.BP_HAND_CNT] || data[F.BP_SPLIT] || '';
-                        
-                        if (!row.getTreeParent()) {
-                            // Parent row - just return the group name, Tabulator will add the expander
-                            return `<strong>${value}</strong>`;
-                        } else {
-                            // Child row - the split value
-                            return data[F.BP_SPLIT] || '';
-                        }
-                    }
-                },
-                { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "H/TBF", 
-                    field: F.BP_H_TBF, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.BP_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "ERA", 
-                    field: F.BP_ERA, 
-                    width: 60, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatERA(cell.getValue())
-                },
-                { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-        
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
+   createBullpenTable(container, bullpenData, gameId) {
+    const F = this.F;
+    const self = this;
+    const location = this.determineOpposingLocation(gameId);
+    
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Opposing Bullpen";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Handle empty bullpen data gracefully
+    if (!bullpenData || bullpenData.length === 0) {
+        const noDataMsg = document.createElement("div");
+        noDataMsg.textContent = "No bullpen data available";
+        noDataMsg.style.cssText = "text-align: center; padding: 20px; color: #666;";
+        tableContainer.appendChild(noDataMsg);
+        return;
     }
+    
+    // Process bullpen data into groups
+    const processedData = this.processBullpenDataGrouped(bullpenData, location);
+    
+    console.log("Processed bullpen data for table:", processedData);
+    
+    const bullpenTable = new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: processedData,
+        dataTree: true,
+        dataTreeChildField: "_children",
+        dataTreeStartExpanded: false,
+        dataTreeElementColumn: "Bullpen Hand & Number", // FIXED: Use the exact field name with spaces
+        dataTreeCollapseElement: "−",
+        dataTreeExpandElement: "+",
+        columns: [
+            { 
+                title: "Bullpen Group", 
+                field: "Bullpen Hand & Number", // Use the exact field name
+                widthGrow: 1.8,
+                resizable: false,
+                headerSort: false,
+                formatter: function(cell) {
+                    const data = cell.getData();
+                    const row = cell.getRow();
+                    const value = data["Bullpen Hand & Number"] || data[F.BP_SPLIT] || '';
+                    
+                    if (!row.getTreeParent()) {
+                        // Parent row - Tabulator will add the expander automatically
+                        return `<strong>${value}</strong>`;
+                    } else {
+                        // Child row - the split value
+                        return data[F.BP_SPLIT] || '';
+                    }
+                }
+            },
+            { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
+            { 
+                title: "H/TBF", 
+                field: F.BP_H_TBF, 
+                width: 70, 
+                hozAlign: "center", 
+                resizable: false,
+                headerSort: false,
+                formatter: (cell) => this.formatRatio(cell.getValue())
+            },
+            { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "R", field: F.BP_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { 
+                title: "ERA", 
+                field: F.BP_ERA, 
+                width: 60, 
+                hozAlign: "center", 
+                resizable: false,
+                headerSort: false,
+                formatter: (cell) => this.formatERA(cell.getValue())
+            },
+            { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
+        ]
+    });
+    
+    // Debug the table creation
+    bullpenTable.on("tableBuilt", function() {
+        console.log("Bullpen table built successfully");
+        const rows = bullpenTable.getRows();
+        console.log("Bullpen rows:", rows.length);
+        rows.forEach(row => {
+            const data = row.getData();
+            console.log("Row data:", data["Bullpen Hand & Number"], "Has children:", data._children ? data._children.length : 0);
+        });
+    });
+    
+    // Track expansion state
+    this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
+}
     
     // Utility formatting methods
     formatRatio(value) {
