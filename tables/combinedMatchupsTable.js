@@ -878,191 +878,169 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-    // FIXED: Pitcher table with properly styled single row display
-    createPitchersTable(container, pitchersData, gameId) {
-        const F = this.F;
-        const self = this;
-        const location = this.determineOpposingLocation(gameId);
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Opposing Starting Pitcher";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process pitcher data with proper ordering and location
-        const processedData = this.processPlayerData(pitchersData, 'pitcher', gameId);
-        
-        const pitchersTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: processedData,
-            dataTree: true,
-            dataTreeChildField: "_children",
-            dataTreeStartExpanded: false,
-            dataTreeElementColumn: false,  // Keep false to use custom formatter
-            columns: [
-                { 
-                    title: "Name/Split", 
-                    field: F.P_NAME, 
-                    widthGrow: 1.8,
-                    resizable: false,
-                    headerSort: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        const row = cell.getRow();
-                        const value = data[F.P_NAME] || data[F.P_SPLIT] || '';
-                        
-                        if (!row.getTreeParent()) {
-                            // Parent row - return HTML string with expander and name
-                            const isExpanded = row.isTreeExpanded();
-                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                                <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">${isExpanded ? '−' : '+'}</span>
-                                <strong style="display: inline;">${value}</strong>
-                            </div>`;
-                        } else {
-                            // Child row - indented split
-                            return `<div style="margin-left: 28px; display: inline;">${data[F.P_SPLIT] || ''}</div>`;
-                        }
-                    }
-                },
-                { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "H/TBF", 
-                    field: F.P_H_TBF, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.P_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.P_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.P_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.P_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.P_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "ERA", 
-                    field: F.P_ERA, 
-                    width: 60, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatERA(cell.getValue())
-                },
-                { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-        
-        // Add click handler for expanding/collapsing rows
-        pitchersTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.P_NAME) {
-                const row = cell.getRow();
-                if (!row.getTreeParent()) {
-                    row.treeToggle();
-                }
-            }
-        });
-        
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
-    }
+createPitchersTable(container, pitchersData, gameId) {
+    const F = this.F;
+    const self = this;
+    const location = this.determineOpposingLocation(gameId);
     
-    // FIXED: Batter table with properly styled single row display
-    createBattersTable(container, battersData, gameId) {
-        const F = this.F;
-        const self = this;
-        const location = this.determineLocation(gameId);
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Batters";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process batter data with proper ordering and location
-        const processedData = this.processPlayerData(battersData, 'batter', gameId);
-        
-        const battersTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: processedData,
-            dataTree: true,
-            dataTreeChildField: "_children",
-            dataTreeStartExpanded: false,
-            dataTreeElementColumn: false,  // Keep false to use custom formatter
-            columns: [
-                { 
-                    title: "Name/Split", 
-                    field: F.B_NAME, 
-                    widthGrow: 1.8,
-                    resizable: false,
-                    headerSort: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        const row = cell.getRow();
-                        const value = data[F.B_NAME] || data[F.B_SPLIT] || '';
-                        
-                        if (!row.getTreeParent()) {
-                            // Parent row - return HTML string with expander and name
-                            const isExpanded = row.isTreeExpanded();
-                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                                <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px; display: inline-block;">${isExpanded ? '−' : '+'}</span>
-                                <strong style="display: inline;">${value}</strong>
-                            </div>`;
-                        } else {
-                            // Child row - indented split
-                            return `<div style="margin-left: 28px; display: inline;">${data[F.B_SPLIT] || ''}</div>`;
-                        }
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Opposing Starting Pitcher";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Process pitcher data with proper ordering and location
+    const processedData = this.processPlayerData(pitchersData, 'pitcher', gameId);
+    
+    const pitchersTable = new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: processedData,
+        dataTree: true,
+        dataTreeChildField: "_children",
+        dataTreeStartExpanded: false,
+        dataTreeElementColumn: F.P_NAME, // FIXED: Set to the name field
+        dataTreeCollapseElement: "−",
+        dataTreeExpandElement: "+",
+        columns: [
+            { 
+                title: "Name/Split", 
+                field: F.P_NAME, 
+                widthGrow: 1.8,
+                resizable: false,
+                headerSort: false,
+                formatter: function(cell) {
+                    const data = cell.getData();
+                    const row = cell.getRow();
+                    const value = data[F.P_NAME] || data[F.P_SPLIT] || '';
+                    
+                    if (!row.getTreeParent()) {
+                        // Parent row - Tabulator will add the expander automatically
+                        return `<strong>${value}</strong>`;
+                    } else {
+                        // Child row - just the split value
+                        return data[F.P_SPLIT] || '';
                     }
-                },
-                { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "H/PA", 
-                    field: F.B_H_PA, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.B_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "RBI", field: F.B_RBI, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-        
-        // Add click handler for expanding/collapsing rows
-        battersTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.B_NAME) {
-                const row = cell.getRow();
-                if (!row.getTreeParent()) {
-                    row.treeToggle();
                 }
-            }
-        });
-        
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'batters', battersTable);
-    }
+            },
+            { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
+            { 
+                title: "H/TBF", 
+                field: F.P_H_TBF, 
+                width: 70, 
+                hozAlign: "center", 
+                resizable: false,
+                headerSort: false,
+                formatter: (cell) => this.formatRatio(cell.getValue())
+            },
+            { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "1B", field: F.P_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "2B", field: F.P_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "3B", field: F.P_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "HR", field: F.P_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "R", field: F.P_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { 
+                title: "ERA", 
+                field: F.P_ERA, 
+                width: 60, 
+                hozAlign: "center", 
+                resizable: false,
+                headerSort: false,
+                formatter: (cell) => this.formatERA(cell.getValue())
+            },
+            { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
+        ]
+    });
+    
+    // REMOVED: Manual click handler - Tabulator handles this automatically now
+    
+    // Track expansion state
+    this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
+}
+    
+createBattersTable(container, battersData, gameId) {
+    const F = this.F;
+    const self = this;
+    const location = this.determineLocation(gameId);
+    
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Batters";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Process batter data with proper ordering and location
+    const processedData = this.processPlayerData(battersData, 'batter', gameId);
+    
+    const battersTable = new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: processedData,
+        dataTree: true,
+        dataTreeChildField: "_children",
+        dataTreeStartExpanded: false,
+        dataTreeElementColumn: F.B_NAME, // FIXED: Set to the name field
+        dataTreeCollapseElement: "−",
+        dataTreeExpandElement: "+",
+        columns: [
+            { 
+                title: "Name/Split", 
+                field: F.B_NAME, 
+                widthGrow: 1.8,
+                resizable: false,
+                headerSort: false,
+                formatter: function(cell) {
+                    const data = cell.getData();
+                    const row = cell.getRow();
+                    const value = data[F.B_NAME] || data[F.B_SPLIT] || '';
+                    
+                    if (!row.getTreeParent()) {
+                        // Parent row - Tabulator will add the expander automatically
+                        return `<strong>${value}</strong>`;
+                    } else {
+                        // Child row - just the split value
+                        return data[F.B_SPLIT] || '';
+                    }
+                }
+            },
+            { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
+            { 
+                title: "H/PA", 
+                field: F.B_H_PA, 
+                width: 70, 
+                hozAlign: "center", 
+                resizable: false,
+                headerSort: false,
+                formatter: (cell) => this.formatRatio(cell.getValue())
+            },
+            { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "R", field: F.B_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "RBI", field: F.B_RBI, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+            { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
+        ]
+    });
+    
+    // REMOVED: Manual click handler - Tabulator handles this automatically now
+    
+    // Track expansion state
+    this.trackSubtableExpansion(gameId, 'batters', battersTable);
+}
     
     // FIXED: Bullpen table with properly styled single row display
     createBullpenTable(container, bullpenData, gameId) {
