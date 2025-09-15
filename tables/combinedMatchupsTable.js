@@ -878,7 +878,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-createPitchersTable(container, pitchersData, gameId) {
+ccreatePitchersTable(container, pitchersData, gameId) {
     const F = this.F;
     const self = this;
     const location = this.determineOpposingLocation(gameId);
@@ -904,9 +904,7 @@ createPitchersTable(container, pitchersData, gameId) {
         dataTree: true,
         dataTreeChildField: "_children",
         dataTreeStartExpanded: false,
-        dataTreeElementColumn: F.P_NAME, // FIXED: Set to the name field
-        dataTreeCollapseElement: "−",
-        dataTreeExpandElement: "+",
+        dataTreeElementColumn: false,  // IMPORTANT: Set to false to disable Tabulator's tree controls
         columns: [
             { 
                 title: "Name/Split", 
@@ -920,11 +918,15 @@ createPitchersTable(container, pitchersData, gameId) {
                     const value = data[F.P_NAME] || data[F.P_SPLIT] || '';
                     
                     if (!row.getTreeParent()) {
-                        // Parent row - Tabulator will add the expander automatically
-                        return `<strong>${value}</strong>`;
+                        // Parent row - add our custom expander
+                        const isExpanded = row.isTreeExpanded();
+                        return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                            <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                            <strong>${value}</strong>
+                        </div>`;
                     } else {
-                        // Child row - just the split value
-                        return data[F.P_SPLIT] || '';
+                        // Child row - indented split
+                        return `<div style="margin-left: 28px;">${data[F.P_SPLIT] || ''}</div>`;
                     }
                 }
             },
@@ -958,7 +960,15 @@ createPitchersTable(container, pitchersData, gameId) {
         ]
     });
     
-    // REMOVED: Manual click handler - Tabulator handles this automatically now
+    // Add click handler for expanding/collapsing rows
+    pitchersTable.on("cellClick", function(e, cell) {
+        if (cell.getField() === F.P_NAME) {
+            const row = cell.getRow();
+            if (!row.getTreeParent()) {
+                row.treeToggle();
+            }
+        }
+    });
     
     // Track expansion state
     this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
@@ -990,9 +1000,7 @@ createBattersTable(container, battersData, gameId) {
         dataTree: true,
         dataTreeChildField: "_children",
         dataTreeStartExpanded: false,
-        dataTreeElementColumn: F.B_NAME, // FIXED: Set to the name field
-        dataTreeCollapseElement: "−",
-        dataTreeExpandElement: "+",
+        dataTreeElementColumn: false,  // IMPORTANT: Set to false to disable Tabulator's tree controls
         columns: [
             { 
                 title: "Name/Split", 
@@ -1006,11 +1014,15 @@ createBattersTable(container, battersData, gameId) {
                     const value = data[F.B_NAME] || data[F.B_SPLIT] || '';
                     
                     if (!row.getTreeParent()) {
-                        // Parent row - Tabulator will add the expander automatically
-                        return `<strong>${value}</strong>`;
+                        // Parent row - add our custom expander
+                        const isExpanded = row.isTreeExpanded();
+                        return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                            <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                            <strong>${value}</strong>
+                        </div>`;
                     } else {
-                        // Child row - just the split value
-                        return data[F.B_SPLIT] || '';
+                        // Child row - indented split
+                        return `<div style="margin-left: 28px;">${data[F.B_SPLIT] || ''}</div>`;
                     }
                 }
             },
@@ -1036,14 +1048,22 @@ createBattersTable(container, battersData, gameId) {
         ]
     });
     
-    // REMOVED: Manual click handler - Tabulator handles this automatically now
+    // Add click handler for expanding/collapsing rows
+    battersTable.on("cellClick", function(e, cell) {
+        if (cell.getField() === F.B_NAME) {
+            const row = cell.getRow();
+            if (!row.getTreeParent()) {
+                row.treeToggle();
+            }
+        }
+    });
     
     // Track expansion state
     this.trackSubtableExpansion(gameId, 'batters', battersTable);
 }
     
     // FIXED: Bullpen table with properly styled single row display
-   createBullpenTable(container, bullpenData, gameId) {
+  createBullpenTable(container, bullpenData, gameId) {
     const F = this.F;
     const self = this;
     const location = this.determineOpposingLocation(gameId);
@@ -1069,8 +1089,6 @@ createBattersTable(container, battersData, gameId) {
     // Process bullpen data into groups
     const processedData = this.processBullpenDataGrouped(bullpenData, location);
     
-    console.log("Processed bullpen data for table:", processedData);
-    
     const bullpenTable = new Tabulator(tableContainer, {
         layout: "fitColumns",
         height: false,
@@ -1080,27 +1098,29 @@ createBattersTable(container, battersData, gameId) {
         dataTree: true,
         dataTreeChildField: "_children",
         dataTreeStartExpanded: false,
-        dataTreeElementColumn: "Bullpen Hand & Number", // FIXED: Use the exact field name with spaces
-        dataTreeCollapseElement: "−",
-        dataTreeExpandElement: "+",
+        dataTreeElementColumn: false,  // IMPORTANT: Set to false to disable Tabulator's tree controls
         columns: [
             { 
                 title: "Bullpen Group", 
-                field: "Bullpen Hand & Number", // Use the exact field name
+                field: F.BP_HAND_CNT, 
                 widthGrow: 1.8,
                 resizable: false,
                 headerSort: false,
                 formatter: function(cell) {
                     const data = cell.getData();
                     const row = cell.getRow();
-                    const value = data["Bullpen Hand & Number"] || data[F.BP_SPLIT] || '';
+                    const value = data[F.BP_HAND_CNT] || data[F.BP_SPLIT] || '';
                     
                     if (!row.getTreeParent()) {
-                        // Parent row - Tabulator will add the expander automatically
-                        return `<strong>${value}</strong>`;
+                        // Parent row - add our custom expander
+                        const isExpanded = row.isTreeExpanded();
+                        return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                            <span style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                            <strong>${value}</strong>
+                        </div>`;
                     } else {
                         // Child row - the split value
-                        return data[F.BP_SPLIT] || '';
+                        return `<div style="margin-left: 28px;">${data[F.BP_SPLIT] || ''}</div>`;
                     }
                 }
             },
@@ -1133,6 +1153,20 @@ createBattersTable(container, battersData, gameId) {
             { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
         ]
     });
+    
+    // Add click handler for expanding/collapsing rows
+    bullpenTable.on("cellClick", function(e, cell) {
+        if (cell.getField() === F.BP_HAND_CNT) {
+            const row = cell.getRow();
+            if (!row.getTreeParent()) {
+                row.treeToggle();
+            }
+        }
+    });
+    
+    // Track expansion state
+    this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
+}
     
     // Debug the table creation
     bullpenTable.on("tableBuilt", function() {
