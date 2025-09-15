@@ -879,6 +879,7 @@ export class MatchupsTable extends BaseTable {
     }
     
 // Fixed createPitchersTable with manual expansion (no duplicate controls)
+// Improved createPitchersTable - uses actual Tabulator rows with visibility control
 createPitchersTable(container, pitchersData, gameId) {
     const F = this.F;
     const self = this;
@@ -896,13 +897,30 @@ createPitchersTable(container, pitchersData, gameId) {
     // Process pitcher data with proper ordering and location
     const processedData = this.processPlayerData(pitchersData, 'pitcher', gameId);
     
-    // Flatten data for display, adding _expanded state
+    // Create flat data structure with all rows (parent and children)
     const flattenedData = [];
     processedData.forEach(player => {
-        // Add expanded state to parent
-        player._expanded = false;
-        player._hasChildren = player._children && player._children.length > 0;
-        flattenedData.push(player);
+        // Add parent row
+        const parentRow = {
+            ...player,
+            _isParent: true,
+            _expanded: false,
+            _hasChildren: player._children && player._children.length > 0,
+            _parentId: player[F.P_NAME] || 'unknown'
+        };
+        flattenedData.push(parentRow);
+        
+        // Add child rows (initially hidden)
+        if (player._children) {
+            player._children.forEach(child => {
+                flattenedData.push({
+                    ...child,
+                    _isChild: true,
+                    _parentId: player[F.P_NAME] || 'unknown',
+                    _visible: false
+                });
+            });
+        }
     });
     
     const pitchersTable = new Tabulator(tableContainer, {
@@ -911,43 +929,20 @@ createPitchersTable(container, pitchersData, gameId) {
         resizableColumns: false,
         headerSort: false,
         data: flattenedData,
-        // Remove all tree-related config
         rowFormatter: function(row) {
             const data = row.getData();
             const rowElement = row.getElement();
             
-            // Remove any existing child rows first
-            const existingChildren = rowElement.querySelectorAll('.child-row');
-            existingChildren.forEach(child => child.remove());
+            // Hide child rows that shouldn't be visible
+            if (data._isChild && !data._visible) {
+                rowElement.style.display = 'none';
+            } else {
+                rowElement.style.display = '';
+            }
             
-            // Add child rows if expanded
-            if (data._expanded && data._children) {
-                data._children.forEach(child => {
-                    const childRow = document.createElement('div');
-                    childRow.className = 'child-row';
-                    childRow.style.cssText = 'background: #f8f9fa; border-top: 1px solid #dee2e6;';
-                    
-                    // Create child row HTML
-                    const splitValue = child[F.P_SPLIT] || '';
-                    childRow.innerHTML = `
-                        <div style="display: flex; align-items: center; padding: 8px;">
-                            <div style="width: 200px; margin-left: 28px;">${splitValue}</div>
-                            <div style="width: 60px; text-align: center;">${child[F.P_TBF] || ''}</div>
-                            <div style="width: 70px; text-align: center;">${self.formatRatio(child[F.P_H_TBF])}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.P_H] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.P_1B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.P_2B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.P_3B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.P_HR] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.P_R] || ''}</div>
-                            <div style="width: 60px; text-align: center;">${self.formatERA(child[F.P_ERA])}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.P_BB] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.P_SO] || ''}</div>
-                        </div>
-                    `;
-                    
-                    rowElement.appendChild(childRow);
-                });
+            // Style child rows
+            if (data._isChild) {
+                rowElement.style.backgroundColor = '#f8f9fa';
             }
         },
         columns: [
@@ -959,17 +954,24 @@ createPitchersTable(container, pitchersData, gameId) {
                 headerSort: false,
                 formatter: function(cell) {
                     const data = cell.getData();
-                    const value = data[F.P_NAME] || '';
                     
-                    if (data._hasChildren) {
-                        const isExpanded = data._expanded || false;
-                        return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                            <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
-                            <strong>${value}</strong>
-                        </div>`;
-                    } else {
-                        return `<strong>${value}</strong>`;
+                    if (data._isParent) {
+                        const value = data[F.P_NAME] || '';
+                        if (data._hasChildren) {
+                            const isExpanded = data._expanded || false;
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                                <strong>${value}</strong>
+                            </div>`;
+                        } else {
+                            return `<strong>${value}</strong>`;
+                        }
+                    } else if (data._isChild) {
+                        const splitValue = data[F.P_SPLIT] || '';
+                        return `<div style="margin-left: 28px;">${splitValue}</div>`;
                     }
+                    
+                    return cell.getValue() || '';
                 }
             },
             { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
@@ -1008,12 +1010,20 @@ createPitchersTable(container, pitchersData, gameId) {
             const row = cell.getRow();
             const data = row.getData();
             
-            if (data._hasChildren) {
+            if (data._isParent && data._hasChildren) {
                 // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update row
-                row.update(data);
+                // Update all child rows visibility
+                const allData = pitchersTable.getData();
+                allData.forEach(rowData => {
+                    if (rowData._isChild && rowData._parentId === data._parentId) {
+                        rowData._visible = data._expanded;
+                    }
+                });
+                
+                // Update the table data
+                pitchersTable.replaceData(allData);
                 
                 // Update expander icon
                 const cellElement = cell.getElement();
@@ -1021,9 +1031,6 @@ createPitchersTable(container, pitchersData, gameId) {
                 if (expanderIcon) {
                     expanderIcon.innerHTML = data._expanded ? "−" : "+";
                 }
-                
-                // Reformat row to show/hide children
-                row.reformat();
             }
         }
     });
@@ -1032,7 +1039,7 @@ createPitchersTable(container, pitchersData, gameId) {
     this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
 }
 
-// Fixed createBattersTable with manual expansion (no duplicate controls)
+// Improved createBattersTable - uses actual Tabulator rows with visibility control
 createBattersTable(container, battersData, gameId) {
     const F = this.F;
     const self = this;
@@ -1050,13 +1057,30 @@ createBattersTable(container, battersData, gameId) {
     // Process batter data with proper ordering and location
     const processedData = this.processPlayerData(battersData, 'batter', gameId);
     
-    // Flatten data for display, adding _expanded state
+    // Create flat data structure with all rows (parent and children)
     const flattenedData = [];
     processedData.forEach(player => {
-        // Add expanded state to parent
-        player._expanded = false;
-        player._hasChildren = player._children && player._children.length > 0;
-        flattenedData.push(player);
+        // Add parent row
+        const parentRow = {
+            ...player,
+            _isParent: true,
+            _expanded: false,
+            _hasChildren: player._children && player._children.length > 0,
+            _parentId: player[F.B_NAME] || 'unknown'
+        };
+        flattenedData.push(parentRow);
+        
+        // Add child rows (initially hidden)
+        if (player._children) {
+            player._children.forEach(child => {
+                flattenedData.push({
+                    ...child,
+                    _isChild: true,
+                    _parentId: player[F.B_NAME] || 'unknown',
+                    _visible: false
+                });
+            });
+        }
     });
     
     const battersTable = new Tabulator(tableContainer, {
@@ -1065,43 +1089,20 @@ createBattersTable(container, battersData, gameId) {
         resizableColumns: false,
         headerSort: false,
         data: flattenedData,
-        // Remove all tree-related config
         rowFormatter: function(row) {
             const data = row.getData();
             const rowElement = row.getElement();
             
-            // Remove any existing child rows first
-            const existingChildren = rowElement.querySelectorAll('.child-row');
-            existingChildren.forEach(child => child.remove());
+            // Hide child rows that shouldn't be visible
+            if (data._isChild && !data._visible) {
+                rowElement.style.display = 'none';
+            } else {
+                rowElement.style.display = '';
+            }
             
-            // Add child rows if expanded
-            if (data._expanded && data._children) {
-                data._children.forEach(child => {
-                    const childRow = document.createElement('div');
-                    childRow.className = 'child-row';
-                    childRow.style.cssText = 'background: #f8f9fa; border-top: 1px solid #dee2e6;';
-                    
-                    // Create child row HTML
-                    const splitValue = child[F.B_SPLIT] || '';
-                    childRow.innerHTML = `
-                        <div style="display: flex; align-items: center; padding: 8px;">
-                            <div style="width: 200px; margin-left: 28px;">${splitValue}</div>
-                            <div style="width: 60px; text-align: center;">${child[F.B_PA] || ''}</div>
-                            <div style="width: 70px; text-align: center;">${self.formatRatio(child[F.B_H_PA])}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_H] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_1B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_2B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_3B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_HR] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_R] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_RBI] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_BB] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.B_SO] || ''}</div>
-                        </div>
-                    `;
-                    
-                    rowElement.appendChild(childRow);
-                });
+            // Style child rows
+            if (data._isChild) {
+                rowElement.style.backgroundColor = '#f8f9fa';
             }
         },
         columns: [
@@ -1113,17 +1114,24 @@ createBattersTable(container, battersData, gameId) {
                 headerSort: false,
                 formatter: function(cell) {
                     const data = cell.getData();
-                    const value = data[F.B_NAME] || '';
                     
-                    if (data._hasChildren) {
-                        const isExpanded = data._expanded || false;
-                        return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                            <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
-                            <strong>${value}</strong>
-                        </div>`;
-                    } else {
-                        return `<strong>${value}</strong>`;
+                    if (data._isParent) {
+                        const value = data[F.B_NAME] || '';
+                        if (data._hasChildren) {
+                            const isExpanded = data._expanded || false;
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                                <strong>${value}</strong>
+                            </div>`;
+                        } else {
+                            return `<strong>${value}</strong>`;
+                        }
+                    } else if (data._isChild) {
+                        const splitValue = data[F.B_SPLIT] || '';
+                        return `<div style="margin-left: 28px;">${splitValue}</div>`;
                     }
+                    
+                    return cell.getValue() || '';
                 }
             },
             { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
@@ -1154,12 +1162,20 @@ createBattersTable(container, battersData, gameId) {
             const row = cell.getRow();
             const data = row.getData();
             
-            if (data._hasChildren) {
+            if (data._isParent && data._hasChildren) {
                 // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update row
-                row.update(data);
+                // Update all child rows visibility
+                const allData = battersTable.getData();
+                allData.forEach(rowData => {
+                    if (rowData._isChild && rowData._parentId === data._parentId) {
+                        rowData._visible = data._expanded;
+                    }
+                });
+                
+                // Update the table data
+                battersTable.replaceData(allData);
                 
                 // Update expander icon
                 const cellElement = cell.getElement();
@@ -1167,9 +1183,6 @@ createBattersTable(container, battersData, gameId) {
                 if (expanderIcon) {
                     expanderIcon.innerHTML = data._expanded ? "−" : "+";
                 }
-                
-                // Reformat row to show/hide children
-                row.reformat();
             }
         }
     });
@@ -1178,7 +1191,7 @@ createBattersTable(container, battersData, gameId) {
     this.trackSubtableExpansion(gameId, 'batters', battersTable);
 }
 
-// Fixed createBullpenTable with manual expansion (no duplicate controls)
+// Improved createBullpenTable - uses actual Tabulator rows with visibility control
 createBullpenTable(container, bullpenData, gameId) {
     const F = this.F;
     const self = this;
@@ -1205,13 +1218,30 @@ createBullpenTable(container, bullpenData, gameId) {
     // Process bullpen data into groups
     const processedData = this.processBullpenDataGrouped(bullpenData, location);
     
-    // Flatten data for display, adding _expanded state
+    // Create flat data structure with all rows (parent and children)
     const flattenedData = [];
     processedData.forEach(group => {
-        // Add expanded state to parent
-        group._expanded = false;
-        group._hasChildren = group._children && group._children.length > 0;
-        flattenedData.push(group);
+        // Add parent row
+        const parentRow = {
+            ...group,
+            _isParent: true,
+            _expanded: false,
+            _hasChildren: group._children && group._children.length > 0,
+            _parentId: group[F.BP_HAND_CNT] || 'unknown'
+        };
+        flattenedData.push(parentRow);
+        
+        // Add child rows (initially hidden)
+        if (group._children) {
+            group._children.forEach(child => {
+                flattenedData.push({
+                    ...child,
+                    _isChild: true,
+                    _parentId: group[F.BP_HAND_CNT] || 'unknown',
+                    _visible: false
+                });
+            });
+        }
     });
     
     const bullpenTable = new Tabulator(tableContainer, {
@@ -1220,43 +1250,20 @@ createBullpenTable(container, bullpenData, gameId) {
         resizableColumns: false,
         headerSort: false,
         data: flattenedData,
-        // Remove all tree-related config
         rowFormatter: function(row) {
             const data = row.getData();
             const rowElement = row.getElement();
             
-            // Remove any existing child rows first
-            const existingChildren = rowElement.querySelectorAll('.child-row');
-            existingChildren.forEach(child => child.remove());
+            // Hide child rows that shouldn't be visible
+            if (data._isChild && !data._visible) {
+                rowElement.style.display = 'none';
+            } else {
+                rowElement.style.display = '';
+            }
             
-            // Add child rows if expanded
-            if (data._expanded && data._children) {
-                data._children.forEach(child => {
-                    const childRow = document.createElement('div');
-                    childRow.className = 'child-row';
-                    childRow.style.cssText = 'background: #f8f9fa; border-top: 1px solid #dee2e6;';
-                    
-                    // Create child row HTML
-                    const splitValue = child[F.BP_SPLIT] || '';
-                    childRow.innerHTML = `
-                        <div style="display: flex; align-items: center; padding: 8px;">
-                            <div style="width: 200px; margin-left: 28px;">${splitValue}</div>
-                            <div style="width: 60px; text-align: center;">${child[F.BP_TBF] || ''}</div>
-                            <div style="width: 70px; text-align: center;">${self.formatRatio(child[F.BP_H_TBF])}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.BP_H] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.BP_1B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.BP_2B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.BP_3B] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.BP_HR] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.BP_R] || ''}</div>
-                            <div style="width: 60px; text-align: center;">${self.formatERA(child[F.BP_ERA])}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.BP_BB] || ''}</div>
-                            <div style="width: 45px; text-align: center;">${child[F.BP_SO] || ''}</div>
-                        </div>
-                    `;
-                    
-                    rowElement.appendChild(childRow);
-                });
+            // Style child rows
+            if (data._isChild) {
+                rowElement.style.backgroundColor = '#f8f9fa';
             }
         },
         columns: [
@@ -1268,17 +1275,24 @@ createBullpenTable(container, bullpenData, gameId) {
                 headerSort: false,
                 formatter: function(cell) {
                     const data = cell.getData();
-                    const value = data[F.BP_HAND_CNT] || '';
                     
-                    if (data._hasChildren) {
-                        const isExpanded = data._expanded || false;
-                        return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                            <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
-                            <strong>${value}</strong>
-                        </div>`;
-                    } else {
-                        return `<strong>${value}</strong>`;
+                    if (data._isParent) {
+                        const value = data[F.BP_HAND_CNT] || '';
+                        if (data._hasChildren) {
+                            const isExpanded = data._expanded || false;
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                                <strong>${value}</strong>
+                            </div>`;
+                        } else {
+                            return `<strong>${value}</strong>`;
+                        }
+                    } else if (data._isChild) {
+                        const splitValue = data[F.BP_SPLIT] || '';
+                        return `<div style="margin-left: 28px;">${splitValue}</div>`;
                     }
+                    
+                    return cell.getValue() || '';
                 }
             },
             { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
@@ -1317,12 +1331,20 @@ createBullpenTable(container, bullpenData, gameId) {
             const row = cell.getRow();
             const data = row.getData();
             
-            if (data._hasChildren) {
+            if (data._isParent && data._hasChildren) {
                 // Toggle expansion
                 data._expanded = !data._expanded;
                 
-                // Update row
-                row.update(data);
+                // Update all child rows visibility
+                const allData = bullpenTable.getData();
+                allData.forEach(rowData => {
+                    if (rowData._isChild && rowData._parentId === data._parentId) {
+                        rowData._visible = data._expanded;
+                    }
+                });
+                
+                // Update the table data
+                bullpenTable.replaceData(allData);
                 
                 // Update expander icon
                 const cellElement = cell.getElement();
@@ -1330,9 +1352,6 @@ createBullpenTable(container, bullpenData, gameId) {
                 if (expanderIcon) {
                     expanderIcon.innerHTML = data._expanded ? "−" : "+";
                 }
-                
-                // Reformat row to show/hide children
-                row.reformat();
             }
         }
     });
