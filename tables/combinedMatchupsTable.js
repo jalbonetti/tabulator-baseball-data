@@ -878,7 +878,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-ccreatePitchersTable(container, pitchersData, gameId) {
+createPitchersTable(container, pitchersData, gameId) {
     const F = this.F;
     const self = this;
     const location = this.determineOpposingLocation(gameId);
@@ -1167,22 +1167,6 @@ createBattersTable(container, battersData, gameId) {
     // Track expansion state
     this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
 }
-    
-    // Debug the table creation
-    bullpenTable.on("tableBuilt", function() {
-        console.log("Bullpen table built successfully");
-        const rows = bullpenTable.getRows();
-        console.log("Bullpen rows:", rows.length);
-        rows.forEach(row => {
-            const data = row.getData();
-            console.log("Row data:", data["Bullpen Hand & Number"], "Has children:", data._children ? data._children.length : 0);
-        });
-    });
-    
-    // Track expansion state
-    this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
-}
-    
     // Utility formatting methods
     formatRatio(value) {
         // Format to 3 decimal places, no leading zero
