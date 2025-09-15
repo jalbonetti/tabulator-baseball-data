@@ -640,97 +640,197 @@ export class MatchupsTable extends BaseTable {
         return result;
     }
     
-    processBullpenDataGrouped(data, location) {
-        if (!data || !data.length) return [];
+   // Fixed processBullpenDataGrouped method
+processBullpenDataGrouped(data, location) {
+    if (!data || !data.length) return [];
+    
+    const F = this.F;
+    
+    // Separate into righties and lefties
+    const righties = [];
+    const lefties = [];
+    
+    data.forEach(row => {
+        const handCnt = row[F.BP_HAND_CNT] || '';
+        // Handle formats like "5 Righties", "4 Lefties", "R", "L", etc.
+        if (handCnt.toLowerCase().includes('right') || handCnt.toLowerCase().includes('r')) {
+            righties.push(row);
+        } else if (handCnt.toLowerCase().includes('left') || handCnt.toLowerCase().includes('l')) {
+            lefties.push(row);
+        }
+    });
+    
+    const result = [];
+    
+    // Create Righties group
+    if (righties.length > 0) {
+        let rightCount = 0;
         
-        const F = this.F;
-        
-        // Separate into righties and lefties
-        const righties = [];
-        const lefties = [];
-        
-        data.forEach(row => {
-            const handCnt = row[F.BP_HAND_CNT] || '';
-            if (handCnt.includes('R')) {
-                righties.push(row);
-            } else if (handCnt.includes('L')) {
-                lefties.push(row);
+        // Extract the actual number from formats like "5 Righties" or "R (3)"
+        righties.forEach(r => {
+            const handCnt = r[F.BP_HAND_CNT] || '';
+            
+            // Try different patterns to extract the number
+            let match = handCnt.match(/^(\d+)\s+Right/i); // "5 Righties"
+            if (!match) {
+                match = handCnt.match(/Right.*\((\d+)\)/i); // "Righties (5)"
+            }
+            if (!match) {
+                match = handCnt.match(/R.*\((\d+)\)/); // "R (3)"
+            }
+            if (!match) {
+                match = handCnt.match(/(\d+)/); // Any number in the string
+            }
+            
+            if (match) {
+                const num = parseInt(match[1]);
+                if (num > rightCount) {
+                    rightCount = num;
+                }
             }
         });
         
-        const result = [];
-        
-        // Create Righties group with actual pitcher count
-        if (righties.length > 0) {
-            // Extract the actual number from the BP_HAND_CNT field
-            let rightCount = 0;
-            righties.forEach(r => {
-                const handCnt = r[F.BP_HAND_CNT] || '';
-                // Extract number from format like "R (3)"
-                const match = handCnt.match(/\((\d+)\)/);
-                if (match) {
-                    const num = parseInt(match[1]);
-                    if (num > rightCount) {
-                        rightCount = num;
-                    }
-                }
-            });
-            
-            // If no number found, default to 1
-            if (rightCount === 0) {
-                rightCount = 1;
-            }
-            
-            const rightGroup = {
-                [F.BP_HAND_CNT]: `Righties (${rightCount})`,
-                _isGroup: true,
-                _children: righties.map(r => ({
-                    ...r,
-                    [F.BP_SPLIT]: this.formatSplitName(r[F.BP_SPLIT] || '', location)
-                }))
-            };
-            
-            // Calculate totals for the group
-            this.calculateGroupTotals(rightGroup, righties, F);
-            result.push(rightGroup);
+        // If no number found, default to the count of unique splits
+        if (rightCount === 0) {
+            rightCount = righties.length;
         }
         
-        // Create Lefties group with actual pitcher count
-        if (lefties.length > 0) {
-            let leftCount = 0;
-            lefties.forEach(l => {
-                const handCnt = l[F.BP_HAND_CNT] || '';
-                // Extract number from format like "L (2)"
-                const match = handCnt.match(/\((\d+)\)/);
-                if (match) {
-                    const num = parseInt(match[1]);
-                    if (num > leftCount) {
-                        leftCount = num;
-                    }
-                }
-            });
-            
-            // If no number found, default to 1
-            if (leftCount === 0) {
-                leftCount = 1;
-            }
-            
-            const leftGroup = {
-                [F.BP_HAND_CNT]: `Lefties (${leftCount})`,
-                _isGroup: true,
-                _children: lefties.map(l => ({
-                    ...l,
-                    [F.BP_SPLIT]: this.formatSplitName(l[F.BP_SPLIT] || '', location)
-                }))
-            };
-            
-            // Calculate totals for the group
-            this.calculateGroupTotals(leftGroup, lefties, F);
-            result.push(leftGroup);
-        }
+        // Sort and filter righties splits to ensure correct 6-split order
+        const sortedRighties = this.sortBullpenSplits(righties, location);
         
-        return result;
+        const rightGroup = {
+            [F.BP_HAND_CNT]: `Righties (${rightCount})`,
+            _isGroup: true,
+            _children: sortedRighties
+        };
+        
+        // Calculate totals for the group using the parent row (Full Season)
+        this.calculateGroupTotals(rightGroup, righties, F);
+        result.push(rightGroup);
     }
+    
+    // Create Lefties group
+    if (lefties.length > 0) {
+        let leftCount = 0;
+        
+        // Extract the actual number from formats like "4 Lefties" or "L (2)"
+        lefties.forEach(l => {
+            const handCnt = l[F.BP_HAND_CNT] || '';
+            
+            // Try different patterns to extract the number
+            let match = handCnt.match(/^(\d+)\s+Left/i); // "4 Lefties"
+            if (!match) {
+                match = handCnt.match(/Left.*\((\d+)\)/i); // "Lefties (4)"
+            }
+            if (!match) {
+                match = handCnt.match(/L.*\((\d+)\)/); // "L (2)"
+            }
+            if (!match) {
+                match = handCnt.match(/(\d+)/); // Any number in the string
+            }
+            
+            if (match) {
+                const num = parseInt(match[1]);
+                if (num > leftCount) {
+                    leftCount = num;
+                }
+            }
+        });
+        
+        // If no number found, default to the count of unique splits
+        if (leftCount === 0) {
+            leftCount = lefties.length;
+        }
+        
+        // Sort and filter lefties splits to ensure correct 6-split order
+        const sortedLefties = this.sortBullpenSplits(lefties, location);
+        
+        const leftGroup = {
+            [F.BP_HAND_CNT]: `Lefties (${leftCount})`,
+            _isGroup: true,
+            _children: sortedLefties
+        };
+        
+        // Calculate totals for the group using the parent row (Full Season)
+        this.calculateGroupTotals(leftGroup, lefties, F);
+        result.push(leftGroup);
+    }
+    
+    return result;
+}
+
+// New method to properly sort bullpen splits in the correct order
+sortBullpenSplits(splits, location) {
+    const F = this.F;
+    
+    // Define the expected order for bullpen splits
+    const expectedOrder = [
+        'Season', 'Full Season',  // Full Season (parent)
+        'R', 'vs R', 'vs Righties', 'Right', 'Righties',  // vs Righties
+        'L', 'vs L', 'vs Lefties', 'Left', 'Lefties',     // vs Lefties
+        '@', 'Season @', 'Full Season @',  // Full Season @ location
+        'R @', 'vs R @', 'vs Righties @',  // vs Righties @ location
+        'L @', 'vs L @', 'vs Lefties @'    // vs Lefties @ location
+    ];
+    
+    // Create a map of splits by their type
+    const splitMap = new Map();
+    
+    splits.forEach(split => {
+        const splitId = split[F.BP_SPLIT] || '';
+        
+        // Determine the split type
+        let splitType = 'unknown';
+        
+        if (splitId === 'Season' || splitId === 'Full Season') {
+            splitType = 'fullSeason';
+        } else if (splitId === 'R' || splitId === 'vs R' || splitId.includes('Right')) {
+            if (splitId.includes('@')) {
+                splitType = 'rightiesAway';
+            } else {
+                splitType = 'righties';
+            }
+        } else if (splitId === 'L' || splitId === 'vs L' || splitId.includes('Left')) {
+            if (splitId.includes('@')) {
+                splitType = 'leftiesAway';
+            } else {
+                splitType = 'lefties';
+            }
+        } else if (splitId.includes('@')) {
+            if (splitId.includes('R')) {
+                splitType = 'rightiesAway';
+            } else if (splitId.includes('L')) {
+                splitType = 'leftiesAway';
+            } else {
+                splitType = 'fullSeasonAway';
+            }
+        }
+        
+        // Store the split with formatted name
+        splitMap.set(splitType, {
+            ...split,
+            [F.BP_SPLIT]: this.formatSplitName(splitId, location)
+        });
+    });
+    
+    // Return splits in the correct order (only the 6 we expect)
+    const orderedSplits = [];
+    const typeOrder = ['fullSeason', 'righties', 'lefties', 'fullSeasonAway', 'rightiesAway', 'leftiesAway'];
+    
+    typeOrder.forEach(type => {
+        if (splitMap.has(type)) {
+            orderedSplits.push(splitMap.get(type));
+        }
+    });
+    
+    // If we don't have exactly 6, log a warning but return what we have
+    if (orderedSplits.length !== 6) {
+        console.warn(`Expected 6 bullpen splits, but got ${orderedSplits.length}. Available splits:`, 
+                    splits.map(s => s[F.BP_SPLIT]));
+    }
+    
+    return orderedSplits;
+}
     
     calculateGroupTotals(group, rows, F) {
         // Calculate totals for numeric fields
