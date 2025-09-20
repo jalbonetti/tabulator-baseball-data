@@ -640,7 +640,6 @@ export class MatchupsTable extends BaseTable {
         return result;
     }
     
-   // Fixed processBullpenDataGrouped method
 // Fixed processBullpenDataGrouped method
 processBullpenDataGrouped(data, location) {
     if (!data || !data.length) return [];
