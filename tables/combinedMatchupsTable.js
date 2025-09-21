@@ -244,7 +244,7 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Team",
                 field: "Matchup Team",  // Use exact field name for BaseTable compatibility
-                widthGrow: 1,
+                widthGrow: 1.5,
                 resizable: false,
                 formatter: function(cell) {
                     const value = cell.getValue();
@@ -263,7 +263,7 @@ export class MatchupsTable extends BaseTable {
             {
                 title: "Game", 
                 field: F.GAME, 
-                widthGrow: 2,
+                widthGrow: 1.5,
                 resizable: false
             },
             {
