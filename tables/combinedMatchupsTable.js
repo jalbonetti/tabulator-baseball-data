@@ -125,10 +125,24 @@ export class MatchupsTable extends BaseTable {
             placeholder: "Loading matchups data...",
             resizableColumns: false,
             columns: this.getColumns(),
+            // FIX #3: Sort by Game ID numerically
             initialSort: [
-                // FIX #3: Sort by Game ID numerically
                 {column: this.F.MATCH_ID, dir: "asc"}
             ],
+            // FIX #3: Add custom sorter for Game ID
+            columnDefaults: {
+                resizable: false
+            },
+            autoColumns: false,
+            dataLoader: false,
+            ajaxSorting: false,
+            sortOrderReverse: false,
+            // Custom sorters for proper numeric sorting
+            sorters: {
+                gameIdSorter: function(a, b) {
+                    return parseInt(a) - parseInt(b);
+                }
+            },
             rowFormatter: this.createRowFormatter()
         };
         
@@ -164,19 +178,6 @@ export class MatchupsTable extends BaseTable {
                 headerFilter: createCustomMultiSelect  // Add filter
             },
             {
-                title: "Game ID",
-                field: F.MATCH_ID,
-                width: 90,
-                resizable: false,
-                // FIX #3: Add custom sorter for numeric sorting
-                sorter: function(a, b, aRow, bRow, column, dir, sorterParams) {
-                    // Convert to numbers for proper sorting
-                    const aNum = parseInt(a) || 0;
-                    const bNum = parseInt(b) || 0;
-                    return aNum - bNum;
-                }
-            },
-            {
                 title: "Game", 
                 field: F.GAME, 
                 widthGrow: 1.5,
@@ -205,7 +206,7 @@ export class MatchupsTable extends BaseTable {
         ];
     }
     
-    // FIX #2: Improved scroll preservation
+    // FIX #2: Better scroll preservation implementation
     createRowFormatter() {
         const self = this;
         
@@ -230,84 +231,34 @@ export class MatchupsTable extends BaseTable {
                 let existingSubrow = rowElement.querySelector('.subrow-container');
                 
                 if (!existingSubrow) {
-                    // FIX #2: Synchronous subtable creation to prevent scroll issues
-                    self.createMatchupSubtablesSync(row, data);
+                    // FIX #2: Prevent scroll jump by preserving position
+                    const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                    
+                    // Create subtables
+                    self.createMatchupSubtables(row, data).then(() => {
+                        // Restore scroll position after rendering
+                        if (tableHolder) {
+                            tableHolder.scrollTop = scrollTop;
+                        }
+                    });
                 }
             } else {
                 // Remove subtables if collapsed
                 const existingSubrow = rowElement.querySelector('.subrow-container');
                 if (existingSubrow) {
+                    const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                    
                     existingSubrow.remove();
+                    
+                    // Restore scroll position
+                    if (tableHolder) {
+                        tableHolder.scrollTop = scrollTop;
+                    }
                 }
             }
         };
-    }
-    
-    // FIX #2: New synchronous method to prevent scroll jumping
-    createMatchupSubtablesSync(row, data) {
-        const rowElement = row.getElement();
-        const gameId = data[this.F.MATCH_ID];
-        const opponentGameId = this.getOpponentGameId(gameId);
-        
-        // Create main container
-        const holderEl = document.createElement("div");
-        holderEl.classList.add('subrow-container');
-        holderEl.style.cssText = `
-            padding: 10px;
-            background: #f8f9fa;
-            margin: 10px 0;
-            border-radius: 4px;
-            display: block;
-            width: 100%;
-            position: relative;
-            z-index: 1;
-        `;
-        
-        // Append immediately to prevent reflow
-        rowElement.appendChild(holderEl);
-        
-        // Load data asynchronously but update existing container
-        this.loadSubtableData(gameId, opponentGameId).then(subtableData => {
-            // Create layout structure
-            // Row 1: Park Factors and Weather (side by side)
-            const topRow = document.createElement("div");
-            topRow.style.cssText = "display: flex; gap: 20px; margin-bottom: 15px;";
-            
-            const parkContainer = document.createElement("div");
-            parkContainer.style.cssText = "flex: 1;";
-            
-            const weatherContainer = document.createElement("div");
-            weatherContainer.style.cssText = "flex: 1;";
-            
-            topRow.appendChild(parkContainer);
-            topRow.appendChild(weatherContainer);
-            holderEl.appendChild(topRow);
-            
-            // Row 2: Starting Pitchers (opponent's)
-            const pitchersContainer = document.createElement("div");
-            pitchersContainer.style.cssText = "margin-bottom: 15px;";
-            holderEl.appendChild(pitchersContainer);
-            
-            // Row 3: Batters
-            const battersContainer = document.createElement("div");
-            battersContainer.style.cssText = "margin-bottom: 15px;";
-            holderEl.appendChild(battersContainer);
-            
-            // Row 4: Bullpen (opponent's)
-            const bullpenContainer = document.createElement("div");
-            bullpenContainer.style.cssText = "margin-bottom: 15px;";
-            holderEl.appendChild(bullpenContainer);
-            
-            // Create all subtables
-            this.createParkFactorsTable(parkContainer, subtableData.park, data);
-            this.createWeatherTable(weatherContainer, data);
-            this.createPitchersTable(pitchersContainer, subtableData.pitchers, gameId);
-            this.createBattersTable(battersContainer, subtableData.batters, gameId);
-            this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
-            
-            // Restore expanded state for subtables
-            this.restoreSubtableExpandedState(gameId);
-        });
     }
     
     // Custom row expansion for matchups table
@@ -386,6 +337,72 @@ export class MatchupsTable extends BaseTable {
         // Opposite of regular location
         const id = parseInt(gameId);
         return (id % 10 === 1) ? 'Away' : 'At Home';
+    }
+    
+    async createMatchupSubtables(row, data) {
+        const rowElement = row.getElement();
+        const gameId = data[this.F.MATCH_ID];
+        const opponentGameId = this.getOpponentGameId(gameId);
+        
+        // Create main container
+        const holderEl = document.createElement("div");
+        holderEl.classList.add('subrow-container');
+        holderEl.style.cssText = `
+            padding: 10px;
+            background: #f8f9fa;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: block;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+        `;
+        
+        // Load all subtable data (use opponent ID for pitcher/bullpen)
+        const subtableData = await this.loadSubtableData(gameId, opponentGameId);
+        
+        // Create layout structure
+        // Row 1: Park Factors and Weather (side by side)
+        const topRow = document.createElement("div");
+        topRow.style.cssText = "display: flex; gap: 20px; margin-bottom: 15px;";
+        
+        const parkContainer = document.createElement("div");
+        parkContainer.style.cssText = "flex: 1;";
+        
+        const weatherContainer = document.createElement("div");
+        weatherContainer.style.cssText = "flex: 1;";
+        
+        topRow.appendChild(parkContainer);
+        topRow.appendChild(weatherContainer);
+        holderEl.appendChild(topRow);
+        
+        // Row 2: Starting Pitchers (opponent's)
+        const pitchersContainer = document.createElement("div");
+        pitchersContainer.style.cssText = "margin-bottom: 15px;";
+        holderEl.appendChild(pitchersContainer);
+        
+        // Row 3: Batters
+        const battersContainer = document.createElement("div");
+        battersContainer.style.cssText = "margin-bottom: 15px;";
+        holderEl.appendChild(battersContainer);
+        
+        // Row 4: Bullpen (opponent's)
+        const bullpenContainer = document.createElement("div");
+        bullpenContainer.style.cssText = "margin-bottom: 15px;";
+        holderEl.appendChild(bullpenContainer);
+        
+        // Append to row
+        rowElement.appendChild(holderEl);
+        
+        // Create all subtables
+        this.createParkFactorsTable(parkContainer, subtableData.park, data);
+        this.createWeatherTable(weatherContainer, data);
+        this.createPitchersTable(pitchersContainer, subtableData.pitchers, gameId);
+        this.createBattersTable(battersContainer, subtableData.batters, gameId);
+        this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
+        
+        // Restore expanded state for subtables
+        this.restoreSubtableExpandedState(gameId);
     }
     
     async loadSubtableData(gameId, opponentGameId) {
@@ -517,7 +534,6 @@ export class MatchupsTable extends BaseTable {
                         // Check for basic patterns
                         if (split === 'R' || split === 'vs R') return 1;
                         if (split === 'L' || split === 'vs L') return 2;
-                        // FIX #1: Change "Full Season@" to just "@"
                         if (split === '@' || split === 'Season @' || split === 'Full Season@') return 3;
                         if (split === 'R @' || split === 'vs R @') return 4;
                         if (split === 'L @' || split === 'vs L @') return 5;
@@ -576,10 +592,10 @@ export class MatchupsTable extends BaseTable {
         
         data.forEach(row => {
             const handCnt = row[F.BP_HAND_CNT] || '';
-            // Handle formats like "5 Righties", "4 Lefties", "R", "L", etc.
-            if (handCnt.match(/\d+\s+Right/i) || handCnt.toLowerCase().includes('right')) {
+            // Handle formats like "5 Righties", "4 Lefties"
+            if (handCnt.match(/\d+\s+Right/i)) {
                 righties.push(row);
-            } else if (handCnt.match(/\d+\s+Left/i) || handCnt.toLowerCase().includes('left')) {
+            } else if (handCnt.match(/\d+\s+Left/i)) {
                 lefties.push(row);
             }
         });
@@ -588,7 +604,7 @@ export class MatchupsTable extends BaseTable {
         
         // Create Righties group
         if (righties.length > 0) {
-            // Extract the number from formats like "5 Righties"
+            // Extract the number from "5 Righties" format
             let rightCount = 0;
             righties.forEach(r => {
                 const handCnt = r[F.BP_HAND_CNT] || '';
@@ -630,7 +646,7 @@ export class MatchupsTable extends BaseTable {
         
         // Create Lefties group
         if (lefties.length > 0) {
-            // Extract the number from formats like "4 Lefties"
+            // Extract the number from "4 Lefties" format
             let leftCount = 0;
             lefties.forEach(l => {
                 const handCnt = l[F.BP_HAND_CNT] || '';
@@ -685,13 +701,13 @@ export class MatchupsTable extends BaseTable {
             let splitType = 'unknown';
             
             // Determine split type (Full Season is already excluded)
-            if (splitId === 'vs R' || splitId === 'R' || splitId.includes('Right')) {
+            if (splitId === 'vs R' || splitId === 'R') {
                 if (splitId.includes('@')) {
                     splitType = 'rightiesAway';
                 } else {
                     splitType = 'righties';
                 }
-            } else if (splitId === 'vs L' || splitId === 'L' || splitId.includes('Left')) {
+            } else if (splitId === 'vs L' || splitId === 'L') {
                 if (splitId.includes('@')) {
                     splitType = 'leftiesAway';
                 } else {
