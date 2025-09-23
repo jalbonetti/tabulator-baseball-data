@@ -862,578 +862,569 @@ export class MatchupsTable extends BaseTable {
         console.log(`Ready to restore subtable state for game ${gameId}`);
     }
     
-    // Create park factors table
-    createParkFactorsTable(container, parkData, matchupData) {
-        const F = this.F;
-        
-        // Get stadium name from matchup data, removing "(Retractable Roof)" if present
-        let stadiumName = matchupData[F.PARK] || "Stadium";
-        stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
-        
-        // Add title with stadium name
-        const title = document.createElement("h4");
-        title.textContent = `${stadiumName} Park Factors`;
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process and sort park data - Ensure correct order (All, Right, Left)
-        const processedData = (parkData || []).map(row => ({
-            ...row,
-            [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
-                         row[F.PF_SPLIT] === 'R' ? 'Right' : 
-                         row[F.PF_SPLIT] === 'L' ? 'Left' : 
-                         row[F.PF_SPLIT]
-        })).sort((a, b) => {
-            const order = { 'All': 0, 'Right': 1, 'Left': 2 };
-            return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
-        });
-        
-        new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: processedData,
-            columns: [
-                { title: "Split", field: F.PF_SPLIT, widthGrow: 1 },
-                { title: "H", field: F.PF_H, width: 45, hozAlign: "center" },
-                { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center" },
-                { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center" },
-                { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center" },
-                { title: "HR", field: F.PF_HR, width: 50, hozAlign: "center" },
-                { title: "R", field: F.PF_R, width: 45, hozAlign: "center" },
-                { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center" },
-                { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center" }
-            ]
-        });
-    }
+// Create park factors table
+createParkFactorsTable(container, parkData, matchupData) {
+    const F = this.F;
     
-    // Create weather table
-    createWeatherTable(container, data) {
-        const F = this.F;
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Weather Conditions";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Helper function to parse weather data
-        const parseWeatherData = (weatherString) => {
-            if (!weatherString || weatherString === "N/A") {
-                return { time: "N/A", conditions: "N/A" };
-            }
-            
-            // Split by the dash character (–)
-            const parts = weatherString.split('–');
-            
-            if (parts.length >= 2) {
-                // Extract time (before the dash) and conditions (after the dash)
-                const time = parts[0].trim();
-                const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
-                return { time, conditions };
-            } else {
-                // If no dash found, return the whole string as conditions
-                return { time: "N/A", conditions: weatherString };
-            }
-        };
-        
-        // Prepare weather data by parsing each weather field
-        const weatherData = [
-            parseWeatherData(data[F.WX1]),
-            parseWeatherData(data[F.WX2]),
-            parseWeatherData(data[F.WX3]),
-            parseWeatherData(data[F.WX4])
-        ];
-        
-        new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: weatherData,
-            columns: [
-                { title: "Time", field: "time", widthGrow: 1 },
-                { title: "Conditions", field: "conditions", widthGrow: 2 }
-            ]
-        });
-    }
+    // Get stadium name from matchup data, removing "(Retractable Roof)" if present
+    let stadiumName = matchupData[F.PARK] || "Stadium";
+    stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
     
-    // Create starting pitchers table
-    createPitchersTable(container, pitchersData, gameId) {
-        const F = this.F;
-        const self = this;
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Opposing Starting Pitcher";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process pitcher data
-        const processedData = this.processPlayerData(pitchersData, 'pitcher', gameId);
-        
-        // Create flat data structure with all rows (parent and children)
-        const flattenedData = [];
-        processedData.forEach(player => {
-            // Add parent row
-            flattenedData.push({
-                ...player,
-                _expanded: false,
-                _isParent: true,
-                _hasChildren: player._children && player._children.length > 0
-            });
-            
-            // Add child rows (initially hidden)
-            if (player._children) {
-                player._children.forEach(child => {
-                    flattenedData.push({
-                        ...child,
-                        _isChild: true,
-                        _parentName: player[F.P_NAME],
-                        _visible: false
-                    });
-                });
-            }
-        });
-        
-        const pitchersTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: flattenedData,
-            rowFormatter: function(row) {
-                const data = row.getData();
-                const rowElement = row.getElement();
-                
-                // Hide/show rows based on parent expansion
-                if (data._isChild && !data._visible) {
-                    rowElement.style.display = 'none';
-                } else {
-                    rowElement.style.display = '';
-                }
-                
-                // Style child rows
-                if (data._isChild) {
-                    rowElement.style.backgroundColor = '#f8f9fa';
-                }
-            },
-            columns: [
-                { 
-                    title: "Name/Split", 
-                    field: F.P_NAME, 
-                    widthGrow: 1.8,
-                    resizable: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        
-                        if (data._isParent) {
-                            const value = data[F.P_NAME] || '';
-                            if (data._hasChildren) {
-                                const isExpanded = data._expanded || false;
-                                return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                                    <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
-                                    <strong>${value}</strong>
-                                </div>`;
-                            } else {
-                                return `<strong>${value}</strong>`;
-                            }
-                        } else if (data._isChild) {
-                            const splitValue = data[F.P_SPLIT] || '';
-                            return `<div style="margin-left: 28px;">${splitValue}</div>`;
-                        }
-                        
-                        return cell.getValue() || '';
-                    }
-                },
-                { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false },
-                { 
-                    title: "H/TBF", 
-                    field: F.P_H_TBF, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false },
-                { title: "1B", field: F.P_1B, width: 45, hozAlign: "center", resizable: false },
-                { title: "2B", field: F.P_2B, width: 45, hozAlign: "center", resizable: false },
-                { title: "3B", field: F.P_3B, width: 45, hozAlign: "center", resizable: false },
-                { title: "HR", field: F.P_HR, width: 45, hozAlign: "center", resizable: false },
-                { title: "R", field: F.P_R, width: 45, hozAlign: "center", resizable: false },
-                { 
-                    title: "ERA", 
-                    field: F.P_ERA, 
-                    width: 60, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    formatter: (cell) => this.formatERA(cell.getValue())
-                },
-                { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false },
-                { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false }
-            ]
-        });
-        
-        // Add click handler for expanding/collapsing rows
-        pitchersTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.P_NAME) {
-                const row = cell.getRow();
-                const data = row.getData();
-                
-                if (data._isParent && data._hasChildren) {
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = pitchersTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentName === data[F.P_NAME]) {
-                            rowData._visible = data._expanded;
-                        }
-                    });
-                    
-                    // Update the table data
-                    pitchersTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                    }
-                }
-            }
-        });
-        
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
-    }
+    // Add title with stadium name
+    const title = document.createElement("h4");
+    title.textContent = `${stadiumName} Park Factors`;
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
     
-    // Create batters table
-    createBattersTable(container, battersData, gameId) {
-        const F = this.F;
-        const self = this;
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Batters";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process batter data
-        const processedData = this.processPlayerData(battersData, 'batter', gameId);
-        
-        // Create flat data structure with all rows (parent and children)
-        const flattenedData = [];
-        processedData.forEach(player => {
-            // Add parent row
-            flattenedData.push({
-                ...player,
-                _expanded: false,
-                _isParent: true,
-                _hasChildren: player._children && player._children.length > 0
-            });
-            
-            // Add child rows (initially hidden)
-            if (player._children) {
-                player._children.forEach(child => {
-                    flattenedData.push({
-                        ...child,
-                        _isChild: true,
-                        _parentName: player[F.B_NAME],
-                        _visible: false
-                    });
-                });
-            }
-        });
-        
-        const battersTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: flattenedData,
-            rowFormatter: function(row) {
-                const data = row.getData();
-                const rowElement = row.getElement();
-                
-                // Hide/show rows based on parent expansion
-                if (data._isChild && !data._visible) {
-                    rowElement.style.display = 'none';
-                } else {
-                    rowElement.style.display = '';
-                }
-                
-                // Style child rows
-                if (data._isChild) {
-                    rowElement.style.backgroundColor = '#f8f9fa';
-                }
-            },
-            columns: [
-                { 
-                    title: "Name/Split", 
-                    field: F.B_NAME, 
-                    widthGrow: 1.8,
-                    resizable: false,
-                    headerSort: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        
-                        if (data._isParent) {
-                            const value = data[F.B_NAME] || '';
-                            if (data._hasChildren) {
-                                const isExpanded = data._expanded || false;
-                                return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                                    <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
-                                    <strong>${value}</strong>
-                                </div>`;
-                            } else {
-                                return `<strong>${value}</strong>`;
-                            }
-                        } else if (data._isChild) {
-                            const splitValue = data[F.B_SPLIT] || '';
-                            return `<div style="margin-left: 28px;">${splitValue}</div>`;
-                        }
-                        
-                        return cell.getValue() || '';
-                    }
-                },
-                { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "H/PA", 
-                    field: F.B_H_PA, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.B_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "RBI", field: F.B_RBI, width: 50, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-        
-        // Add click handler for expanding/collapsing rows
-        battersTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.B_NAME) {
-                const row = cell.getRow();
-                const data = row.getData();
-                
-                if (data._isParent && data._hasChildren) {
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = battersTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentName === data[F.B_NAME]) {
-                            rowData._visible = data._expanded;
-                        }
-                    });
-                    
-                    // Update the table data
-                    battersTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                    }
-                }
-            }
-        });
-        
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'batters', battersTable);
-    }
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
     
-    // Improved createBullpenTable - uses actual Tabulator rows with visibility control
-    createBullpenTable(container, bullpenData, gameId) {
-        const F = this.F;
-        const self = this;
-        const location = this.determineOpposingLocation(gameId);
-        
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Opposing Bullpen";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Handle empty bullpen data gracefully
-        if (!bullpenData || bullpenData.length === 0) {
-            const noDataMsg = document.createElement("div");
-            noDataMsg.textContent = "No bullpen data available";
-            noDataMsg.style.cssText = "text-align: center; padding: 20px; color: #666;";
-            tableContainer.appendChild(noDataMsg);
-            return;
+    // Process and sort park data - Ensure correct order (All, Right, Left)
+    const processedData = (parkData || []).map(row => ({
+        ...row,
+        [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
+                     row[F.PF_SPLIT] === 'R' ? 'Right' : 
+                     row[F.PF_SPLIT] === 'L' ? 'Left' : 
+                     row[F.PF_SPLIT]
+    })).sort((a, b) => {
+        const order = { 'All': 0, 'Right': 1, 'Left': 2 };
+        return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
+    });
+    
+    new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: processedData,
+        columns: [
+            { title: "Split", field: F.PF_SPLIT, widthGrow: 1 },
+            { title: "H", field: F.PF_H, width: 45, hozAlign: "center" },
+            { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center" },
+            { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center" },
+            { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center" },
+            { title: "HR", field: F.PF_HR, width: 50, hozAlign: "center" },
+            { title: "R", field: F.PF_R, width: 45, hozAlign: "center" },
+            { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center" },
+            { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center" }
+        ]
+    });
+}
+
+// Create weather table
+createWeatherTable(container, data) {
+    const F = this.F;
+    
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Weather Conditions";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Helper function to parse weather data
+    const parseWeatherData = (weatherString) => {
+        if (!weatherString || weatherString === "N/A") {
+            return { time: "N/A", conditions: "N/A" };
         }
         
-        // Process bullpen data into groups
-        const processedData = this.processBullpenDataGrouped(bullpenData, location);
+        // Split by the dash character (–)
+        const parts = weatherString.split('–');
         
-        // Create flat data structure with all rows (parent and children)
-        const flattenedData = [];
-        processedData.forEach(group => {
-            // Add parent row
-            const parentRow = {
-                ...group,
-                _isParent: true,
-                _expanded: false,
-                _hasChildren: group._children && group._children.length > 0,
-                _parentId: group[F.BP_HAND_CNT] || 'unknown'
-            };
-            flattenedData.push(parentRow);
-            
-            // Add child rows (initially hidden)
-            if (group._children) {
-                group._children.forEach(child => {
-                    flattenedData.push({
-                        ...child,
-                        _isChild: true,
-                        _parentId: group[F.BP_HAND_CNT] || 'unknown',
-                        _visible: false
-                    });
-                });
-            }
+        if (parts.length >= 2) {
+            // Extract time (before the dash) and conditions (after the dash)
+            const time = parts[0].trim();
+            const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
+            return { time, conditions };
+        } else {
+            // If no dash found, return the whole string as conditions
+            return { time: "N/A", conditions: weatherString };
+        }
+    };
+    
+    // Prepare weather data by parsing each weather field
+    const weatherData = [
+        parseWeatherData(data[F.WX1]),
+        parseWeatherData(data[F.WX2]),
+        parseWeatherData(data[F.WX3]),
+        parseWeatherData(data[F.WX4])
+    ];
+    
+    new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: weatherData,
+        columns: [
+            { title: "Time", field: "time", widthGrow: 1 },
+            { title: "Conditions", field: "conditions", widthGrow: 2 }
+        ]
+    });
+}
+
+// Create starting pitchers table
+createPitchersTable(container, pitchersData, gameId) {
+    const F = this.F;
+    const self = this;
+    
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Opposing Starting Pitcher";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Process pitcher data
+    const processedData = this.processPlayerData(pitchersData, 'pitcher', gameId);
+    
+    // Create flat data structure with all rows (parent and children)
+    const flattenedData = [];
+    processedData.forEach(player => {
+        // Add parent row
+        flattenedData.push({
+            ...player,
+            _expanded: false,
+            _isParent: true,
+            _hasChildren: player._children && player._children.length > 0
         });
         
-        const bullpenTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: flattenedData,
-            rowFormatter: function(row) {
-                const data = row.getData();
-                const rowElement = row.getElement();
-                
-                // Hide/show rows based on parent expansion
-                if (data._isChild && !data._visible) {
-                    rowElement.style.display = 'none';
-                } else {
-                    rowElement.style.display = '';
-                }
-                
-                // Style child rows
-                if (data._isChild) {
-                    rowElement.style.backgroundColor = '#f8f9fa';
+        // Add child rows (initially hidden)
+        if (player._children) {
+            player._children.forEach(child => {
+                flattenedData.push({
+                    ...child,
+                    _isChild: true,
+                    _parentName: player[F.P_NAME],
+                    _visible: false
+                });
+            });
+        }
+    });
+    
+    const pitchersTable = new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: flattenedData,
+        rowFormatter: function(row) {
+            const data = row.getData();
+            const rowElement = row.getElement();
+            
+            // Hide/show rows based on parent expansion
+            if (data._isChild && !data._visible) {
+                rowElement.style.display = 'none';
+            } else {
+                rowElement.style.display = '';
+            }
+            
+            // Style child rows
+            if (data._isChild) {
+                rowElement.style.backgroundColor = '#f8f9fa';
+            }
+        },
+        columns: [
+            { 
+                title: "Name/Split", 
+                field: F.P_NAME, 
+                widthGrow: 1.8,
+                formatter: function(cell) {
+                    const data = cell.getData();
+                    
+                    if (data._isParent) {
+                        const value = data[F.P_NAME] || '';
+                        if (data._hasChildren) {
+                            const isExpanded = data._expanded || false;
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                                <strong>${value}</strong>
+                            </div>`;
+                        } else {
+                            return `<strong>${value}</strong>`;
+                        }
+                    } else if (data._isChild) {
+                        const splitValue = data[F.P_SPLIT] || '';
+                        return `<div style="margin-left: 28px;">${splitValue}</div>`;
+                    }
+                    
+                    return cell.getValue() || '';
                 }
             },
-            columns: [
-                { 
-                    title: "Hand/Split", 
-                    field: F.BP_HAND_CNT, 
-                    widthGrow: 1.5,
-                    resizable: false,
-                    headerSort: false,
-                    formatter: function(cell) {
-                        const data = cell.getData();
-                        
-                        if (data._isParent) {
-                            const value = data[F.BP_HAND_CNT] || '';
-                            if (data._hasChildren) {
-                                const isExpanded = data._expanded || false;
-                                return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
-                                    <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
-                                    <strong>${value}</strong>
-                                </div>`;
-                            } else {
-                                return `<strong>${value}</strong>`;
-                            }
-                        } else if (data._isChild) {
-                            const splitValue = data[F.BP_SPLIT] || '';
-                            return `<div style="margin-left: 28px;">${splitValue}</div>`;
-                        }
-                        
-                        return cell.getValue() || '';
-                    }
-                },
-                { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "H/TBF", 
-                    field: F.BP_H_TBF, 
-                    width: 70, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatRatio(cell.getValue())
-                },
-                { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "R", field: F.BP_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { 
-                    title: "ERA", 
-                    field: F.BP_ERA, 
-                    width: 60, 
-                    hozAlign: "center", 
-                    resizable: false,
-                    headerSort: false,
-                    formatter: (cell) => this.formatERA(cell.getValue())
-                },
-                { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
-                { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
-            ]
-        });
-        
-        // Add click handler for expanding/collapsing rows
-        bullpenTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.BP_HAND_CNT) {
-                const row = cell.getRow();
-                const data = row.getData();
+            { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center" },
+            { 
+                title: "H/TBF", 
+                field: F.P_H_TBF, 
+                width: 70, 
+                hozAlign: "center",
+                formatter: (cell) => this.formatRatio(cell.getValue())
+            },
+            { title: "H", field: F.P_H, width: 45, hozAlign: "center" },
+            { title: "1B", field: F.P_1B, width: 45, hozAlign: "center" },
+            { title: "2B", field: F.P_2B, width: 45, hozAlign: "center" },
+            { title: "3B", field: F.P_3B, width: 45, hozAlign: "center" },
+            { title: "HR", field: F.P_HR, width: 45, hozAlign: "center" },
+            { title: "R", field: F.P_R, width: 45, hozAlign: "center" },
+            { 
+                title: "ERA", 
+                field: F.P_ERA, 
+                width: 60, 
+                hozAlign: "center",
+                formatter: (cell) => this.formatERA(cell.getValue())
+            },
+            { title: "BB", field: F.P_BB, width: 45, hozAlign: "center" },
+            { title: "SO", field: F.P_SO, width: 45, hozAlign: "center" }
+        ]
+    });
+    
+    // Add click handler for expanding/collapsing rows
+    pitchersTable.on("cellClick", function(e, cell) {
+        if (cell.getField() === F.P_NAME) {
+            const row = cell.getRow();
+            const data = row.getData();
+            
+            if (data._isParent && data._hasChildren) {
+                // Toggle expansion
+                data._expanded = !data._expanded;
                 
-                if (data._isParent && data._hasChildren) {
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = bullpenTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentId === data._parentId) {
-                            rowData._visible = data._expanded;
-                        }
-                    });
-                    
-                    // Update the table data
-                    bullpenTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                // Update all child rows visibility
+                const allData = pitchersTable.getData();
+                allData.forEach(rowData => {
+                    if (rowData._isChild && rowData._parentName === data[F.P_NAME]) {
+                        rowData._visible = data._expanded;
                     }
+                });
+                
+                // Update the table data
+                pitchersTable.replaceData(allData);
+                
+                // Update expander icon
+                const cellElement = cell.getElement();
+                const expanderIcon = cellElement.querySelector('.row-expander');
+                if (expanderIcon) {
+                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
                 }
             }
+        }
+    });
+    
+    // Track expansion state
+    this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
+}
+
+// Create batters table
+createBattersTable(container, battersData, gameId) {
+    const F = this.F;
+    const self = this;
+    
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Batters";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Process batter data
+    const processedData = this.processPlayerData(battersData, 'batter', gameId);
+    
+    // Create flat data structure with all rows (parent and children)
+    const flattenedData = [];
+    processedData.forEach(player => {
+        // Add parent row
+        flattenedData.push({
+            ...player,
+            _expanded: false,
+            _isParent: true,
+            _hasChildren: player._children && player._children.length > 0
         });
         
-        // Track expansion state
-        this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
+        // Add child rows (initially hidden)
+        if (player._children) {
+            player._children.forEach(child => {
+                flattenedData.push({
+                    ...child,
+                    _isChild: true,
+                    _parentName: player[F.B_NAME],
+                    _visible: false
+                });
+            });
+        }
+    });
+    
+    const battersTable = new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: flattenedData,
+        rowFormatter: function(row) {
+            const data = row.getData();
+            const rowElement = row.getElement();
+            
+            // Hide/show rows based on parent expansion
+            if (data._isChild && !data._visible) {
+                rowElement.style.display = 'none';
+            } else {
+                rowElement.style.display = '';
+            }
+            
+            // Style child rows
+            if (data._isChild) {
+                rowElement.style.backgroundColor = '#f8f9fa';
+            }
+        },
+        columns: [
+            { 
+                title: "Name/Split", 
+                field: F.B_NAME, 
+                widthGrow: 1.8,
+                headerSort: false,
+                formatter: function(cell) {
+                    const data = cell.getData();
+                    
+                    if (data._isParent) {
+                        const value = data[F.B_NAME] || '';
+                        if (data._hasChildren) {
+                            const isExpanded = data._expanded || false;
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                                <strong>${value}</strong>
+                            </div>`;
+                        } else {
+                            return `<strong>${value}</strong>`;
+                        }
+                    } else if (data._isChild) {
+                        const splitValue = data[F.B_SPLIT] || '';
+                        return `<div style="margin-left: 28px;">${splitValue}</div>`;
+                    }
+                    
+                    return cell.getValue() || '';
+                }
+            },
+            { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", headerSort: false },
+            { 
+                title: "H/PA", 
+                field: F.B_H_PA, 
+                width: 70, 
+                hozAlign: "center",
+                headerSort: false,
+                formatter: (cell) => this.formatRatio(cell.getValue())
+            },
+            { title: "H", field: F.B_H, width: 45, hozAlign: "center", headerSort: false },
+            { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", headerSort: false },
+            { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", headerSort: false },
+            { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", headerSort: false },
+            { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", headerSort: false },
+            { title: "R", field: F.B_R, width: 45, hozAlign: "center", headerSort: false },
+            { title: "RBI", field: F.B_RBI, width: 50, hozAlign: "center", headerSort: false },
+            { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", headerSort: false },
+            { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", headerSort: false }
+        ]
+    });
+    
+    // Add click handler for expanding/collapsing rows
+    battersTable.on("cellClick", function(e, cell) {
+        if (cell.getField() === F.B_NAME) {
+            const row = cell.getRow();
+            const data = row.getData();
+            
+            if (data._isParent && data._hasChildren) {
+                // Toggle expansion
+                data._expanded = !data._expanded;
+                
+                // Update all child rows visibility
+                const allData = battersTable.getData();
+                allData.forEach(rowData => {
+                    if (rowData._isChild && rowData._parentName === data[F.B_NAME]) {
+                        rowData._visible = data._expanded;
+                    }
+                });
+                
+                // Update the table data
+                battersTable.replaceData(allData);
+                
+                // Update expander icon
+                const cellElement = cell.getElement();
+                const expanderIcon = cellElement.querySelector('.row-expander');
+                if (expanderIcon) {
+                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                }
+            }
+        }
+    });
+    
+    // Track expansion state
+    this.trackSubtableExpansion(gameId, 'batters', battersTable);
+}
+
+// Improved createBullpenTable - uses actual Tabulator rows with visibility control
+createBullpenTable(container, bullpenData, gameId) {
+    const F = this.F;
+    const self = this;
+    const location = this.determineOpposingLocation(gameId);
+    
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Opposing Bullpen";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Handle empty bullpen data gracefully
+    if (!bullpenData || bullpenData.length === 0) {
+        const noDataMsg = document.createElement("div");
+        noDataMsg.textContent = "No bullpen data available";
+        noDataMsg.style.cssText = "text-align: center; padding: 20px; color: #666;";
+        tableContainer.appendChild(noDataMsg);
+        return;
     }
+    
+    // Process bullpen data into groups
+    const processedData = this.processBullpenDataGrouped(bullpenData, location);
+    
+    // Create flat data structure with all rows (parent and children)
+    const flattenedData = [];
+    processedData.forEach(group => {
+        // Add parent row
+        const parentRow = {
+            ...group,
+            _isParent: true,
+            _expanded: false,
+            _hasChildren: group._children && group._children.length > 0,
+            _parentId: group[F.BP_HAND_CNT] || 'unknown'
+        };
+        flattenedData.push(parentRow);
+        
+        // Add child rows (initially hidden)
+        if (group._children) {
+            group._children.forEach(child => {
+                flattenedData.push({
+                    ...child,
+                    _isChild: true,
+                    _parentId: group[F.BP_HAND_CNT] || 'unknown',
+                    _visible: false
+                });
+            });
+        }
+    });
+    
+    const bullpenTable = new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,
+        headerSort: false,
+        data: flattenedData,
+        rowFormatter: function(row) {
+            const data = row.getData();
+            const rowElement = row.getElement();
+            
+            // Hide/show rows based on parent expansion
+            if (data._isChild && !data._visible) {
+                rowElement.style.display = 'none';
+            } else {
+                rowElement.style.display = '';
+            }
+            
+            // Style child rows
+            if (data._isChild) {
+                rowElement.style.backgroundColor = '#f8f9fa';
+            }
+        },
+        columns: [
+            { 
+                title: "Hand/Split", 
+                field: F.BP_HAND_CNT, 
+                widthGrow: 1.5,
+                headerSort: false,
+                formatter: function(cell) {
+                    const data = cell.getData();
+                    
+                    if (data._isParent) {
+                        const value = data[F.BP_HAND_CNT] || '';
+                        if (data._hasChildren) {
+                            const isExpanded = data._expanded || false;
+                            return `<div style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+                                <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
+                                <strong>${value}</strong>
+                            </div>`;
+                        } else {
+                            return `<strong>${value}</strong>`;
+                        }
+                    } else if (data._isChild) {
+                        const splitValue = data[F.BP_SPLIT] || '';
+                        return `<div style="margin-left: 28px;">${splitValue}</div>`;
+                    }
+                    
+                    return cell.getValue() || '';
+                }
+            },
+            { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", headerSort: false },
+            { 
+                title: "H/TBF", 
+                field: F.BP_H_TBF, 
+                width: 70, 
+                hozAlign: "center",
+                headerSort: false,
+                formatter: (cell) => this.formatRatio(cell.getValue())
+            },
+            { title: "H", field: F.BP_H, width: 45, hozAlign: "center", headerSort: false },
+            { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", headerSort: false },
+            { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", headerSort: false },
+            { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", headerSort: false },
+            { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", headerSort: false },
+            { title: "R", field: F.BP_R, width: 45, hozAlign: "center", headerSort: false },
+            { 
+                title: "ERA", 
+                field: F.BP_ERA, 
+                width: 60, 
+                hozAlign: "center",
+                headerSort: false,
+                formatter: (cell) => this.formatERA(cell.getValue())
+            },
+            { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", headerSort: false },
+            { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", headerSort: false }
+        ]
+    });
+    
+    // Add click handler for expanding/collapsing rows
+    bullpenTable.on("cellClick", function(e, cell) {
+        if (cell.getField() === F.BP_HAND_CNT) {
+            const row = cell.getRow();
+            const data = row.getData();
+            
+            if (data._isParent && data._hasChildren) {
+                // Toggle expansion
+                data._expanded = !data._expanded;
+                
+                // Update all child rows visibility
+                const allData = bullpenTable.getData();
+                allData.forEach(rowData => {
+                    if (rowData._isChild && rowData._parentId === data._parentId) {
+                        rowData._visible = data._expanded;
+                    }
+                });
+                
+                // Update the table data
+                bullpenTable.replaceData(allData);
+                
+                // Update expander icon
+                const cellElement = cell.getElement();
+                const expanderIcon = cellElement.querySelector('.row-expander');
+                if (expanderIcon) {
+                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                }
+            }
+        }
+    });
+    
+    // Track expansion state
+    this.trackSubtableExpansion(gameId, 'bullpen', bullpenTable);
 }
