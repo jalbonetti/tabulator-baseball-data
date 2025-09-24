@@ -123,7 +123,9 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             placeholder: "Loading matchups data...",
-            resizableColumns: false,
+            resizableColumns: false,  // ✅ ALREADY CORRECT
+            resizableRows: false,     // ✅ ADD for consistency
+            movableColumns: false,    // ✅ ADD for consistency
             columns: this.getColumns(),
             initialSort: [
                 {column: this.F.MATCH_ID, dir: "asc"}
@@ -846,108 +848,119 @@ export class MatchupsTable extends BaseTable {
         console.log(`Ready to restore subtable state for game ${gameId}`);
     }
     
-    // Create park factors table
-    createParkFactorsTable(container, parkData, matchupData) {
-        const F = this.F;
-        
-        // Get stadium name from matchup data, removing "(Retractable Roof)" if present
-        let stadiumName = matchupData[F.PARK] || "Stadium";
-        stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
-        
-        // Add title with stadium name
-        const title = document.createElement("h4");
-        title.textContent = `${stadiumName} Park Factors`;
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
-        
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Process and sort park data - Ensure correct order (All, Right, Left)
-        const processedData = (parkData || []).map(row => ({
-            ...row,
-            [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
-                         row[F.PF_SPLIT] === 'R' ? 'Right' : 
-                         row[F.PF_SPLIT] === 'L' ? 'Left' : 
-                         row[F.PF_SPLIT]
-        })).sort((a, b) => {
-            const order = { 'All': 0, 'Right': 1, 'Left': 2 };
-            return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
-        });
-        
-        new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: processedData,
-            columns: [
-                { title: "Split", field: F.PF_SPLIT, widthGrow: 1 },
-                { title: "H", field: F.PF_H, width: 45, hozAlign: "center" },
-                { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center" },
-                { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center" },
-                { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center" },
-                { title: "HR", field: F.PF_HR, width: 50, hozAlign: "center" },
-                { title: "R", field: F.PF_R, width: 45, hozAlign: "center" },
-                { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center" },
-                { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center" }
-            ]
-        });
-    }
+// 2. ENHANCED createParkFactorsTable method
+createParkFactorsTable(container, parkData, matchupData) {
+    const F = this.F;
     
-    // Create weather table
-    createWeatherTable(container, data) {
-        const F = this.F;
+    let stadiumName = matchupData[F.PARK] || "Stadium";
+    stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
+    
+    const title = document.createElement("h4");
+    title.textContent = `${stadiumName} Park Factors`;
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    const processedData = (parkData || []).map(row => ({
+        ...row,
+        [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
+                     row[F.PF_SPLIT] === 'R' ? 'Right' : 
+                     row[F.PF_SPLIT] === 'L' ? 'Left' : 
+                     row[F.PF_SPLIT]
+    })).sort((a, b) => {
+        const order = { 'All': 0, 'Right': 1, 'Left': 2 };
+        return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
+    });
+    
+    new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,  // ✅ ALREADY CORRECT
+        resizableRows: false,     // ✅ ADD for consistency
+        headerSort: false,
+        movableColumns: false,    // ✅ ADD for consistency
+        data: processedData,
+        columns: [
+            { title: "Split", field: F.PF_SPLIT, widthGrow: 1, resizable: false },
+            { title: "H", field: F.PF_H, width: 45, hozAlign: "center", resizable: false },
+            { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center", resizable: false },
+            { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center", resizable: false },
+            { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center", resizable: false },
+            { title: "HR", field: F.PF_HR, width: 50, hozAlign: "center", resizable: false },
+            { title: "R", field: F.PF_R, width: 45, hozAlign: "center", resizable: false },
+            { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center", resizable: false },
+            { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center", resizable: false }
+        ]
+    });
+}
+    
+// Create weather table - FIXED VERSION
+createWeatherTable(container, data) {
+    const F = this.F;
+    
+    // Add title
+    const title = document.createElement("h4");
+    title.textContent = "Weather Conditions";
+    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+    container.appendChild(title);
+    
+    const tableContainer = document.createElement("div");
+    container.appendChild(tableContainer);
+    
+    // Helper function to parse weather data
+    const parseWeatherData = (weatherString) => {
+        if (!weatherString || weatherString === "N/A") {
+            return { time: "N/A", conditions: "N/A" };
+        }
         
-        // Add title
-        const title = document.createElement("h4");
-        title.textContent = "Weather Conditions";
-        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-        container.appendChild(title);
+        // Split by the dash character (–)
+        const parts = weatherString.split('–');
         
-        const tableContainer = document.createElement("div");
-        container.appendChild(tableContainer);
-        
-        // Helper function to parse weather data
-        const parseWeatherData = (weatherString) => {
-            if (!weatherString || weatherString === "N/A") {
-                return { time: "N/A", conditions: "N/A" };
+        if (parts.length >= 2) {
+            // Extract time (before the dash) and conditions (after the dash)
+            const time = parts[0].trim();
+            const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
+            return { time, conditions };
+        } else {
+            // If no dash found, return the whole string as conditions
+            return { time: "N/A", conditions: weatherString };
+        }
+    };
+    
+    // Prepare weather data by parsing each weather field
+    const weatherData = [
+        parseWeatherData(data[F.WX1]),
+        parseWeatherData(data[F.WX2]),
+        parseWeatherData(data[F.WX3]),
+        parseWeatherData(data[F.WX4])
+    ];
+    
+    new Tabulator(tableContainer, {
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,  // ✅ CONFIRMED: Disable column resizing
+        resizableRows: false,     // ✅ ADDED: Disable row resizing for good measure
+        headerSort: false,
+        movableColumns: false,    // ✅ ADDED: Disable column moving
+        data: weatherData,
+        columns: [
+            { 
+                title: "Time", 
+                field: "time", 
+                widthGrow: 1,
+                resizable: false  // ✅ ADDED: Individual column resizable disable
+            },
+            { 
+                title: "Conditions", 
+                field: "conditions", 
+                widthGrow: 3,     // ✅ FIXED: This was incomplete "wi" - now properly set
+                resizable: false  // ✅ ADDED: Individual column resizable disable
             }
-            
-            // Split by the dash character (–)
-            const parts = weatherString.split('–');
-            
-            if (parts.length >= 2) {
-                // Extract time (before the dash) and conditions (after the dash)
-                const time = parts[0].trim();
-                const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
-                return { time, conditions };
-            } else {
-                // If no dash found, return the whole string as conditions
-                return { time: "N/A", conditions: weatherString };
-            }
-        };
-        
-        // Prepare weather data by parsing each weather field
-        const weatherData = [
-            parseWeatherData(data[F.WX1]),
-            parseWeatherData(data[F.WX2]),
-            parseWeatherData(data[F.WX3]),
-            parseWeatherData(data[F.WX4])
-        ];
-        
-        new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: weatherData,
-            columns: [
-                { title: "Time", field: "time", widthGrow: 1 },
-                { title: "Conditions", field: "conditions", widthGrow: 2 }
-            ]
-        });
-    }
+        ]
+    });
+}
     
     // Create starting pitchers table
     createPitchersTable(container, pitchersData, gameId) {
@@ -991,11 +1004,13 @@ export class MatchupsTable extends BaseTable {
         });
         
         const pitchersTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: flattenedData,
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,  // ✅ ALREADY CORRECT
+        resizableRows: false,     // ✅ ADD for consistency
+        headerSort: false,
+        movableColumns: false,    // ✅ ADD for consistency
+        data: flattenedData,
             rowFormatter: function(row) {
                 const data = row.getData();
                 const rowElement = row.getElement();
@@ -1142,11 +1157,13 @@ export class MatchupsTable extends BaseTable {
         });
         
         const battersTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: flattenedData,
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,  // ✅ ALREADY CORRECT
+        resizableRows: false,     // ✅ ADD for consistency
+        headerSort: false,
+        movableColumns: false,    // ✅ ADD for consistency
+        data: flattenedData,
             rowFormatter: function(row) {
                 const data = row.getData();
                 const rowElement = row.getElement();
@@ -1301,11 +1318,13 @@ export class MatchupsTable extends BaseTable {
         });
         
         const bullpenTable = new Tabulator(tableContainer, {
-            layout: "fitColumns",
-            height: false,
-            resizableColumns: false,
-            headerSort: false,
-            data: flattenedData,
+        layout: "fitColumns",
+        height: false,
+        resizableColumns: false,  // ✅ ALREADY CORRECT
+        resizableRows: false,     // ✅ ADD for consistency
+        headerSort: false,
+        movableColumns: false,    // ✅ ADD for consistency
+        data: flattenedData,
             rowFormatter: function(row) {
                 const data = row.getData();
                 const rowElement = row.getElement();
