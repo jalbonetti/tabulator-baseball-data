@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - COMPLETE FIXED VERSION
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH ALL REQUESTED CHANGES
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -123,9 +123,9 @@ export class MatchupsTable extends BaseTable {
         const config = {
             ...this.tableConfig,
             placeholder: "Loading matchups data...",
-            resizableColumns: false,  // ✅ ALREADY CORRECT
-            resizableRows: false,     // ✅ ADD for consistency
-            movableColumns: false,    // ✅ ADD for consistency
+            resizableColumns: false,
+            resizableRows: false,
+            movableColumns: false,
             columns: this.getColumns(),
             initialSort: [
                 {column: this.F.MATCH_ID, dir: "asc"}
@@ -195,6 +195,7 @@ export class MatchupsTable extends BaseTable {
                 field: F.TEAM, 
                 widthGrow: 1.2,
                 resizable: false,
+                headerSort: true, // Keep sorting for Team column
                 formatter: (cell) => {
                     const data = cell.getRow().getData();
                     const value = cell.getValue();
@@ -205,33 +206,42 @@ export class MatchupsTable extends BaseTable {
                         <span>${value || ''}</span>
                     </div>`;
                 },
-                headerFilter: createCustomMultiSelect  // Add filter
+                headerFilter: createCustomMultiSelect
             },
             {
                 title: "Game", 
                 field: F.GAME, 
                 widthGrow: 1.5,
-                resizable: false
+                resizable: false,
+                headerSort: false, // ✅ FIXED: Removed sorting
+                sorter: false
             },
             {
                 title: "Spread",
                 field: F.SPREAD,
                 widthGrow: 0.7,
                 hozAlign: "center",
-                resizable: false
+                resizable: false,
+                headerSort: false, // ✅ FIXED: Removed sorting
+                sorter: false
             },
             {
                 title: "Total",
                 field: F.TOTAL,
                 widthGrow: 0.7,
                 hozAlign: "center",
-                resizable: false
+                resizable: false,
+                headerSort: false, // ✅ FIXED: Removed sorting
+                sorter: false
             },
             {
                 title: "Lineup",
                 field: F.LINEUP,
                 widthGrow: 1,
-                resizable: false
+                resizable: false,
+                headerSort: false, // ✅ FIXED: Removed sorting
+                sorter: false,
+                headerFilter: createCustomMultiSelect // ✅ FIXED: Added dropdown filter
             }
         ];
     }
@@ -848,121 +858,123 @@ export class MatchupsTable extends BaseTable {
         console.log(`Ready to restore subtable state for game ${gameId}`);
     }
     
-// 2. ENHANCED createParkFactorsTable method
-createParkFactorsTable(container, parkData, matchupData) {
-    const F = this.F;
-    
-    let stadiumName = matchupData[F.PARK] || "Stadium";
-    stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
-    
-    const title = document.createElement("h4");
-    title.textContent = `${stadiumName} Park Factors`;
-    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-    container.appendChild(title);
-    
-    const tableContainer = document.createElement("div");
-    container.appendChild(tableContainer);
-    
-    const processedData = (parkData || []).map(row => ({
-        ...row,
-        [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
-                     row[F.PF_SPLIT] === 'R' ? 'Right' : 
-                     row[F.PF_SPLIT] === 'L' ? 'Left' : 
-                     row[F.PF_SPLIT]
-    })).sort((a, b) => {
-        const order = { 'All': 0, 'Right': 1, 'Left': 2 };
-        return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
-    });
-    
-    new Tabulator(tableContainer, {
-        layout: "fitColumns",
-        height: false,
-        resizableColumns: false,  // ✅ ALREADY CORRECT
-        resizableRows: false,     // ✅ ADD for consistency
-        headerSort: false,
-        movableColumns: false,    // ✅ ADD for consistency
-        data: processedData,
-        columns: [
-            { title: "Split", field: F.PF_SPLIT, widthGrow: 1, resizable: false },
-            { title: "H", field: F.PF_H, width: 45, hozAlign: "center", resizable: false },
-            { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center", resizable: false },
-            { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center", resizable: false },
-            { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center", resizable: false },
-            { title: "HR", field: F.PF_HR, width: 50, hozAlign: "center", resizable: false },
-            { title: "R", field: F.PF_R, width: 45, hozAlign: "center", resizable: false },
-            { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center", resizable: false },
-            { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center", resizable: false }
-        ]
-    });
-}
-    
-// Create weather table - FIXED VERSION
-createWeatherTable(container, data) {
-    const F = this.F;
-    
-    // Add title
-    const title = document.createElement("h4");
-    title.textContent = "Weather Conditions";
-    title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
-    container.appendChild(title);
-    
-    const tableContainer = document.createElement("div");
-    container.appendChild(tableContainer);
-    
-    // Helper function to parse weather data
-    const parseWeatherData = (weatherString) => {
-        if (!weatherString || weatherString === "N/A") {
-            return { time: "N/A", conditions: "N/A" };
-        }
+    // ✅ FIXED: Park Factors Table - Disabled sorting and resizing
+    createParkFactorsTable(container, parkData, matchupData) {
+        const F = this.F;
         
-        // Split by the dash character (–)
-        const parts = weatherString.split('–');
+        let stadiumName = matchupData[F.PARK] || "Stadium";
+        stadiumName = stadiumName.replace(/\s*\(Retractable Roof\)\s*/gi, '').trim();
         
-        if (parts.length >= 2) {
-            // Extract time (before the dash) and conditions (after the dash)
-            const time = parts[0].trim();
-            const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
-            return { time, conditions };
-        } else {
-            // If no dash found, return the whole string as conditions
-            return { time: "N/A", conditions: weatherString };
-        }
-    };
+        const title = document.createElement("h4");
+        title.textContent = `${stadiumName} Park Factors`;
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+        container.appendChild(title);
+        
+        const tableContainer = document.createElement("div");
+        container.appendChild(tableContainer);
+        
+        const processedData = (parkData || []).map(row => ({
+            ...row,
+            [F.PF_SPLIT]: row[F.PF_SPLIT] === 'A' ? 'All' : 
+                         row[F.PF_SPLIT] === 'R' ? 'Right' : 
+                         row[F.PF_SPLIT] === 'L' ? 'Left' : 
+                         row[F.PF_SPLIT]
+        })).sort((a, b) => {
+            const order = { 'All': 0, 'Right': 1, 'Left': 2 };
+            return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
+        });
+        
+        new Tabulator(tableContainer, {
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false,
+            resizableRows: false,
+            headerSort: false, // ✅ FIXED: Disabled sorting
+            movableColumns: false,
+            data: processedData,
+            columns: [
+                { title: "Split", field: F.PF_SPLIT, widthGrow: 1, resizable: false, headerSort: false },
+                { title: "H", field: F.PF_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.PF_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.PF_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.PF_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.PF_HR, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.PF_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "BB", field: F.PF_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
+            ]
+        });
+    }
     
-    // Prepare weather data by parsing each weather field
-    const weatherData = [
-        parseWeatherData(data[F.WX1]),
-        parseWeatherData(data[F.WX2]),
-        parseWeatherData(data[F.WX3]),
-        parseWeatherData(data[F.WX4])
-    ];
-    
-    new Tabulator(tableContainer, {
-        layout: "fitColumns",
-        height: false,
-        resizableColumns: false,  // ✅ CONFIRMED: Disable column resizing
-        resizableRows: false,     // ✅ ADDED: Disable row resizing for good measure
-        headerSort: false,
-        movableColumns: false,    // ✅ ADDED: Disable column moving
-        data: weatherData,
-        columns: [
-            { 
-                title: "Time", 
-                field: "time", 
-                widthGrow: 1,
-                resizable: false  // ✅ ADDED: Individual column resizable disable
-            },
-            { 
-                title: "Conditions", 
-                field: "conditions", 
-                widthGrow: 3,     // ✅ FIXED: This was incomplete "wi" - now properly set
-                resizable: false  // ✅ ADDED: Individual column resizable disable
+    // ✅ FIXED: Weather Table - Disabled sorting and resizing
+    createWeatherTable(container, data) {
+        const F = this.F;
+        
+        // Add title
+        const title = document.createElement("h4");
+        title.textContent = "Weather Conditions";
+        title.style.cssText = "margin: 0 0 10px 0; font-weight: bold; text-align: center; font-size: 14px;";
+        container.appendChild(title);
+        
+        const tableContainer = document.createElement("div");
+        container.appendChild(tableContainer);
+        
+        // Helper function to parse weather data
+        const parseWeatherData = (weatherString) => {
+            if (!weatherString || weatherString === "N/A") {
+                return { time: "N/A", conditions: "N/A" };
             }
-        ]
-    });
-}
+            
+            // Split by the dash character (–)
+            const parts = weatherString.split('–');
+            
+            if (parts.length >= 2) {
+                // Extract time (before the dash) and conditions (after the dash)
+                const time = parts[0].trim();
+                const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
+                return { time, conditions };
+            } else {
+                // If no dash found, return the whole string as conditions
+                return { time: "N/A", conditions: weatherString };
+            }
+        };
+        
+        // Prepare weather data by parsing each weather field
+        const weatherData = [
+            parseWeatherData(data[F.WX1]),
+            parseWeatherData(data[F.WX2]),
+            parseWeatherData(data[F.WX3]),
+            parseWeatherData(data[F.WX4])
+        ];
+        
+        new Tabulator(tableContainer, {
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false,
+            resizableRows: false,
+            headerSort: false, // ✅ FIXED: Disabled sorting
+            movableColumns: false,
+            data: weatherData,
+            columns: [
+                { 
+                    title: "Time", 
+                    field: "time", 
+                    widthGrow: 1,
+                    resizable: false,
+                    headerSort: false // ✅ FIXED: Disabled sorting
+                },
+                { 
+                    title: "Conditions", 
+                    field: "conditions", 
+                    widthGrow: 3,
+                    resizable: false,
+                    headerSort: false // ✅ FIXED: Disabled sorting
+                }
+            ]
+        });
+    }
     
-    // Create starting pitchers table
+    // ✅ FIXED: Starting Pitchers Table - Disabled resizing and sorting
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
         const self = this;
@@ -1004,13 +1016,13 @@ createWeatherTable(container, data) {
         });
         
         const pitchersTable = new Tabulator(tableContainer, {
-        layout: "fitColumns",
-        height: false,
-        resizableColumns: false,  // ✅ ALREADY CORRECT
-        resizableRows: false,     // ✅ ADD for consistency
-        headerSort: false,
-        movableColumns: false,    // ✅ ADD for consistency
-        data: flattenedData,
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false, // ✅ FIXED: Disabled column resizing
+            resizableRows: false,
+            headerSort: false, // ✅ FIXED: Disabled sorting
+            movableColumns: false,
+            data: flattenedData,
             rowFormatter: function(row) {
                 const data = row.getData();
                 const rowElement = row.getElement();
@@ -1032,6 +1044,8 @@ createWeatherTable(container, data) {
                     title: "Name/Split", 
                     field: F.P_NAME, 
                     widthGrow: 1.8,
+                    resizable: false, // ✅ FIXED: Disabled resizing
+                    headerSort: false, // ✅ FIXED: Disabled sorting
                     formatter: function(cell) {
                         const data = cell.getData();
                         
@@ -1054,29 +1068,33 @@ createWeatherTable(container, data) {
                         return cell.getValue() || '';
                     }
                 },
-                { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center" },
+                { title: "TBF", field: F.P_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "H/TBF", 
                     field: F.P_H_TBF, 
                     width: 70, 
                     hozAlign: "center",
+                    resizable: false, // ✅ FIXED: Disabled resizing
+                    headerSort: false, // ✅ FIXED: Disabled sorting
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
-                { title: "H", field: F.P_H, width: 45, hozAlign: "center" },
-                { title: "1B", field: F.P_1B, width: 45, hozAlign: "center" },
-                { title: "2B", field: F.P_2B, width: 45, hozAlign: "center" },
-                { title: "3B", field: F.P_3B, width: 45, hozAlign: "center" },
-                { title: "HR", field: F.P_HR, width: 45, hozAlign: "center" },
-                { title: "R", field: F.P_R, width: 45, hozAlign: "center" },
+                { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.P_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.P_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.P_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.P_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.P_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "ERA", 
                     field: F.P_ERA, 
                     width: 60, 
                     hozAlign: "center",
+                    resizable: false, // ✅ FIXED: Disabled resizing
+                    headerSort: false, // ✅ FIXED: Disabled sorting
                     formatter: (cell) => this.formatERA(cell.getValue())
                 },
-                { title: "BB", field: F.P_BB, width: 45, hozAlign: "center" },
-                { title: "SO", field: F.P_SO, width: 45, hozAlign: "center" }
+                { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.P_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
         });
         
@@ -1115,7 +1133,7 @@ createWeatherTable(container, data) {
         this.trackSubtableExpansion(gameId, 'pitchers', pitchersTable);
     }
     
-    // Create batters table
+    // ✅ FIXED: Batters Table - Disabled resizing and sorting
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
         const self = this;
@@ -1157,13 +1175,13 @@ createWeatherTable(container, data) {
         });
         
         const battersTable = new Tabulator(tableContainer, {
-        layout: "fitColumns",
-        height: false,
-        resizableColumns: false,  // ✅ ALREADY CORRECT
-        resizableRows: false,     // ✅ ADD for consistency
-        headerSort: false,
-        movableColumns: false,    // ✅ ADD for consistency
-        data: flattenedData,
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false, // ✅ FIXED: Disabled column resizing
+            resizableRows: false,
+            headerSort: false, // ✅ FIXED: Disabled sorting
+            movableColumns: false,
+            data: flattenedData,
             rowFormatter: function(row) {
                 const data = row.getData();
                 const rowElement = row.getElement();
@@ -1185,7 +1203,8 @@ createWeatherTable(container, data) {
                     title: "Name/Split", 
                     field: F.B_NAME, 
                     widthGrow: 1.8,
-                    headerSort: false,
+                    resizable: false, // ✅ FIXED: Disabled resizing
+                    headerSort: false, // ✅ FIXED: Disabled sorting
                     formatter: function(cell) {
                         const data = cell.getData();
                         
@@ -1208,24 +1227,25 @@ createWeatherTable(container, data) {
                         return cell.getValue() || '';
                     }
                 },
-                { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", headerSort: false },
+                { title: "PA", field: F.B_PA, width: 60, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "H/PA", 
                     field: F.B_H_PA, 
                     width: 70, 
                     hozAlign: "center",
-                    headerSort: false,
+                    resizable: false, // ✅ FIXED: Disabled resizing
+                    headerSort: false, // ✅ FIXED: Disabled sorting
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
-                { title: "H", field: F.B_H, width: 45, hozAlign: "center", headerSort: false },
-                { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", headerSort: false },
-                { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", headerSort: false },
-                { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", headerSort: false },
-                { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", headerSort: false },
-                { title: "R", field: F.B_R, width: 45, hozAlign: "center", headerSort: false },
-                { title: "RBI", field: F.B_RBI, width: 50, hozAlign: "center", headerSort: false },
-                { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", headerSort: false },
-                { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", headerSort: false }
+                { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.B_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.B_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.B_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.B_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.B_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "RBI", field: F.B_RBI, width: 50, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "BB", field: F.B_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.B_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
         });
         
@@ -1264,7 +1284,7 @@ createWeatherTable(container, data) {
         this.trackSubtableExpansion(gameId, 'batters', battersTable);
     }
     
-    // Improved createBullpenTable - uses actual Tabulator rows with visibility control
+    // ✅ FIXED: Bullpen Table - Disabled resizing and sorting
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
         const self = this;
@@ -1318,13 +1338,13 @@ createWeatherTable(container, data) {
         });
         
         const bullpenTable = new Tabulator(tableContainer, {
-        layout: "fitColumns",
-        height: false,
-        resizableColumns: false,  // ✅ ALREADY CORRECT
-        resizableRows: false,     // ✅ ADD for consistency
-        headerSort: false,
-        movableColumns: false,    // ✅ ADD for consistency
-        data: flattenedData,
+            layout: "fitColumns",
+            height: false,
+            resizableColumns: false, // ✅ FIXED: Disabled column resizing
+            resizableRows: false,
+            headerSort: false, // ✅ FIXED: Disabled sorting
+            movableColumns: false,
+            data: flattenedData,
             rowFormatter: function(row) {
                 const data = row.getData();
                 const rowElement = row.getElement();
@@ -1346,7 +1366,8 @@ createWeatherTable(container, data) {
                     title: "Hand/Split", 
                     field: F.BP_HAND_CNT, 
                     widthGrow: 1.5,
-                    headerSort: false,
+                    resizable: false, // ✅ FIXED: Disabled resizing
+                    headerSort: false, // ✅ FIXED: Disabled sorting
                     formatter: function(cell) {
                         const data = cell.getData();
                         
@@ -1369,31 +1390,33 @@ createWeatherTable(container, data) {
                         return cell.getValue() || '';
                     }
                 },
-                { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", headerSort: false },
+                { title: "TBF", field: F.BP_TBF, width: 60, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "H/TBF", 
                     field: F.BP_H_TBF, 
                     width: 70, 
                     hozAlign: "center",
-                    headerSort: false,
+                    resizable: false, // ✅ FIXED: Disabled resizing
+                    headerSort: false, // ✅ FIXED: Disabled sorting
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
-                { title: "H", field: F.BP_H, width: 45, hozAlign: "center", headerSort: false },
-                { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", headerSort: false },
-                { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", headerSort: false },
-                { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", headerSort: false },
-                { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", headerSort: false },
-                { title: "R", field: F.BP_R, width: 45, hozAlign: "center", headerSort: false },
+                { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "1B", field: F.BP_1B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "2B", field: F.BP_2B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "3B", field: F.BP_3B, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "HR", field: F.BP_HR, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "R", field: F.BP_R, width: 45, hozAlign: "center", resizable: false, headerSort: false },
                 { 
                     title: "ERA", 
                     field: F.BP_ERA, 
                     width: 60, 
                     hozAlign: "center",
-                    headerSort: false,
+                    resizable: false, // ✅ FIXED: Disabled resizing
+                    headerSort: false, // ✅ FIXED: Disabled sorting
                     formatter: (cell) => this.formatERA(cell.getValue())
                 },
-                { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", headerSort: false },
-                { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", headerSort: false }
+                { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
+                { title: "SO", field: F.BP_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
         });
         
