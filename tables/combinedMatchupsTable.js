@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION WITH ALL REQUESTED CHANGES
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH PROPER STATE PRESERVATION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -115,7 +115,7 @@ export class MatchupsTable extends BaseTable {
         // Cache for subtable data
         this.subtableDataCache = new Map();
         
-        // Track expanded player rows within subtables
+        // Track expanded subtable rows - integrate with global state
         this.expandedSubtableRows = new Map();
     }
     
@@ -135,54 +135,11 @@ export class MatchupsTable extends BaseTable {
         
         this.table = new Tabulator(this.elementId, config);
         
-        // Override setupRowExpansion to handle Team field clicks properly
-        this.setupMatchupsRowExpansion();
+        // CRITICAL: Use the base class setupRowExpansion which has proper global state management
+        this.setupRowExpansion();
         
         this.table.on("tableBuilt", () => {
             console.log("Matchups table built successfully");
-        });
-    }
-    
-    // Custom row expansion for matchups table
-    setupMatchupsRowExpansion() {
-        if (!this.table) return;
-        
-        const self = this;
-        let expansionTimeout;
-        
-        this.table.on("cellClick", (e, cell) => {
-            const field = cell.getField();
-            
-            // Handle clicks on the Team field
-            if (field === "Matchup Team") {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Clear any pending timeout
-                if (expansionTimeout) {
-                    clearTimeout(expansionTimeout);
-                }
-                
-                // Use a short timeout to prevent double-clicks from triggering twice
-                expansionTimeout = setTimeout(() => {
-                    const row = cell.getRow();
-                    const data = row.getData();
-                    
-                    // Toggle expanded state
-                    data._expanded = !data._expanded;
-                    row.update(data);
-                    
-                    // Reformat the row to trigger the formatter
-                    row.reformat();
-                    
-                    // Update icon immediately
-                    const cellElement = cell.getElement();
-                    const expander = cellElement.querySelector('.row-expander');
-                    if (expander) {
-                        expander.innerHTML = data._expanded ? "−" : "+";
-                    }
-                }, 50);
-            }
         });
     }
     
@@ -195,17 +152,8 @@ export class MatchupsTable extends BaseTable {
                 field: F.TEAM, 
                 widthGrow: 1.2,
                 resizable: false,
-                headerSort: true, // Keep sorting for Team column
-                formatter: (cell) => {
-                    const data = cell.getRow().getData();
-                    const value = cell.getValue();
-                    const isExpanded = data._expanded || false;
-                    
-                    return `<div style="cursor: pointer; display: flex; align-items: center;">
-                        <span class="row-expander" style="margin-right: 8px; font-weight: bold; color: #007bff; font-size: 14px; min-width: 12px;">${isExpanded ? '−' : '+'}</span>
-                        <span>${value || ''}</span>
-                    </div>`;
-                },
+                headerSort: true,
+                formatter: this.createNameFormatter(), // Use the base class formatter
                 headerFilter: createCustomMultiSelect
             },
             {
@@ -213,7 +161,7 @@ export class MatchupsTable extends BaseTable {
                 field: F.GAME, 
                 widthGrow: 1.5,
                 resizable: false,
-                headerSort: false, // ✅ FIXED: Removed sorting
+                headerSort: false,
                 sorter: false
             },
             {
@@ -222,7 +170,7 @@ export class MatchupsTable extends BaseTable {
                 widthGrow: 0.7,
                 hozAlign: "center",
                 resizable: false,
-                headerSort: false, // ✅ FIXED: Removed sorting
+                headerSort: false,
                 sorter: false
             },
             {
@@ -231,7 +179,7 @@ export class MatchupsTable extends BaseTable {
                 widthGrow: 0.7,
                 hozAlign: "center",
                 resizable: false,
-                headerSort: false, // ✅ FIXED: Removed sorting
+                headerSort: false,
                 sorter: false
             },
             {
@@ -239,62 +187,78 @@ export class MatchupsTable extends BaseTable {
                 field: F.LINEUP,
                 widthGrow: 1,
                 resizable: false,
-                headerSort: false, // ✅ FIXED: Removed sorting
+                headerSort: false,
                 sorter: false,
-                headerFilter: createCustomMultiSelect // ✅ FIXED: Added dropdown filter
+                headerFilter: createCustomMultiSelect
             }
         ];
     }
     
+    // FIXED: Use the standard BaseTable createRowFormatter with matchups-specific logic
     createRowFormatter() {
         const self = this;
         
         return (row) => {
-            const data = row.getData();
-            const rowElement = row.getElement();
+            var data = row.getData();
+            var rowElement = row.getElement();
             
             // Initialize _expanded if undefined
             if (data._expanded === undefined) {
                 data._expanded = false;
             }
             
-            // Apply expanded class
+            // Add/remove expanded class
             if (data._expanded) {
                 rowElement.classList.add('row-expanded');
             } else {
                 rowElement.classList.remove('row-expanded');
             }
             
-            // Create subtables if expanded and not already present
+            // Handle expansion
             if (data._expanded) {
+                // Check if subtables already exist
                 let existingSubrow = rowElement.querySelector('.subrow-container');
                 
-                if (!existingSubrow) {
-                    // FIX #2: Preserve scroll position
-                    const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                // During restoration or if doesn't exist, create subtables
+                if (!existingSubrow || self.isRestoringState) {
+                    // Remove old subtable if it exists during restoration
+                    if (existingSubrow && self.isRestoringState) {
+                        existingSubrow.remove();
+                        existingSubrow = null;
+                    }
                     
-                    // Create subtables
-                    self.createMatchupSubtables(row, data).then(() => {
-                        // Restore scroll position after rendering
-                        if (tableHolder) {
-                            tableHolder.scrollTop = scrollTop;
-                        }
-                    });
+                    if (!existingSubrow) {
+                        // FIXED: Preserve scroll position during creation
+                        const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                        const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                        
+                        // Create subtables asynchronously to avoid blocking
+                        self.createMatchupSubtables(row, data).then(() => {
+                            // Restore scroll position after rendering
+                            if (tableHolder) {
+                                tableHolder.scrollTop = scrollTop;
+                            }
+                        });
+                    }
                 }
             } else {
-                // Remove subtables if collapsed
-                const existingSubrow = rowElement.querySelector('.subrow-container');
+                // Handle contraction
+                var existingSubrow = rowElement.querySelector('.subrow-container');
                 if (existingSubrow) {
+                    // FIXED: Preserve scroll position during removal
                     const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
                     const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
                     
                     existingSubrow.remove();
+                    rowElement.classList.remove('row-expanded');
                     
                     // Restore scroll position
-                    if (tableHolder) {
-                        tableHolder.scrollTop = scrollTop;
-                    }
+                    setTimeout(() => {
+                        if (tableHolder) {
+                            tableHolder.scrollTop = scrollTop;
+                        }
+                        row.normalizeHeight();
+                    }, 50);
                 }
             }
         };
@@ -308,10 +272,16 @@ export class MatchupsTable extends BaseTable {
         return super.generateRowId(data);
     }
     
-    // Required override from BaseTable
+    // FIXED: Custom subtable method that integrates with main table functionality
+    async createMatchupsSubtable(container, data) {
+        // This method is called from the base class createSubtable2
+        await this.createMatchupSubtables_Internal(container, data);
+    }
+    
+    // Required override from BaseTable - now properly implemented
     createSubtable2(container, data) {
-        // Not used for matchups table
-        return;
+        // For matchups table, delegate to our custom matchup subtable creation
+        return this.createMatchupsSubtable(container, data);
     }
     
     getOpponentGameId(gameId) {
@@ -337,6 +307,10 @@ export class MatchupsTable extends BaseTable {
     
     async createMatchupSubtables(row, data) {
         const rowElement = row.getElement();
+        return this.createMatchupSubtables_Internal(rowElement, data);
+    }
+    
+    async createMatchupSubtables_Internal(container, data) {
         const gameId = data[this.F.MATCH_ID];
         const opponentGameId = this.getOpponentGameId(gameId);
         
@@ -387,8 +361,14 @@ export class MatchupsTable extends BaseTable {
         bullpenContainer.style.cssText = "margin-bottom: 15px;";
         holderEl.appendChild(bullpenContainer);
         
-        // Append to row
-        rowElement.appendChild(holderEl);
+        // Append to container
+        if (container.appendChild) {
+            // If container is a row element
+            container.appendChild(holderEl);
+        } else {
+            // If container is just a div
+            container.appendChild(holderEl);
+        }
         
         // Create all subtables
         this.createParkFactorsTable(parkContainer, subtableData.park, data);
@@ -397,7 +377,7 @@ export class MatchupsTable extends BaseTable {
         this.createBattersTable(battersContainer, subtableData.batters, gameId);
         this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
         
-        // Restore expanded state for subtables
+        // FIXED: Integrate subtable state with global state
         this.restoreSubtableExpandedState(gameId);
     }
     
@@ -576,7 +556,6 @@ export class MatchupsTable extends BaseTable {
         return result;
     }
     
-    // FIX #1: Fixed processBullpenDataGrouped method
     processBullpenDataGrouped(data, location) {
         if (!data || !data.length) return [];
         
@@ -685,7 +664,6 @@ export class MatchupsTable extends BaseTable {
         return result;
     }
     
-    // FIX #1: Improved sortBullpenSplits to handle 5 splits (excluding Full Season from children)
     sortBullpenSplits(splits, location) {
         const F = this.F;
         
@@ -756,7 +734,6 @@ export class MatchupsTable extends BaseTable {
         return num.toFixed(2);
     }
     
-    // FIX #1: Updated formatSplitName to handle "Full Season@" -> just location
     formatSplitName(split, location) {
         if (!split) return '';
         
@@ -805,18 +782,21 @@ export class MatchupsTable extends BaseTable {
         return formatted;
     }
     
-    // Track subtable expansion state
+    // FIXED: Integrate subtable expansion with global state management
     trackSubtableExpansion(gameId, tableType, table) {
         const key = `${gameId}_${tableType}`;
+        const globalState = this.getGlobalState();
         
-        // Restore expanded state if exists
-        if (this.expandedSubtableRows.has(key)) {
-            const expandedRows = this.expandedSubtableRows.get(key);
+        // Restore expanded state if exists in global state
+        const subtableStateKey = `${this.elementId}_subtable_${key}`;
+        if (globalState.has(subtableStateKey)) {
+            const expandedRows = globalState.get(subtableStateKey);
             setTimeout(() => {
                 const rows = table.getRows();
                 rows.forEach(row => {
                     const data = row.getData();
-                    if (expandedRows.has(JSON.stringify(data))) {
+                    const dataKey = JSON.stringify(data);
+                    if (expandedRows.expandedRows && expandedRows.expandedRows.has(dataKey)) {
                         data._expanded = true;
                         row.update(data);
                         row.reformat();
@@ -825,7 +805,7 @@ export class MatchupsTable extends BaseTable {
             }, 100);
         }
         
-        // Track changes
+        // Track changes and save to global state
         table.on("cellClick", (e, cell) => {
             const field = cell.getField();
             const F = this.F;
@@ -841,21 +821,26 @@ export class MatchupsTable extends BaseTable {
                             expandedRows.add(JSON.stringify(data));
                         }
                     });
-                    this.expandedSubtableRows.set(key, expandedRows);
+                    
+                    // Save to global state
+                    globalState.set(subtableStateKey, {
+                        expandedRows: expandedRows,
+                        timestamp: Date.now()
+                    });
+                    this.setGlobalState(globalState);
                 }, 100);
             }
         });
     }
     
-    // Restore subtable expanded state
+    // FIXED: Properly restore subtable expanded state using global state
     restoreSubtableExpandedState(gameId) {
-        // This method can be called when switching tabs to restore state
+        // This method integrates with the global state management
         const pitcherKey = `${gameId}_pitchers`;
         const batterKey = `${gameId}_batters`;
         const bullpenKey = `${gameId}_bullpen`;
         
-        // The actual restoration happens in trackSubtableExpansion
-        console.log(`Ready to restore subtable state for game ${gameId}`);
+        console.log(`Ready to restore subtable state for game ${gameId} using global state`);
     }
     
     // ✅ FIXED: Park Factors Table - Disabled sorting and resizing
@@ -889,7 +874,7 @@ export class MatchupsTable extends BaseTable {
             height: false,
             resizableColumns: false,
             resizableRows: false,
-            headerSort: false, // ✅ FIXED: Disabled sorting
+            headerSort: false,
             movableColumns: false,
             data: processedData,
             columns: [
@@ -952,7 +937,7 @@ export class MatchupsTable extends BaseTable {
             height: false,
             resizableColumns: false,
             resizableRows: false,
-            headerSort: false, // ✅ FIXED: Disabled sorting
+            headerSort: false,
             movableColumns: false,
             data: weatherData,
             columns: [
@@ -961,14 +946,14 @@ export class MatchupsTable extends BaseTable {
                     field: "time", 
                     widthGrow: 1,
                     resizable: false,
-                    headerSort: false // ✅ FIXED: Disabled sorting
+                    headerSort: false
                 },
                 { 
                     title: "Conditions", 
                     field: "conditions", 
                     widthGrow: 3,
                     resizable: false,
-                    headerSort: false // ✅ FIXED: Disabled sorting
+                    headerSort: false
                 }
             ]
         });
@@ -1018,9 +1003,9 @@ export class MatchupsTable extends BaseTable {
         const pitchersTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
-            resizableColumns: false, // ✅ FIXED: Disabled column resizing
+            resizableColumns: false,
             resizableRows: false,
-            headerSort: false, // ✅ FIXED: Disabled sorting
+            headerSort: false,
             movableColumns: false,
             data: flattenedData,
             rowFormatter: function(row) {
@@ -1044,8 +1029,8 @@ export class MatchupsTable extends BaseTable {
                     title: "Name/Split", 
                     field: F.P_NAME, 
                     widthGrow: 1.8,
-                    resizable: false, // ✅ FIXED: Disabled resizing
-                    headerSort: false, // ✅ FIXED: Disabled sorting
+                    resizable: false,
+                    headerSort: false,
                     formatter: function(cell) {
                         const data = cell.getData();
                         
@@ -1074,8 +1059,8 @@ export class MatchupsTable extends BaseTable {
                     field: F.P_H_TBF, 
                     width: 70, 
                     hozAlign: "center",
-                    resizable: false, // ✅ FIXED: Disabled resizing
-                    headerSort: false, // ✅ FIXED: Disabled sorting
+                    resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
                 { title: "H", field: F.P_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
@@ -1089,8 +1074,8 @@ export class MatchupsTable extends BaseTable {
                     field: F.P_ERA, 
                     width: 60, 
                     hozAlign: "center",
-                    resizable: false, // ✅ FIXED: Disabled resizing
-                    headerSort: false, // ✅ FIXED: Disabled sorting
+                    resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatERA(cell.getValue())
                 },
                 { title: "BB", field: F.P_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
@@ -1177,9 +1162,9 @@ export class MatchupsTable extends BaseTable {
         const battersTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
-            resizableColumns: false, // ✅ FIXED: Disabled column resizing
+            resizableColumns: false,
             resizableRows: false,
-            headerSort: false, // ✅ FIXED: Disabled sorting
+            headerSort: false,
             movableColumns: false,
             data: flattenedData,
             rowFormatter: function(row) {
@@ -1203,8 +1188,8 @@ export class MatchupsTable extends BaseTable {
                     title: "Name/Split", 
                     field: F.B_NAME, 
                     widthGrow: 1.8,
-                    resizable: false, // ✅ FIXED: Disabled resizing
-                    headerSort: false, // ✅ FIXED: Disabled sorting
+                    resizable: false,
+                    headerSort: false,
                     formatter: function(cell) {
                         const data = cell.getData();
                         
@@ -1233,8 +1218,8 @@ export class MatchupsTable extends BaseTable {
                     field: F.B_H_PA, 
                     width: 70, 
                     hozAlign: "center",
-                    resizable: false, // ✅ FIXED: Disabled resizing
-                    headerSort: false, // ✅ FIXED: Disabled sorting
+                    resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
                 { title: "H", field: F.B_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
@@ -1340,9 +1325,9 @@ export class MatchupsTable extends BaseTable {
         const bullpenTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
-            resizableColumns: false, // ✅ FIXED: Disabled column resizing
+            resizableColumns: false,
             resizableRows: false,
-            headerSort: false, // ✅ FIXED: Disabled sorting
+            headerSort: false,
             movableColumns: false,
             data: flattenedData,
             rowFormatter: function(row) {
@@ -1366,8 +1351,8 @@ export class MatchupsTable extends BaseTable {
                     title: "Hand/Split", 
                     field: F.BP_HAND_CNT, 
                     widthGrow: 1.5,
-                    resizable: false, // ✅ FIXED: Disabled resizing
-                    headerSort: false, // ✅ FIXED: Disabled sorting
+                    resizable: false,
+                    headerSort: false,
                     formatter: function(cell) {
                         const data = cell.getData();
                         
@@ -1396,8 +1381,8 @@ export class MatchupsTable extends BaseTable {
                     field: F.BP_H_TBF, 
                     width: 70, 
                     hozAlign: "center",
-                    resizable: false, // ✅ FIXED: Disabled resizing
-                    headerSort: false, // ✅ FIXED: Disabled sorting
+                    resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatRatio(cell.getValue())
                 },
                 { title: "H", field: F.BP_H, width: 45, hozAlign: "center", resizable: false, headerSort: false },
@@ -1411,8 +1396,8 @@ export class MatchupsTable extends BaseTable {
                     field: F.BP_ERA, 
                     width: 60, 
                     hozAlign: "center",
-                    resizable: false, // ✅ FIXED: Disabled resizing
-                    headerSort: false, // ✅ FIXED: Disabled sorting
+                    resizable: false,
+                    headerSort: false,
                     formatter: (cell) => this.formatERA(cell.getValue())
                 },
                 { title: "BB", field: F.BP_BB, width: 45, hozAlign: "center", resizable: false, headerSort: false },
