@@ -272,6 +272,49 @@ export class MatchupsTable extends BaseTable {
         return super.generateRowId(data);
     }
     
+    // ENHANCED: Override saveState to include subtable states
+    saveState() {
+        // Call the base class saveState for main table rows
+        super.saveState();
+        
+        // Additionally save all current subtable states
+        if (this.subtableInstances) {
+            this.subtableInstances.forEach((table, subtableStateKey) => {
+                this.saveSubtableExpandedState(subtableStateKey, table);
+            });
+        }
+        
+        console.log(`Saved complete state for matchups table including subtables`);
+    }
+    
+    // ENHANCED: Override restoreState to include subtable restoration
+    restoreState() {
+        // Call the base class restoreState for main table rows
+        super.restoreState();
+        
+        // Add a delay to ensure main rows are restored before subtables
+        setTimeout(() => {
+            this.restoreAllSubtableStates();
+        }, 500);
+    }
+    
+    // NEW: Restore all subtable states
+    restoreAllSubtableStates() {
+        if (!this.subtableInstances) {
+            return;
+        }
+        
+        console.log(`Restoring all subtable states for matchups table`);
+        
+        this.subtableInstances.forEach((table, subtableStateKey) => {
+            // Only restore if the subtable is currently visible (parent row is expanded)
+            const tableContainer = table.element;
+            if (tableContainer && tableContainer.offsetParent !== null) {
+                this.restoreSpecificSubtableState(subtableStateKey, table);
+            }
+        });
+    }
+    
     // FIXED: Custom subtable method that integrates with main table functionality
     async createMatchupsSubtable(container, data) {
         // This method is called from the base class createSubtable2
@@ -377,8 +420,11 @@ export class MatchupsTable extends BaseTable {
         this.createBattersTable(battersContainer, subtableData.batters, gameId);
         this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
         
-        // FIXED: Integrate subtable state with global state
-        this.restoreSubtableExpandedState(gameId);
+        // FIXED: Restore subtable states after all subtables are created
+        // Use a longer delay to ensure all Tabulator instances are fully initialized
+        setTimeout(() => {
+            this.restoreSubtableExpandedState(gameId);
+        }, 800);
     }
     
     async loadSubtableData(gameId, opponentGameId) {
@@ -786,24 +832,18 @@ export class MatchupsTable extends BaseTable {
     trackSubtableExpansion(gameId, tableType, table) {
         const key = `${gameId}_${tableType}`;
         const globalState = this.getGlobalState();
+        const subtableStateKey = `${this.elementId}_subtable_${key}`;
+        
+        // Store reference to this subtable for later restoration
+        if (!this.subtableInstances) {
+            this.subtableInstances = new Map();
+        }
+        this.subtableInstances.set(subtableStateKey, table);
         
         // Restore expanded state if exists in global state
-        const subtableStateKey = `${this.elementId}_subtable_${key}`;
-        if (globalState.has(subtableStateKey)) {
-            const expandedRows = globalState.get(subtableStateKey);
-            setTimeout(() => {
-                const rows = table.getRows();
-                rows.forEach(row => {
-                    const data = row.getData();
-                    const dataKey = JSON.stringify(data);
-                    if (expandedRows.expandedRows && expandedRows.expandedRows.has(dataKey)) {
-                        data._expanded = true;
-                        row.update(data);
-                        row.reformat();
-                    }
-                });
-            }, 100);
-        }
+        setTimeout(() => {
+            this.restoreSpecificSubtableState(subtableStateKey, table);
+        }, 200);
         
         // Track changes and save to global state
         table.on("cellClick", (e, cell) => {
@@ -814,33 +854,133 @@ export class MatchupsTable extends BaseTable {
                 cell.getRow().getData()._isParent) {
                     
                 setTimeout(() => {
-                    const expandedRows = new Set();
-                    table.getRows().forEach(row => {
-                        const data = row.getData();
-                        if (data._expanded) {
-                            expandedRows.add(JSON.stringify(data));
-                        }
-                    });
-                    
-                    // Save to global state
-                    globalState.set(subtableStateKey, {
-                        expandedRows: expandedRows,
-                        timestamp: Date.now()
-                    });
-                    this.setGlobalState(globalState);
+                    this.saveSubtableExpandedState(subtableStateKey, table);
                 }, 100);
             }
         });
     }
     
+    // NEW: Save subtable expanded state to global state
+    saveSubtableExpandedState(subtableStateKey, table) {
+        const globalState = this.getGlobalState();
+        const expandedRows = new Map();
+        
+        table.getRows().forEach(row => {
+            const data = row.getData();
+            if (data._expanded && data._isParent) {
+                // Create a stable key for this row based on its data
+                const rowKey = this.generateSubtableRowKey(data);
+                expandedRows.set(rowKey, {
+                    expanded: true,
+                    parentName: data[this.getSubtableNameField(subtableStateKey)],
+                    timestamp: Date.now()
+                });
+            }
+        });
+        
+        if (expandedRows.size > 0) {
+            globalState.set(subtableStateKey, {
+                expandedRows: expandedRows,
+                timestamp: Date.now()
+            });
+            this.setGlobalState(globalState);
+            console.log(`Saved ${expandedRows.size} expanded subtable rows for ${subtableStateKey}`);
+        } else {
+            // Clear the state if no rows are expanded
+            globalState.delete(subtableStateKey);
+            this.setGlobalState(globalState);
+        }
+    }
+    
+    // NEW: Restore specific subtable state
+    restoreSpecificSubtableState(subtableStateKey, table) {
+        const globalState = this.getGlobalState();
+        
+        if (!globalState.has(subtableStateKey)) {
+            return;
+        }
+        
+        const savedState = globalState.get(subtableStateKey);
+        if (!savedState.expandedRows || savedState.expandedRows.size === 0) {
+            return;
+        }
+        
+        console.log(`Restoring ${savedState.expandedRows.size} expanded subtable rows for ${subtableStateKey}`);
+        
+        const allData = table.getData();
+        let hasChanges = false;
+        
+        // Update data to mark expanded rows and their children as visible
+        allData.forEach(rowData => {
+            if (rowData._isParent) {
+                const rowKey = this.generateSubtableRowKey(rowData);
+                if (savedState.expandedRows.has(rowKey)) {
+                    rowData._expanded = true;
+                    hasChanges = true;
+                    
+                    // Make children visible
+                    const parentName = rowData[this.getSubtableNameField(subtableStateKey)];
+                    allData.forEach(childData => {
+                        if (childData._isChild && childData._parentName === parentName) {
+                            childData._visible = true;
+                        }
+                    });
+                }
+            }
+        });
+        
+        if (hasChanges) {
+            // Update the table with restored state
+            table.replaceData(allData);
+            console.log(`Successfully restored subtable state for ${subtableStateKey}`);
+        }
+    }
+    
+    // NEW: Generate stable key for subtable rows
+    generateSubtableRowKey(data) {
+        // Generate a stable key based on the row's unique identifying data
+        const F = this.F;
+        if (data[F.P_NAME]) {
+            return `pitcher_${data[F.P_NAME]}_${data[F.P_SPLIT] || 'main'}`;
+        } else if (data[F.B_NAME]) {
+            return `batter_${data[F.B_NAME]}_${data[F.B_SPLIT] || 'main'}`;
+        } else if (data[F.BP_HAND_CNT]) {
+            return `bullpen_${data[F.BP_HAND_CNT]}_${data[F.BP_SPLIT] || 'main'}`;
+        }
+        return `unknown_${JSON.stringify(data).substring(0, 50)}`;
+    }
+    
+    // NEW: Get the name field for a subtable type
+    getSubtableNameField(subtableStateKey) {
+        const F = this.F;
+        if (subtableStateKey.includes('pitchers')) {
+            return F.P_NAME;
+        } else if (subtableStateKey.includes('batters')) {
+            return F.B_NAME;
+        } else if (subtableStateKey.includes('bullpen')) {
+            return F.BP_HAND_CNT;
+        }
+        return 'unknown';
+    }
+    
     // FIXED: Properly restore subtable expanded state using global state
     restoreSubtableExpandedState(gameId) {
-        // This method integrates with the global state management
-        const pitcherKey = `${gameId}_pitchers`;
-        const batterKey = `${gameId}_batters`;
-        const bullpenKey = `${gameId}_bullpen`;
+        // This method now properly restores all subtable states for a given game
+        const subtableTypes = ['pitchers', 'batters', 'bullpen'];
         
-        console.log(`Ready to restore subtable state for game ${gameId} using global state`);
+        console.log(`Restoring subtable states for game ${gameId}`);
+        
+        // Restore each subtable type
+        subtableTypes.forEach(tableType => {
+            const subtableStateKey = `${this.elementId}_subtable_${gameId}_${tableType}`;
+            
+            if (this.subtableInstances && this.subtableInstances.has(subtableStateKey)) {
+                const table = this.subtableInstances.get(subtableStateKey);
+                setTimeout(() => {
+                    this.restoreSpecificSubtableState(subtableStateKey, table);
+                }, 300);
+            }
+        });
     }
     
     // ✅ FIXED: Park Factors Table - Disabled sorting and resizing
