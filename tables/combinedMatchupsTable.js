@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FINAL FIXED VERSION WITH CORRECTED DOM HANDLING
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH PROPER SUBTABLE STATE PRESERVATION
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -115,11 +115,14 @@ export class MatchupsTable extends BaseTable {
         // Cache for subtable data
         this.subtableDataCache = new Map();
         
-        // FIXED: Simplified subtable state management using localStorage directly
-        this.subtableExpandedState = new Map();
+        // NEW: Subtable state management integrated with global state
+        this.subtableInstances = new Map(); // Track active subtable instances
         
-        // FIXED: Track created games to prevent duplicate creation
-        this.createdGames = new Set();
+        // Initialize global subtable state if not exists
+        if (!window.GLOBAL_SUBTABLE_STATE) {
+            window.GLOBAL_SUBTABLE_STATE = new Map();
+        }
+        this.GLOBAL_SUBTABLE_STATE = window.GLOBAL_SUBTABLE_STATE;
     }
     
     initialize() {
@@ -197,111 +200,99 @@ export class MatchupsTable extends BaseTable {
         ];
     }
     
-    // FIXED: Override saveState to save subtable state to localStorage
+    // Override saveState to include subtable state
     saveState() {
         // Call parent saveState first
         super.saveState();
         
-        // Save subtable state to localStorage
-        if (this.subtableExpandedState.size > 0) {
-            const stateArray = Array.from(this.subtableExpandedState.entries());
-            localStorage.setItem(`matchup_subtable_state_${this.elementId}`, JSON.stringify(stateArray));
-            console.log(`💾 Saved ${stateArray.length} subtable expansions to localStorage`);
-        }
+        // Save subtable expansion state
+        this.saveSubtableState();
     }
     
-    // FIXED: Override restoreState to restore subtable state from localStorage
+    // Override restoreState to include subtable state
     restoreState() {
         // Call parent restoreState first
         super.restoreState();
         
-        // Restore subtable state from localStorage
-        try {
-            const savedState = localStorage.getItem(`matchup_subtable_state_${this.elementId}`);
-            if (savedState) {
-                const stateArray = JSON.parse(savedState);
-                this.subtableExpandedState = new Map(stateArray);
-                console.log(`💾 Restored ${stateArray.length} subtable expansions from localStorage`);
-                
-                // Apply the restored state after a delay
-                setTimeout(() => {
-                    this.applyRestoredSubtableState();
-                }, 500);
-            }
-        } catch (error) {
-            console.error('Error restoring subtable state:', error);
-        }
+        // Restore subtable state after a delay to ensure main table is ready
+        setTimeout(() => {
+            this.restoreSubtableState();
+        }, 300);
     }
     
-    // FIXED: Apply restored subtable state
-    applyRestoredSubtableState() {
-        console.log('🔄 Applying restored subtable state...');
+    // NEW: Save subtable expansion state to global state
+    saveSubtableState() {
+        console.log(`Saving subtable state for ${this.elementId}`);
         
-        this.subtableExpandedState.forEach((expandedRows, gameId) => {
-            console.log(`🔄 Restoring ${expandedRows.size} expanded rows for game ${gameId}`);
+        // Get current subtable state key for this table
+        const subtableStateKey = `${this.elementId}_subtables`;
+        let allSubtableState = new Map();
+        
+        // Collect state from all active subtable instances
+        this.subtableInstances.forEach((tableInstance, key) => {
+            const [gameId, tableType] = key.split('_');
             
-            // Find the subtable containers for this game
-            const subtableContainers = document.querySelectorAll(`[data-game-id="${gameId}"]`);
-            
-            subtableContainers.forEach(container => {
-                const tableType = container.getAttribute('data-table-type');
-                if (tableType && expandedRows.has(tableType)) {
-                    const expandedRowIds = expandedRows.get(tableType);
-                    this.restoreSubtableRows(container, expandedRowIds, tableType);
+            if (tableInstance && tableInstance.getRows) {
+                const expandedRows = new Set();
+                
+                try {
+                    const rows = tableInstance.getRows();
+                    rows.forEach(row => {
+                        const data = row.getData();
+                        if (data._expanded && data._isParent) {
+                            // Generate stable ID for this subtable row
+                            const rowId = this.generateSubtableRowId(data, tableType);
+                            expandedRows.add(rowId);
+                        }
+                    });
+                    
+                    if (expandedRows.size > 0) {
+                        allSubtableState.set(key, {
+                            expandedRows: expandedRows,
+                            timestamp: Date.now()
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error saving state for subtable ${key}:`, error);
                 }
-            });
+            }
+        });
+        
+        // Save to global subtable state
+        this.GLOBAL_SUBTABLE_STATE.set(subtableStateKey, allSubtableState);
+        
+        console.log(`Saved subtable state for ${this.elementId}: ${allSubtableState.size} subtables with expanded rows`);
+    }
+    
+    // NEW: Restore subtable expansion state from global state
+    restoreSubtableState() {
+        console.log(`Restoring subtable state for ${this.elementId}`);
+        
+        const subtableStateKey = `${this.elementId}_subtables`;
+        const savedSubtableState = this.GLOBAL_SUBTABLE_STATE.get(subtableStateKey);
+        
+        if (!savedSubtableState || savedSubtableState.size === 0) {
+            console.log(`No subtable state to restore for ${this.elementId}`);
+            return;
+        }
+        
+        console.log(`Found saved subtable state for ${savedSubtableState.size} subtables`);
+        
+        // Restore state for each subtable
+        savedSubtableState.forEach((subtableState, key) => {
+            const tableInstance = this.subtableInstances.get(key);
+            
+            if (tableInstance && subtableState.expandedRows && subtableState.expandedRows.size > 0) {
+                console.log(`Restoring ${subtableState.expandedRows.size} expanded rows for subtable ${key}`);
+                
+                setTimeout(() => {
+                    this.restoreSubtableExpandedRows(tableInstance, subtableState.expandedRows, key);
+                }, 100);
+            }
         });
     }
     
-    // FIXED: Restore specific subtable rows
-    restoreSubtableRows(container, expandedRowIds, tableType) {
-        try {
-            // Find the Tabulator instance in this container
-            const tabulatorDiv = container.querySelector('.tabulator');
-            if (tabulatorDiv && tabulatorDiv.tabulator) {
-                const table = tabulatorDiv.tabulator;
-                const F = this.F;
-                
-                const rows = table.getRows();
-                let restoredCount = 0;
-                
-                expandedRowIds.forEach(rowId => {
-                    const row = rows.find(r => {
-                        const data = r.getData();
-                        if (data._isParent) {
-                            const generatedId = this.generateSubtableRowId(data, tableType);
-                            return generatedId === rowId;
-                        }
-                        return false;
-                    });
-                    
-                    if (row) {
-                        const data = row.getData();
-                        data._expanded = true;
-                        
-                        // Update child row visibility
-                        const allData = table.getData();
-                        const parentIdentifier = this.getParentIdentifier(data, tableType);
-                        
-                        allData.forEach(rowData => {
-                            if (rowData._isChild && this.getParentIdentifier(rowData, tableType) === parentIdentifier) {
-                                rowData._visible = true;
-                            }
-                        });
-                        
-                        table.replaceData(allData);
-                        restoredCount++;
-                    }
-                });
-                
-                console.log(`🔄 Restored ${restoredCount} rows for subtable ${tableType}`);
-            }
-        } catch (error) {
-            console.error('Error restoring subtable rows:', error);
-        }
-    }
-    
-    // Generate stable ID for subtable rows
+    // NEW: Generate stable ID for subtable rows
     generateSubtableRowId(data, tableType) {
         const F = this.F;
         
@@ -317,7 +308,55 @@ export class MatchupsTable extends BaseTable {
         }
     }
     
-    // Get parent identifier for matching child rows
+    // NEW: Restore expanded rows for a specific subtable
+    restoreSubtableExpandedRows(tableInstance, expandedRowIds, subtableKey) {
+        try {
+            const [gameId, tableType] = subtableKey.split('_');
+            const rows = tableInstance.getRows();
+            let restoredCount = 0;
+            
+            // Preserve scroll position during restoration
+            const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+            const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+            
+            rows.forEach(row => {
+                const data = row.getData();
+                if (data._isParent && data._hasChildren) {
+                    const rowId = this.generateSubtableRowId(data, tableType);
+                    
+                    if (expandedRowIds.has(rowId)) {
+                        // Expand this row
+                        data._expanded = true;
+                        
+                        // Update all child rows visibility
+                        const allData = tableInstance.getData();
+                        const parentIdentifier = this.getParentIdentifier(data, tableType);
+                        
+                        allData.forEach(rowData => {
+                            if (rowData._isChild && this.getParentIdentifier(rowData, tableType) === parentIdentifier) {
+                                rowData._visible = true;
+                            }
+                        });
+                        
+                        // Update the table data
+                        tableInstance.replaceData(allData);
+                        restoredCount++;
+                    }
+                }
+            });
+            
+            // Restore scroll position
+            if (tableHolder) {
+                tableHolder.scrollTop = scrollTop;
+            }
+            
+            console.log(`Restored ${restoredCount} expanded rows for subtable ${subtableKey}`);
+        } catch (error) {
+            console.error(`Error restoring subtable rows for ${subtableKey}:`, error);
+        }
+    }
+    
+    // NEW: Get parent identifier for matching child rows
     getParentIdentifier(data, tableType) {
         const F = this.F;
         
@@ -333,7 +372,7 @@ export class MatchupsTable extends BaseTable {
         }
     }
     
-    // FIXED: Enhanced createRowFormatter with prevention of duplicate creation
+    // FIXED: Use the standard BaseTable createRowFormatter with matchups-specific logic
     createRowFormatter() {
         const self = this;
         
@@ -355,40 +394,51 @@ export class MatchupsTable extends BaseTable {
             
             // Handle expansion
             if (data._expanded) {
-                const gameId = data[self.F.MATCH_ID];
-                
                 // Check if subtables already exist
                 let existingSubrow = rowElement.querySelector('.subrow-container');
                 
-                // FIXED: Only create if doesn't exist AND game hasn't been created recently
-                if (!existingSubrow && !self.createdGames.has(gameId)) {
-                    console.log(`🔧 Creating subtables for game ID: ${gameId} (first time)`);
+                // During restoration or if doesn't exist, create subtables
+                if (!existingSubrow || self.isRestoringState) {
+                    // Remove old subtable if it exists during restoration
+                    if (existingSubrow && self.isRestoringState) {
+                        existingSubrow.remove();
+                        existingSubrow = null;
+                    }
                     
-                    // Mark this game as being created to prevent duplicates
-                    self.createdGames.add(gameId);
-                    
-                    // Remove the mark after a delay
-                    setTimeout(() => {
-                        self.createdGames.delete(gameId);
-                    }, 2000);
-                    
-                    // Create subtables
-                    self.createMatchupSubtables(row, data);
+                    if (!existingSubrow) {
+                        // FIXED: Preserve scroll position during creation
+                        const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                        const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+                        
+                        // Create subtables asynchronously to avoid blocking
+                        self.createMatchupSubtables(row, data).then(() => {
+                            // Restore scroll position after rendering
+                            if (tableHolder) {
+                                tableHolder.scrollTop = scrollTop;
+                            }
+                        });
+                    }
                 }
             } else {
                 // Handle contraction
                 var existingSubrow = rowElement.querySelector('.subrow-container');
                 if (existingSubrow) {
-                    const gameId = data[self.F.MATCH_ID];
-                    console.log(`🔧 Removing subtables for game ID: ${gameId}`);
+                    // FIXED: Preserve scroll position during removal
+                    const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
                     
-                    // Save current expansion state before removing
-                    self.saveCurrentSubtableState(gameId);
+                    // Clean up subtable instances
+                    const gameId = data[self.F.MATCH_ID];
+                    self.cleanupSubtableInstances(gameId);
                     
                     existingSubrow.remove();
                     rowElement.classList.remove('row-expanded');
                     
+                    // Restore scroll position
                     setTimeout(() => {
+                        if (tableHolder) {
+                            tableHolder.scrollTop = scrollTop;
+                        }
                         row.normalizeHeight();
                     }, 50);
                 }
@@ -396,47 +446,19 @@ export class MatchupsTable extends BaseTable {
         };
     }
     
-    // FIXED: Save current subtable expansion state for a specific game
-    saveCurrentSubtableState(gameId) {
-        const gameState = new Map();
+    // NEW: Clean up subtable instances when main row is collapsed
+    cleanupSubtableInstances(gameId) {
+        const keysToRemove = [];
         
-        // Find all subtable containers for this game
-        const subtableContainers = document.querySelectorAll(`[data-game-id="${gameId}"]`);
-        
-        subtableContainers.forEach(container => {
-            const tableType = container.getAttribute('data-table-type');
-            if (tableType) {
-                const expandedRows = new Set();
-                
-                // Find the Tabulator instance in this container
-                const tabulatorDiv = container.querySelector('.tabulator');
-                if (tabulatorDiv && tabulatorDiv.tabulator) {
-                    const table = tabulatorDiv.tabulator;
-                    
-                    try {
-                        const rows = table.getRows();
-                        rows.forEach(row => {
-                            const data = row.getData();
-                            if (data._expanded && data._isParent) {
-                                const rowId = this.generateSubtableRowId(data, tableType);
-                                expandedRows.add(rowId);
-                            }
-                        });
-                        
-                        if (expandedRows.size > 0) {
-                            gameState.set(tableType, expandedRows);
-                        }
-                    } catch (error) {
-                        console.error(`Error saving state for ${tableType}:`, error);
-                    }
-                }
+        this.subtableInstances.forEach((instance, key) => {
+            if (key.startsWith(`${gameId}_`)) {
+                keysToRemove.push(key);
             }
         });
         
-        if (gameState.size > 0) {
-            this.subtableExpandedState.set(gameId, gameState);
-            console.log(`💾 Saved expansion state for game ${gameId}: ${gameState.size} subtables`);
-        }
+        keysToRemove.forEach(key => {
+            this.subtableInstances.delete(key);
+        });
     }
     
     // Override from BaseTable for proper ID generation
@@ -447,15 +469,16 @@ export class MatchupsTable extends BaseTable {
         return super.generateRowId(data);
     }
     
+    // FIXED: Custom subtable method that integrates with main table functionality
+    async createMatchupsSubtable(container, data) {
+        // This method is called from the base class createSubtable2
+        await this.createMatchupSubtables_Internal(container, data);
+    }
+    
     // Required override from BaseTable - now properly implemented
     createSubtable2(container, data) {
         // For matchups table, delegate to our custom matchup subtable creation
         return this.createMatchupsSubtable(container, data);
-    }
-    
-    async createMatchupsSubtable(container, data) {
-        console.log(`🔧 createMatchupsSubtable called for game ID: ${data[this.F.MATCH_ID]}`);
-        await this.createMatchupSubtables_Internal(container, data);
     }
     
     getOpponentGameId(gameId) {
@@ -487,8 +510,6 @@ export class MatchupsTable extends BaseTable {
     async createMatchupSubtables_Internal(container, data) {
         const gameId = data[this.F.MATCH_ID];
         const opponentGameId = this.getOpponentGameId(gameId);
-        
-        console.log(`🔧 Creating subtables for game ${gameId}, opponent ${opponentGameId}`);
         
         // Create main container
         const holderEl = document.createElement("div");
@@ -525,25 +546,16 @@ export class MatchupsTable extends BaseTable {
         // Row 2: Starting Pitchers (opponent's)
         const pitchersContainer = document.createElement("div");
         pitchersContainer.style.cssText = "margin-bottom: 15px;";
-        // FIXED: Add data attributes for state management
-        pitchersContainer.setAttribute('data-game-id', gameId);
-        pitchersContainer.setAttribute('data-table-type', 'pitchers');
         holderEl.appendChild(pitchersContainer);
         
         // Row 3: Batters
         const battersContainer = document.createElement("div");
         battersContainer.style.cssText = "margin-bottom: 15px;";
-        // FIXED: Add data attributes for state management
-        battersContainer.setAttribute('data-game-id', gameId);
-        battersContainer.setAttribute('data-table-type', 'batters');
         holderEl.appendChild(battersContainer);
         
         // Row 4: Bullpen (opponent's)
         const bullpenContainer = document.createElement("div");
         bullpenContainer.style.cssText = "margin-bottom: 15px;";
-        // FIXED: Add data attributes for state management
-        bullpenContainer.setAttribute('data-game-id', gameId);
-        bullpenContainer.setAttribute('data-table-type', 'bullpen');
         holderEl.appendChild(bullpenContainer);
         
         // Append to container
@@ -562,7 +574,10 @@ export class MatchupsTable extends BaseTable {
         this.createBattersTable(battersContainer, subtableData.batters, gameId);
         this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
         
-        console.log(`🔧 Subtables created for game ${gameId}`);
+        // FIXED: Restore subtable state after creation
+        setTimeout(() => {
+            this.restoreSubtableState();
+        }, 200);
     }
     
     async loadSubtableData(gameId, opponentGameId) {
@@ -966,7 +981,7 @@ export class MatchupsTable extends BaseTable {
         return formatted;
     }
     
-    // ✅ Park Factors Table - Disabled sorting and resizing
+    // ✅ FIXED: Park Factors Table - Disabled sorting and resizing
     createParkFactorsTable(container, parkData, matchupData) {
         const F = this.F;
         
@@ -1014,7 +1029,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-    // ✅ Weather Table - Disabled sorting and resizing
+    // ✅ FIXED: Weather Table - Disabled sorting and resizing
     createWeatherTable(container, data) {
         const F = this.F;
         
@@ -1082,7 +1097,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-    // FIXED: Simplified subtable creation with proper event handling and scroll prevention
+    // ✅ FIXED: Starting Pitchers Table - Properly integrated with subtable state management
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
         const self = this;
@@ -1206,18 +1221,14 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // FIXED: Simplified click handler that properly accesses DOM elements
+        // NEW: Enhanced click handler with state management and scroll preservation
         pitchersTable.on("cellClick", function(e, cell) {
             if (cell.getField() === F.P_NAME) {
                 const row = cell.getRow();
                 const data = row.getData();
                 
                 if (data._isParent && data._hasChildren) {
-                    // FIXED: Prevent scroll jumping
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Get main table holder for scroll preservation
+                    // Preserve scroll position
                     const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
                     const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
                     
@@ -1235,34 +1246,34 @@ export class MatchupsTable extends BaseTable {
                     // Update the table data
                     pitchersTable.replaceData(allData);
                     
-                    // FIXED: Properly update expander icon using row element
+                    // Update expander icon
+                    const cellElement = cell.getElement();
+                    const expanderIcon = cellElement.querySelector('.row-expander');
+                    if (expanderIcon) {
+                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                    }
+                    
+                    // Restore scroll position
                     setTimeout(() => {
-                        try {
-                            const rowElement = row.getElement();
-                            if (rowElement) {
-                                const expanderIcon = rowElement.querySelector('.row-expander');
-                                if (expanderIcon) {
-                                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                                }
-                            }
-                        } catch (error) {
-                            console.error('Error updating expander icon:', error);
-                        }
-                        
-                        // Restore scroll position
                         if (mainTableHolder) {
                             mainTableHolder.scrollTop = scrollTop;
                         }
-                        
-                        // Save state
-                        self.saveCurrentSubtableState(gameId);
                     }, 50);
+                    
+                    // Save subtable state
+                    setTimeout(() => {
+                        self.saveSubtableState();
+                    }, 100);
                 }
             }
         });
+        
+        // Register this subtable instance for state management
+        const subtableKey = `${gameId}_pitchers`;
+        this.subtableInstances.set(subtableKey, pitchersTable);
     }
     
-    // FIXED: Simplified batters table (same pattern as pitchers)
+    // ✅ FIXED: Batters Table - Properly integrated with subtable state management
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
         const self = this;
@@ -1378,18 +1389,14 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // FIXED: Simplified click handler that properly accesses DOM elements
+        // NEW: Enhanced click handler with state management and scroll preservation
         battersTable.on("cellClick", function(e, cell) {
             if (cell.getField() === F.B_NAME) {
                 const row = cell.getRow();
                 const data = row.getData();
                 
                 if (data._isParent && data._hasChildren) {
-                    // FIXED: Prevent scroll jumping
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Get main table holder for scroll preservation
+                    // Preserve scroll position
                     const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
                     const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
                     
@@ -1407,34 +1414,34 @@ export class MatchupsTable extends BaseTable {
                     // Update the table data
                     battersTable.replaceData(allData);
                     
-                    // FIXED: Properly update expander icon using row element
+                    // Update expander icon
+                    const cellElement = cell.getElement();
+                    const expanderIcon = cellElement.querySelector('.row-expander');
+                    if (expanderIcon) {
+                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                    }
+                    
+                    // Restore scroll position
                     setTimeout(() => {
-                        try {
-                            const rowElement = row.getElement();
-                            if (rowElement) {
-                                const expanderIcon = rowElement.querySelector('.row-expander');
-                                if (expanderIcon) {
-                                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                                }
-                            }
-                        } catch (error) {
-                            console.error('Error updating expander icon:', error);
-                        }
-                        
-                        // Restore scroll position
                         if (mainTableHolder) {
                             mainTableHolder.scrollTop = scrollTop;
                         }
-                        
-                        // Save state
-                        self.saveCurrentSubtableState(gameId);
                     }, 50);
+                    
+                    // Save subtable state
+                    setTimeout(() => {
+                        self.saveSubtableState();
+                    }, 100);
                 }
             }
         });
+        
+        // Register this subtable instance for state management
+        const subtableKey = `${gameId}_batters`;
+        this.subtableInstances.set(subtableKey, battersTable);
     }
     
-    // FIXED: Simplified bullpen table (same pattern)
+    // ✅ FIXED: Bullpen Table - Properly integrated with subtable state management
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
         const self = this;
@@ -1570,18 +1577,14 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // FIXED: Simplified click handler that properly accesses DOM elements
+        // NEW: Enhanced click handler with state management and scroll preservation
         bullpenTable.on("cellClick", function(e, cell) {
             if (cell.getField() === F.BP_HAND_CNT) {
                 const row = cell.getRow();
                 const data = row.getData();
                 
                 if (data._isParent && data._hasChildren) {
-                    // FIXED: Prevent scroll jumping
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Get main table holder for scroll preservation
+                    // Preserve scroll position
                     const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
                     const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
                     
@@ -1599,30 +1602,30 @@ export class MatchupsTable extends BaseTable {
                     // Update the table data
                     bullpenTable.replaceData(allData);
                     
-                    // FIXED: Properly update expander icon using row element
+                    // Update expander icon
+                    const cellElement = cell.getElement();
+                    const expanderIcon = cellElement.querySelector('.row-expander');
+                    if (expanderIcon) {
+                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                    }
+                    
+                    // Restore scroll position
                     setTimeout(() => {
-                        try {
-                            const rowElement = row.getElement();
-                            if (rowElement) {
-                                const expanderIcon = rowElement.querySelector('.row-expander');
-                                if (expanderIcon) {
-                                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                                }
-                            }
-                        } catch (error) {
-                            console.error('Error updating expander icon:', error);
-                        }
-                        
-                        // Restore scroll position
                         if (mainTableHolder) {
                             mainTableHolder.scrollTop = scrollTop;
                         }
-                        
-                        // Save state
-                        self.saveCurrentSubtableState(gameId);
                     }, 50);
+                    
+                    // Save subtable state
+                    setTimeout(() => {
+                        self.saveSubtableState();
+                    }, 100);
                 }
             }
         });
+        
+        // Register this subtable instance for state management
+        const subtableKey = `${gameId}_bullpen`;
+        this.subtableInstances.set(subtableKey, bullpenTable);
     }
 }
