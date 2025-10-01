@@ -1,4 +1,4 @@
-// tables/combinedMatchupsTable.js - FIXED VERSION WITH PROPER SUBTABLE STATE PRESERVATION
+// tables/combinedMatchupsTable.js - FIXED VERSION WITH CORRECT EVENT PARAMETERS
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 
@@ -1035,7 +1035,7 @@ export class MatchupsTable extends BaseTable {
         });
     }
     
-    // ✅ FIXED: Starting Pitchers Table - Properly integrated with subtable state management
+    // ✅ FIXED: Starting Pitchers Table - CORRECTED EVENT PARAMETER ORDER
     createPitchersTable(container, pitchersData, gameId) {
         const F = this.F;
         const self = this;
@@ -1159,8 +1159,8 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // FIXED: Enhanced click handler with proper scroll management
-        pitchersTable.on("cellClick", function(cell, e) {
+        // FIXED: Corrected parameter order - (e, cell) not (cell, e)
+        pitchersTable.on("cellClick", function(e, cell) {
             const data = cell.getData();
             if (data._isParent && data._hasChildren) {
                 e.stopPropagation();
@@ -1237,7 +1237,7 @@ export class MatchupsTable extends BaseTable {
         this.subtableInstances.set(subtableKey, pitchersTable);
     }
     
-    // ✅ FIXED: Batters Table - Properly integrated with subtable state management
+    // ✅ FIXED: Batters Table - CORRECTED EVENT PARAMETER ORDER
     createBattersTable(container, battersData, gameId) {
         const F = this.F;
         const self = this;
@@ -1353,8 +1353,8 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // FIXED: Enhanced click handler with proper scroll management
-        battersTable.on("cellClick", function(cell, e) {
+        // FIXED: Corrected parameter order - (e, cell) not (cell, e)
+        battersTable.on("cellClick", function(e, cell) {
             const data = cell.getData();
             if (data._isParent && data._hasChildren) {
                 e.stopPropagation();
@@ -1431,7 +1431,7 @@ export class MatchupsTable extends BaseTable {
         this.subtableInstances.set(subtableKey, battersTable);
     }
     
-    // ✅ FIXED: Bullpen Table - Properly integrated with subtable state management
+    // ✅ FIXED: Bullpen Table - CORRECTED EVENT PARAMETER ORDER
     createBullpenTable(container, bullpenData, gameId) {
         const F = this.F;
         const self = this;
@@ -1567,8 +1567,8 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // FIXED: Enhanced click handler with proper scroll management
-        bullpenTable.on("cellClick", function(cell, e) {
+        // FIXED: Corrected parameter order - (e, cell) not (cell, e)
+        bullpenTable.on("cellClick", function(e, cell) {
             const data = cell.getData();
             if (data._isParent && data._hasChildren) {
                 e.stopPropagation();
