@@ -117,7 +117,7 @@ export class MatchupsTable extends BaseTable {
         
         // NEW: Subtable state management integrated with global state
         this.subtableInstances = new Map(); // Track active subtable instances
-        
+
         // Initialize global subtable state if not exists
         if (!window.GLOBAL_SUBTABLE_STATE) {
             window.GLOBAL_SUBTABLE_STATE = new Map();
@@ -223,79 +223,97 @@ export class MatchupsTable extends BaseTable {
     // NEW: Save subtable expansion state to global state
     saveSubtableState() {
         console.log(`Saving subtable state for ${this.elementId}`);
-        
-        // Get current subtable state key for this table
-        const subtableStateKey = `${this.elementId}_subtables`;
-        let allSubtableState = new Map();
-        
-        // Collect state from all active subtable instances
-        this.subtableInstances.forEach((tableInstance, key) => {
-            const [gameId, tableType] = key.split('_');
-            
-            if (tableInstance && tableInstance.getRows) {
-                const expandedRows = new Set();
-                
-                try {
-                    const rows = tableInstance.getRows();
-                    rows.forEach(row => {
-                        const data = row.getData();
-                        if (data._expanded && data._isParent) {
-                            // Generate stable ID for this subtable row
-                            const rowId = this.generateSubtableRowId(data, tableType);
-                            expandedRows.add(rowId);
-                        }
-                    });
-                    
-                    if (expandedRows.size > 0) {
-                        allSubtableState.set(key, {
-                            expandedRows: expandedRows,
-                            timestamp: Date.now()
-                        });
+
+        const container = this.getSubtableStateContainer();
+        let activeCount = 0;
+
+        this.subtableInstances.forEach((instanceInfo, key) => {
+            if (!instanceInfo || !instanceInfo.table || !instanceInfo.type) {
+                return;
+            }
+
+            const { table: tableInstance, type: tableType } = instanceInfo;
+
+            if (!tableInstance.getRows) {
+                return;
+            }
+
+            const expandedRows = new Set();
+
+            try {
+                const rows = tableInstance.getRows();
+                rows.forEach(row => {
+                    const data = row.getData();
+                    if (data && data._isParent && data._expanded) {
+                        const rowId = this.generateSubtableRowId(data, tableType);
+                        expandedRows.add(rowId);
                     }
-                } catch (error) {
-                    console.error(`Error saving state for subtable ${key}:`, error);
+                });
+
+                if (expandedRows.size > 0) {
+                    let state = container.get(key);
+                    if (!state) {
+                        state = { expandedRows: new Set(), timestamp: Date.now() };
+                        container.set(key, state);
+                    }
+
+                    state.expandedRows = expandedRows;
+                    state.timestamp = Date.now();
+                    activeCount++;
+                } else {
+                    container.delete(key);
                 }
+            } catch (error) {
+                console.error(`Error saving state for subtable ${key}:`, error);
             }
         });
-        
-        // Save to global subtable state
-        this.GLOBAL_SUBTABLE_STATE.set(subtableStateKey, allSubtableState);
-        
-        console.log(`Saved subtable state for ${this.elementId}: ${allSubtableState.size} subtables with expanded rows`);
+
+        console.log(`Saved subtable state for ${this.elementId}: ${activeCount} subtables with expanded rows`);
     }
-    
+
     // NEW: Restore subtable expansion state from global state
     restoreSubtableState() {
         console.log(`Restoring subtable state for ${this.elementId}`);
-        
-        const subtableStateKey = `${this.elementId}_subtables`;
-        const savedSubtableState = this.GLOBAL_SUBTABLE_STATE.get(subtableStateKey);
-        
-        if (!savedSubtableState || savedSubtableState.size === 0) {
+
+        const container = this.getSubtableStateContainer();
+
+        if (!container || container.size === 0) {
             console.log(`No subtable state to restore for ${this.elementId}`);
             return;
         }
-        
-        console.log(`Found saved subtable state for ${savedSubtableState.size} subtables`);
-        
-        // Restore state for each subtable
-        savedSubtableState.forEach((subtableState, key) => {
-            const tableInstance = this.subtableInstances.get(key);
-            
-            if (tableInstance && subtableState.expandedRows && subtableState.expandedRows.size > 0) {
-                console.log(`Restoring ${subtableState.expandedRows.size} expanded rows for subtable ${key}`);
-                
+
+        console.log(`Found saved subtable state for ${container.size} subtables`);
+
+        container.forEach((subtableState, key) => {
+            if (!subtableState || !subtableState.expandedRows) {
+                return;
+            }
+
+            const expandedRows = subtableState.expandedRows instanceof Set
+                ? subtableState.expandedRows
+                : new Set(subtableState.expandedRows || []);
+
+            if (expandedRows.size === 0) {
+                return;
+            }
+
+            const instanceInfo = this.subtableInstances.get(key);
+
+            if (instanceInfo && instanceInfo.table) {
+                console.log(`Restoring ${expandedRows.size} expanded rows for subtable ${key}`);
+                this.restoreSubtableRowsForInstance(key, expandedRows);
+            } else {
                 setTimeout(() => {
-                    this.restoreSubtableExpandedRows(tableInstance, subtableState.expandedRows, key);
-                }, 100);
+                    this.restoreSubtableRowsForInstance(key, expandedRows);
+                }, 150);
             }
         });
     }
-    
+
     // NEW: Generate stable ID for subtable rows
     generateSubtableRowId(data, tableType) {
         const F = this.F;
-        
+
         switch (tableType) {
             case 'pitchers':
                 return `pitcher_${data[F.P_NAME] || 'unknown'}_${data[F.P_SPLIT] || 'unknown'}`;
@@ -307,53 +325,205 @@ export class MatchupsTable extends BaseTable {
                 return `unknown_${JSON.stringify(data).substring(0, 50)}`;
         }
     }
-    
-    // NEW: Restore expanded rows for a specific subtable
-    restoreSubtableExpandedRows(tableInstance, expandedRowIds, subtableKey) {
+
+    // NEW: Helpers for managing subtable state keys and containers
+    buildSubtableKey(gameId, tableType) {
+        return `${gameId}_${tableType}`;
+    }
+
+    parseSubtableKey(key) {
+        const lastIndex = key.lastIndexOf('_');
+        if (lastIndex === -1) {
+            return { gameId: key, tableType: '' };
+        }
+        return {
+            gameId: key.substring(0, lastIndex),
+            tableType: key.substring(lastIndex + 1)
+        };
+    }
+
+    getSubtableStateContainer() {
+        const subtableStateKey = `${this.elementId}_subtables`;
+        let state = this.GLOBAL_SUBTABLE_STATE.get(subtableStateKey);
+
+        if (!state) {
+            state = new Map();
+            this.GLOBAL_SUBTABLE_STATE.set(subtableStateKey, state);
+        }
+
+        return state;
+    }
+
+    getSavedExpandedRows(subtableKey) {
+        const container = this.getSubtableStateContainer();
+        const subtableState = container.get(subtableKey);
+
+        if (!subtableState || !subtableState.expandedRows) {
+            return null;
+        }
+
+        if (subtableState.expandedRows instanceof Set) {
+            return subtableState.expandedRows;
+        }
+
+        if (Array.isArray(subtableState.expandedRows)) {
+            const expandedRows = new Set(subtableState.expandedRows);
+            subtableState.expandedRows = expandedRows;
+            return expandedRows;
+        }
+
+        return null;
+    }
+
+    updateSubtableExpansionState(gameId, tableType, rowId, isExpanded) {
+        const container = this.getSubtableStateContainer();
+        const subtableKey = this.buildSubtableKey(gameId, tableType);
+        let subtableState = container.get(subtableKey);
+
+        if (!subtableState) {
+            subtableState = { expandedRows: new Set(), timestamp: Date.now() };
+            container.set(subtableKey, subtableState);
+        }
+
+        if (!(subtableState.expandedRows instanceof Set)) {
+            subtableState.expandedRows = new Set(subtableState.expandedRows || []);
+        }
+
+        if (isExpanded) {
+            subtableState.expandedRows.add(rowId);
+        } else {
+            subtableState.expandedRows.delete(rowId);
+        }
+
+        subtableState.timestamp = Date.now();
+
+        if (subtableState.expandedRows.size === 0) {
+            container.delete(subtableKey);
+        }
+    }
+
+    registerSubtableInstance(gameId, tableType, tableInstance) {
+        const subtableKey = this.buildSubtableKey(gameId, tableType);
+        this.subtableInstances.set(subtableKey, {
+            table: tableInstance,
+            type: tableType,
+            gameId: gameId
+        });
+
+        this.restoreSubtableRowsForInstance(subtableKey);
+    }
+
+    restoreSubtableRowsForInstance(subtableKey, expandedRowIds = null) {
+        const instanceInfo = this.subtableInstances.get(subtableKey);
+
+        if (!instanceInfo || !instanceInfo.table) {
+            return;
+        }
+
+        const { table: tableInstance, type: tableType, gameId } = instanceInfo;
+        const targetExpandedRows = expandedRowIds || this.getSavedExpandedRows(subtableKey);
+
+        if (!targetExpandedRows || targetExpandedRows.size === 0) {
+            return;
+        }
+
+        requestAnimationFrame(() => {
+            try {
+                const rows = tableInstance.getRows();
+
+                rows.forEach(row => {
+                    const data = row.getData();
+                    if (data && data._isParent && data._hasChildren) {
+                        const rowId = this.generateSubtableRowId(data, tableType);
+
+                        if (targetExpandedRows.has(rowId)) {
+                            this.toggleSubtableParentRow(tableInstance, row, tableType, gameId, true, { updateState: false });
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error(`Error restoring subtable rows for ${subtableKey}:`, error);
+            }
+        });
+    }
+
+    toggleSubtableParentRow(tableInstance, rowComponent, tableType, gameId, desiredState = null, options = {}) {
+        if (!rowComponent || !tableInstance) {
+            return;
+        }
+
+        const data = rowComponent.getData();
+        if (!data || !data._isParent || !data._hasChildren) {
+            return;
+        }
+
+        const shouldExpand = desiredState !== null ? desiredState : !Boolean(data._expanded);
+
+        if (data._expanded === shouldExpand && desiredState !== null) {
+            return;
+        }
+
+        const { updateState = true } = options;
+        const parentIdentifier = this.getParentIdentifier(data, tableType);
+
+        // Update parent data
+        data._expanded = shouldExpand;
+        rowComponent.update({ _expanded: shouldExpand });
+
+        // Update children visibility
         try {
-            const [gameId, tableType] = subtableKey.split('_');
             const rows = tableInstance.getRows();
-            let restoredCount = 0;
-            
-            // Preserve scroll position during restoration
-            const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-            const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
-            
-            rows.forEach(row => {
-                const data = row.getData();
-                if (data._isParent && data._hasChildren) {
-                    const rowId = this.generateSubtableRowId(data, tableType);
-                    
-                    if (expandedRowIds.has(rowId)) {
-                        // Expand this row
-                        data._expanded = true;
-                        
-                        // Update all child rows visibility
-                        const allData = tableInstance.getData();
-                        const parentIdentifier = this.getParentIdentifier(data, tableType);
-                        
-                        allData.forEach(rowData => {
-                            if (rowData._isChild && this.getParentIdentifier(rowData, tableType) === parentIdentifier) {
-                                rowData._visible = true;
-                            }
-                        });
-                        
-                        // Update the table data
-                        tableInstance.replaceData(allData);
-                        restoredCount++;
+            rows.forEach(childRow => {
+                const childData = childRow.getData();
+
+                if (childData && childData._isChild && this.getParentIdentifier(childData, tableType) === parentIdentifier) {
+                    childData._visible = shouldExpand;
+                    childRow.update({ _visible: shouldExpand });
+
+                    const childElement = childRow.getElement();
+                    if (childElement) {
+                        childElement.style.display = shouldExpand ? '' : 'none';
                     }
                 }
             });
-            
-            // Restore scroll position
-            if (tableHolder) {
-                tableHolder.scrollTop = scrollTop;
-            }
-            
-            console.log(`Restored ${restoredCount} expanded rows for subtable ${subtableKey}`);
         } catch (error) {
-            console.error(`Error restoring subtable rows for ${subtableKey}:`, error);
+            console.error('Error updating child rows for subtable toggle:', error);
         }
+
+        // Update expander icon
+        const field = tableType === 'pitchers'
+            ? this.F.P_NAME
+            : tableType === 'batters'
+                ? this.F.B_NAME
+                : this.F.BP_HAND_CNT;
+
+        try {
+            const cell = rowComponent.getCell(field);
+            if (cell) {
+                const cellElement = cell.getElement();
+                if (cellElement) {
+                    const expanderIcon = cellElement.querySelector('.row-expander');
+                    if (expanderIcon) {
+                        expanderIcon.textContent = shouldExpand ? '−' : '+';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error updating subtable expander icon:', error);
+        }
+
+        rowComponent.reformat();
+
+        if (updateState) {
+            const rowId = this.generateSubtableRowId(data, tableType);
+            this.updateSubtableExpansionState(gameId, tableType, rowId, shouldExpand);
+            this.saveSubtableState();
+        }
+    }
+
+    // NEW: Restore expanded rows for a specific subtable
+    restoreSubtableExpandedRows(tableInstance, expandedRowIds, subtableKey) {
+        this.restoreSubtableRowsForInstance(subtableKey, expandedRowIds);
     }
     
     // NEW: Get parent identifier for matching child rows
@@ -1221,56 +1391,16 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // NEW: Enhanced click handler with state management and scroll preservation
+        // NEW: Enhanced click handler leveraging shared toggle logic
         pitchersTable.on("cellClick", function(e, cell) {
             if (cell.getField() === F.P_NAME) {
                 const row = cell.getRow();
-                const data = row.getData();
-                
-                if (data._isParent && data._hasChildren) {
-                    // Preserve scroll position
-                    const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
-                    
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = pitchersTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentName === data[F.P_NAME]) {
-                            rowData._visible = data._expanded;
-                        }
-                    });
-                    
-                    // Update the table data
-                    pitchersTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                    }
-                    
-                    // Restore scroll position
-                    setTimeout(() => {
-                        if (mainTableHolder) {
-                            mainTableHolder.scrollTop = scrollTop;
-                        }
-                    }, 50);
-                    
-                    // Save subtable state
-                    setTimeout(() => {
-                        self.saveSubtableState();
-                    }, 100);
-                }
+                self.toggleSubtableParentRow(pitchersTable, row, 'pitchers', gameId);
             }
         });
-        
+
         // Register this subtable instance for state management
-        const subtableKey = `${gameId}_pitchers`;
-        this.subtableInstances.set(subtableKey, pitchersTable);
+        this.registerSubtableInstance(gameId, 'pitchers', pitchersTable);
     }
     
     // ✅ FIXED: Batters Table - Properly integrated with subtable state management
@@ -1389,56 +1519,16 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // NEW: Enhanced click handler with state management and scroll preservation
+        // NEW: Enhanced click handler leveraging shared toggle logic
         battersTable.on("cellClick", function(e, cell) {
             if (cell.getField() === F.B_NAME) {
                 const row = cell.getRow();
-                const data = row.getData();
-                
-                if (data._isParent && data._hasChildren) {
-                    // Preserve scroll position
-                    const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
-                    
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = battersTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentName === data[F.B_NAME]) {
-                            rowData._visible = data._expanded;
-                        }
-                    });
-                    
-                    // Update the table data
-                    battersTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                    }
-                    
-                    // Restore scroll position
-                    setTimeout(() => {
-                        if (mainTableHolder) {
-                            mainTableHolder.scrollTop = scrollTop;
-                        }
-                    }, 50);
-                    
-                    // Save subtable state
-                    setTimeout(() => {
-                        self.saveSubtableState();
-                    }, 100);
-                }
+                self.toggleSubtableParentRow(battersTable, row, 'batters', gameId);
             }
         });
-        
+
         // Register this subtable instance for state management
-        const subtableKey = `${gameId}_batters`;
-        this.subtableInstances.set(subtableKey, battersTable);
+        this.registerSubtableInstance(gameId, 'batters', battersTable);
     }
     
     // ✅ FIXED: Bullpen Table - Properly integrated with subtable state management
@@ -1577,55 +1667,15 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // NEW: Enhanced click handler with state management and scroll preservation
+        // NEW: Enhanced click handler leveraging shared toggle logic
         bullpenTable.on("cellClick", function(e, cell) {
             if (cell.getField() === F.BP_HAND_CNT) {
                 const row = cell.getRow();
-                const data = row.getData();
-                
-                if (data._isParent && data._hasChildren) {
-                    // Preserve scroll position
-                    const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
-                    
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = bullpenTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentId === data._parentId) {
-                            rowData._visible = data._expanded;
-                        }
-                    });
-                    
-                    // Update the table data
-                    bullpenTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
-                    }
-                    
-                    // Restore scroll position
-                    setTimeout(() => {
-                        if (mainTableHolder) {
-                            mainTableHolder.scrollTop = scrollTop;
-                        }
-                    }, 50);
-                    
-                    // Save subtable state
-                    setTimeout(() => {
-                        self.saveSubtableState();
-                    }, 100);
-                }
+                self.toggleSubtableParentRow(bullpenTable, row, 'bullpen', gameId);
             }
         });
-        
+
         // Register this subtable instance for state management
-        const subtableKey = `${gameId}_bullpen`;
-        this.subtableInstances.set(subtableKey, bullpenTable);
+        this.registerSubtableInstance(gameId, 'bullpen', bullpenTable);
     }
 }
