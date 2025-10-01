@@ -123,6 +123,10 @@ export class MatchupsTable extends BaseTable {
             window.GLOBAL_SUBTABLE_STATE = new Map();
         }
         this.GLOBAL_SUBTABLE_STATE = window.GLOBAL_SUBTABLE_STATE;
+        
+        // FIXED: Add scroll lock properties
+        this.isRestoringSubtableState = false;
+        this.scrollLocked = false;
     }
     
     initialize() {
@@ -308,16 +312,22 @@ export class MatchupsTable extends BaseTable {
         }
     }
     
-    // NEW: Restore expanded rows for a specific subtable
+    // FIXED: Restore expanded rows for a specific subtable
     restoreSubtableExpandedRows(tableInstance, expandedRowIds, subtableKey) {
         try {
             const [gameId, tableType] = subtableKey.split('_');
             const rows = tableInstance.getRows();
             let restoredCount = 0;
             
-            // Preserve scroll position during restoration
-            const tableHolder = this.table.element.querySelector('.tabulator-tableHolder');
-            const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
+            // Set flags to prevent scroll resets
+            this.isRestoringSubtableState = true;
+            this.scrollLocked = true;
+            
+            // Preserve scroll position
+            const mainTableHolder = this.table.element.querySelector('.tabulator-tableHolder');
+            const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
+            
+            console.log(`[Restore] Starting restoration for ${subtableKey}, scroll at ${scrollTop}`);
             
             rows.forEach(row => {
                 const data = row.getData();
@@ -325,34 +335,69 @@ export class MatchupsTable extends BaseTable {
                     const rowId = this.generateSubtableRowId(data, tableType);
                     
                     if (expandedRowIds.has(rowId)) {
+                        console.log(`[Restore] Expanding row: ${rowId}`);
+                        
                         // Expand this row
                         data._expanded = true;
                         
-                        // Update all child rows visibility
-                        const allData = tableInstance.getData();
+                        // CRITICAL FIX: Update children visibility WITHOUT replaceData
                         const parentIdentifier = this.getParentIdentifier(data, tableType);
+                        const allRows = tableInstance.getRows();
                         
-                        allData.forEach(rowData => {
-                            if (rowData._isChild && this.getParentIdentifier(rowData, tableType) === parentIdentifier) {
-                                rowData._visible = true;
+                        allRows.forEach(childRow => {
+                            const childData = childRow.getData();
+                            if (childData._isChild && 
+                                this.getParentIdentifier(childData, tableType) === parentIdentifier) {
+                                // Update child visibility in place
+                                childData._visible = true;
+                                const childElement = childRow.getElement();
+                                if (childElement) {
+                                    childElement.style.display = '';
+                                }
                             }
                         });
                         
-                        // Update the table data
-                        tableInstance.replaceData(allData);
+                        // Update parent row appearance
+                        const rowElement = row.getElement();
+                        if (rowElement) {
+                            rowElement.classList.add('row-expanded');
+                            const expanderIcon = rowElement.querySelector('.row-expander');
+                            if (expanderIcon) {
+                                expanderIcon.innerHTML = "−";
+                            }
+                        }
+                        
                         restoredCount++;
                     }
                 }
             });
             
-            // Restore scroll position
-            if (tableHolder) {
-                tableHolder.scrollTop = scrollTop;
-            }
+            // CRITICAL: Restore scroll position multiple times to ensure it sticks
+            const restoreScroll = () => {
+                if (mainTableHolder && scrollTop > 0) {
+                    mainTableHolder.scrollTop = scrollTop;
+                }
+            };
             
-            console.log(`Restored ${restoredCount} expanded rows for subtable ${subtableKey}`);
+            // Immediate restore
+            restoreScroll();
+            
+            // Delayed restores
+            setTimeout(restoreScroll, 10);
+            setTimeout(restoreScroll, 50);
+            setTimeout(restoreScroll, 100);
+            
+            // Clear flags after restoration is complete
+            setTimeout(() => {
+                this.isRestoringSubtableState = false;
+                this.scrollLocked = false;
+                console.log(`[Restore] Completed: ${restoredCount} rows expanded`);
+            }, 150);
+            
         } catch (error) {
-            console.error(`Error restoring subtable rows for ${subtableKey}:`, error);
+            console.error(`[Restore] Error for ${subtableKey}:`, error);
+            this.isRestoringSubtableState = false;
+            this.scrollLocked = false;
         }
     }
     
@@ -765,165 +810,85 @@ export class MatchupsTable extends BaseTable {
         const lefties = [];
         
         data.forEach(row => {
-            const handCnt = row[F.BP_HAND_CNT] || '';
-            // Handle formats like "5 Righties", "4 Lefties"
-            if (handCnt.match(/\d+\s+Right/i)) {
+            const handCount = row[F.BP_HAND_CNT] || '';
+            if (handCount.startsWith('R') || handCount.includes('Right')) {
                 righties.push(row);
-            } else if (handCnt.match(/\d+\s+Left/i)) {
+            } else if (handCount.startsWith('L') || handCount.includes('Left')) {
                 lefties.push(row);
             }
         });
         
+        // Process each group
+        const processGroup = (groupData, handLabel) => {
+            if (groupData.length === 0) return null;
+            
+            // Find parent (Season split)
+            let parent = groupData.find(row => {
+                const split = row[F.BP_SPLIT];
+                return split === 'Season' || split === 'Full Season' || 
+                       (!split.includes('vs') && !split.includes('@'));
+            });
+            
+            if (!parent) {
+                parent = { ...groupData[0] };
+            }
+            
+            // Get children (all non-season splits)
+            const children = groupData.filter(row => {
+                const split = row[F.BP_SPLIT];
+                return split !== 'Season' && split !== 'Full Season' && 
+                       (split.includes('vs') || split.includes('@'));
+            });
+            
+            // Sort children
+            children.sort((a, b) => {
+                const splitA = a[F.BP_SPLIT] || '';
+                const splitB = b[F.BP_SPLIT] || '';
+                
+                const getPriority = (split) => {
+                    if (split === 'R' || split === 'vs R') return 1;
+                    if (split === 'L' || split === 'vs L') return 2;
+                    if (split === '@' || split === 'Season @') return 3;
+                    if (split === 'R @' || split === 'vs R @') return 4;
+                    if (split === 'L @' || split === 'vs L @') return 5;
+                    return 6;
+                };
+                
+                return getPriority(splitA) - getPriority(splitB);
+            });
+            
+            // Format split names
+            const formattedChildren = children.map(child => ({
+                ...child,
+                [F.BP_SPLIT]: this.formatSplitName(child[F.BP_SPLIT], location)
+            }));
+            
+            return {
+                ...parent,
+                _children: formattedChildren,
+                _isParent: true
+            };
+        };
+        
         const result = [];
         
-        // Create Righties group
-        if (righties.length > 0) {
-            // Extract the number from "5 Righties" format
-            let rightCount = 0;
-            righties.forEach(r => {
-                const handCnt = r[F.BP_HAND_CNT] || '';
-                const match = handCnt.match(/^(\d+)\s+/);
-                if (match) {
-                    const num = parseInt(match[1]);
-                    if (num > rightCount) rightCount = num;
-                }
-            });
-            
-            // Find the Full Season data for the parent row
-            const rightFullSeason = righties.find(r => {
-                const split = r[F.BP_SPLIT] || '';
-                return split === 'Season' || split === 'Full Season';
-            });
-            
-            // Sort splits and exclude Full Season from children
-            const sortedRighties = this.sortBullpenSplits(
-                righties.filter(r => {
-                    const split = r[F.BP_SPLIT] || '';
-                    return split !== 'Season' && split !== 'Full Season';
-                }), 
-                location
-            );
-            
-            const rightGroup = {
-                [F.BP_HAND_CNT]: `Righties (${rightCount})`,
-                _isGroup: true,
-                _children: sortedRighties,
-                // Copy Full Season stats to parent row
-                ...(rightFullSeason || {})
-            };
-            
-            // Override the name field to ensure correct display
-            rightGroup[F.BP_HAND_CNT] = `Righties (${rightCount})`;
-            
-            result.push(rightGroup);
-        }
+        const rightiesGroup = processGroup(righties, 'Righty Relievers');
+        if (rightiesGroup) result.push(rightiesGroup);
         
-        // Create Lefties group
-        if (lefties.length > 0) {
-            // Extract the number from "4 Lefties" format
-            let leftCount = 0;
-            lefties.forEach(l => {
-                const handCnt = l[F.BP_HAND_CNT] || '';
-                const match = handCnt.match(/^(\d+)\s+/);
-                if (match) {
-                    const num = parseInt(match[1]);
-                    if (num > leftCount) leftCount = num;
-                }
-            });
-            
-            // Find the Full Season data for the parent row
-            const leftFullSeason = lefties.find(l => {
-                const split = l[F.BP_SPLIT] || '';
-                return split === 'Season' || split === 'Full Season';
-            });
-            
-            // Sort splits and exclude Full Season from children
-            const sortedLefties = this.sortBullpenSplits(
-                lefties.filter(l => {
-                    const split = l[F.BP_SPLIT] || '';
-                    return split !== 'Season' && split !== 'Full Season';
-                }), 
-                location
-            );
-            
-            const leftGroup = {
-                [F.BP_HAND_CNT]: `Lefties (${leftCount})`,
-                _isGroup: true,
-                _children: sortedLefties,
-                // Copy Full Season stats to parent row
-                ...(leftFullSeason || {})
-            };
-            
-            // Override the name field to ensure correct display
-            leftGroup[F.BP_HAND_CNT] = `Lefties (${leftCount})`;
-            
-            result.push(leftGroup);
-        }
+        const leftiesGroup = processGroup(lefties, 'Lefty Relievers');
+        if (leftiesGroup) result.push(leftiesGroup);
         
         return result;
     }
     
-    sortBullpenSplits(splits, location) {
-        const F = this.F;
-        
-        // Create a map of splits by their type
-        const splitMap = new Map();
-        
-        splits.forEach(split => {
-            const splitId = split[F.BP_SPLIT] || '';
-            let splitType = 'unknown';
-            
-            // Determine split type (Full Season is already excluded)
-            if (splitId === 'vs R' || splitId === 'R') {
-                if (splitId.includes('@')) {
-                    splitType = 'rightiesAway';
-                } else {
-                    splitType = 'righties';
-                }
-            } else if (splitId === 'vs L' || splitId === 'L') {
-                if (splitId.includes('@')) {
-                    splitType = 'leftiesAway';
-                } else {
-                    splitType = 'lefties';
-                }
-            } else if (splitId.includes('@') || splitId === 'Full Season@' || splitId === 'Season @' || splitId === '@') {
-                if (splitId.includes('R')) {
-                    splitType = 'rightiesAway';
-                } else if (splitId.includes('L')) {
-                    splitType = 'leftiesAway';
-                } else {
-                    splitType = 'fullSeasonAway';
-                }
-            }
-            
-            // Store the split with formatted name
-            splitMap.set(splitType, {
-                ...split,
-                [F.BP_SPLIT]: this.formatSplitName(splitId, location)
-            });
-        });
-        
-        // Return splits in the correct order (5 splits, excluding Full Season)
-        const orderedSplits = [];
-        const typeOrder = ['righties', 'lefties', 'fullSeasonAway', 'rightiesAway', 'leftiesAway'];
-        
-        typeOrder.forEach(type => {
-            if (splitMap.has(type)) {
-                orderedSplits.push(splitMap.get(type));
-            }
-        });
-        
-        return orderedSplits;
-    }
-    
-    // Utility formatting methods
     formatRatio(value) {
-        // Format to 3 decimal places, no leading zero
         if (value == null || value === '') return '-';
         const num = parseFloat(value);
         if (isNaN(num)) return '-';
-        const formatted = num.toFixed(3);
-        return formatted.startsWith('0.') ? formatted.substring(1) : formatted;
+        
+        let formatted = num.toFixed(3);
+        // Remove leading zero
+        return formatted.charAt(0) === '0' ? formatted.substring(1) : formatted;
     }
     
     formatERA(value) {
@@ -1042,33 +1007,13 @@ export class MatchupsTable extends BaseTable {
         const tableContainer = document.createElement("div");
         container.appendChild(tableContainer);
         
-        // Helper function to parse weather data
-        const parseWeatherData = (weatherString) => {
-            if (!weatherString || weatherString === "N/A") {
-                return { time: "N/A", conditions: "N/A" };
-            }
-            
-            // Split by the dash character (–)
-            const parts = weatherString.split('–');
-            
-            if (parts.length >= 2) {
-                // Extract time (before the dash) and conditions (after the dash)
-                const time = parts[0].trim();
-                const conditions = parts.slice(1).join('–').trim(); // Join back in case there are multiple dashes
-                return { time, conditions };
-            } else {
-                // If no dash found, return the whole string as conditions
-                return { time: "N/A", conditions: weatherString };
-            }
-        };
+        // Combine weather fields
+        const wx1 = data[F.WX1] || '';
+        const wx2 = data[F.WX2] || '';
+        const wx3 = data[F.WX3] || '';
+        const wx4 = data[F.WX4] || '';
         
-        // Prepare weather data by parsing each weather field
-        const weatherData = [
-            parseWeatherData(data[F.WX1]),
-            parseWeatherData(data[F.WX2]),
-            parseWeatherData(data[F.WX3]),
-            parseWeatherData(data[F.WX4])
-        ];
+        const conditions = [wx1, wx2, wx3, wx4].filter(w => w).join(' | ');
         
         new Tabulator(tableContainer, {
             layout: "fitColumns",
@@ -1077,15 +1022,8 @@ export class MatchupsTable extends BaseTable {
             resizableRows: false,
             headerSort: false,
             movableColumns: false,
-            data: weatherData,
+            data: [{ conditions: conditions || "No weather data available" }],
             columns: [
-                { 
-                    title: "Time", 
-                    field: "time", 
-                    widthGrow: 1,
-                    resizable: false,
-                    headerSort: false
-                },
                 { 
                     title: "Conditions", 
                     field: "conditions", 
@@ -1221,50 +1159,76 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // NEW: Enhanced click handler with state management and scroll preservation
-        pitchersTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.P_NAME) {
-                const row = cell.getRow();
-                const data = row.getData();
+        // FIXED: Enhanced click handler with proper scroll management
+        pitchersTable.on("cellClick", function(cell, e) {
+            const data = cell.getData();
+            if (data._isParent && data._hasChildren) {
+                e.stopPropagation();
                 
-                if (data._isParent && data._hasChildren) {
-                    // Preserve scroll position
-                    const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
-                    
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = pitchersTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentName === data[F.P_NAME]) {
-                            rowData._visible = data._expanded;
+                // Lock scroll position
+                const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
+                self.scrollLocked = true;
+                
+                console.log(`[Pitchers Click] Before toggle, scroll at ${scrollTop}`);
+                
+                // Toggle expansion
+                data._expanded = !data._expanded;
+                
+                // CRITICAL FIX: Update children WITHOUT replaceData
+                const parentIdentifier = data[F.P_NAME];
+                const allRows = pitchersTable.getRows();
+                
+                allRows.forEach(row => {
+                    const rowData = row.getData();
+                    if (rowData._isChild && rowData._parentName === parentIdentifier) {
+                        rowData._visible = data._expanded;
+                        const rowElement = row.getElement();
+                        if (rowElement) {
+                            rowElement.style.display = data._expanded ? '' : 'none';
                         }
-                    });
-                    
-                    // Update the table data
-                    pitchersTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
                     }
-                    
-                    // Restore scroll position
-                    setTimeout(() => {
-                        if (mainTableHolder) {
-                            mainTableHolder.scrollTop = scrollTop;
-                        }
-                    }, 50);
-                    
-                    // Save subtable state
-                    setTimeout(() => {
-                        self.saveSubtableState();
-                    }, 100);
+                });
+                
+                // Update expander icon and parent row class
+                const rowElement = cell.getRow().getElement();
+                if (rowElement) {
+                    if (data._expanded) {
+                        rowElement.classList.add('row-expanded');
+                    } else {
+                        rowElement.classList.remove('row-expanded');
+                    }
                 }
+                
+                const expanderIcon = cell.getElement().querySelector('.row-expander');
+                if (expanderIcon) {
+                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                }
+                
+                // CRITICAL: Restore scroll position
+                const restoreScroll = () => {
+                    if (mainTableHolder && scrollTop >= 0) {
+                        mainTableHolder.scrollTop = scrollTop;
+                    }
+                };
+                
+                restoreScroll();
+                requestAnimationFrame(() => {
+                    restoreScroll();
+                    setTimeout(restoreScroll, 10);
+                    setTimeout(restoreScroll, 25);
+                    setTimeout(restoreScroll, 50);
+                    setTimeout(() => {
+                        restoreScroll();
+                        self.scrollLocked = false;
+                        console.log(`[Pitchers Click] Scroll restored to ${scrollTop}`);
+                    }, 100);
+                });
+                
+                // Save subtable state
+                setTimeout(() => {
+                    self.saveSubtableState();
+                }, 150);
             }
         });
         
@@ -1389,50 +1353,76 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // NEW: Enhanced click handler with state management and scroll preservation
-        battersTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.B_NAME) {
-                const row = cell.getRow();
-                const data = row.getData();
+        // FIXED: Enhanced click handler with proper scroll management
+        battersTable.on("cellClick", function(cell, e) {
+            const data = cell.getData();
+            if (data._isParent && data._hasChildren) {
+                e.stopPropagation();
                 
-                if (data._isParent && data._hasChildren) {
-                    // Preserve scroll position
-                    const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
-                    
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = battersTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentName === data[F.B_NAME]) {
-                            rowData._visible = data._expanded;
+                // Lock scroll position
+                const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
+                self.scrollLocked = true;
+                
+                console.log(`[Batters Click] Before toggle, scroll at ${scrollTop}`);
+                
+                // Toggle expansion
+                data._expanded = !data._expanded;
+                
+                // CRITICAL FIX: Update children WITHOUT replaceData
+                const parentIdentifier = data[F.B_NAME];
+                const allRows = battersTable.getRows();
+                
+                allRows.forEach(row => {
+                    const rowData = row.getData();
+                    if (rowData._isChild && rowData._parentName === parentIdentifier) {
+                        rowData._visible = data._expanded;
+                        const rowElement = row.getElement();
+                        if (rowElement) {
+                            rowElement.style.display = data._expanded ? '' : 'none';
                         }
-                    });
-                    
-                    // Update the table data
-                    battersTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
                     }
-                    
-                    // Restore scroll position
-                    setTimeout(() => {
-                        if (mainTableHolder) {
-                            mainTableHolder.scrollTop = scrollTop;
-                        }
-                    }, 50);
-                    
-                    // Save subtable state
-                    setTimeout(() => {
-                        self.saveSubtableState();
-                    }, 100);
+                });
+                
+                // Update expander icon and parent row class
+                const rowElement = cell.getRow().getElement();
+                if (rowElement) {
+                    if (data._expanded) {
+                        rowElement.classList.add('row-expanded');
+                    } else {
+                        rowElement.classList.remove('row-expanded');
+                    }
                 }
+                
+                const expanderIcon = cell.getElement().querySelector('.row-expander');
+                if (expanderIcon) {
+                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                }
+                
+                // CRITICAL: Restore scroll position
+                const restoreScroll = () => {
+                    if (mainTableHolder && scrollTop >= 0) {
+                        mainTableHolder.scrollTop = scrollTop;
+                    }
+                };
+                
+                restoreScroll();
+                requestAnimationFrame(() => {
+                    restoreScroll();
+                    setTimeout(restoreScroll, 10);
+                    setTimeout(restoreScroll, 25);
+                    setTimeout(restoreScroll, 50);
+                    setTimeout(() => {
+                        restoreScroll();
+                        self.scrollLocked = false;
+                        console.log(`[Batters Click] Scroll restored to ${scrollTop}`);
+                    }, 100);
+                });
+                
+                // Save subtable state
+                setTimeout(() => {
+                    self.saveSubtableState();
+                }, 150);
             }
         });
         
@@ -1577,50 +1567,76 @@ export class MatchupsTable extends BaseTable {
             ]
         });
         
-        // NEW: Enhanced click handler with state management and scroll preservation
-        bullpenTable.on("cellClick", function(e, cell) {
-            if (cell.getField() === F.BP_HAND_CNT) {
-                const row = cell.getRow();
-                const data = row.getData();
+        // FIXED: Enhanced click handler with proper scroll management
+        bullpenTable.on("cellClick", function(cell, e) {
+            const data = cell.getData();
+            if (data._isParent && data._hasChildren) {
+                e.stopPropagation();
                 
-                if (data._isParent && data._hasChildren) {
-                    // Preserve scroll position
-                    const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
-                    
-                    // Toggle expansion
-                    data._expanded = !data._expanded;
-                    
-                    // Update all child rows visibility
-                    const allData = bullpenTable.getData();
-                    allData.forEach(rowData => {
-                        if (rowData._isChild && rowData._parentId === data._parentId) {
-                            rowData._visible = data._expanded;
+                // Lock scroll position
+                const mainTableHolder = self.table.element.querySelector('.tabulator-tableHolder');
+                const scrollTop = mainTableHolder ? mainTableHolder.scrollTop : 0;
+                self.scrollLocked = true;
+                
+                console.log(`[Bullpen Click] Before toggle, scroll at ${scrollTop}`);
+                
+                // Toggle expansion
+                data._expanded = !data._expanded;
+                
+                // CRITICAL FIX: Update children WITHOUT replaceData
+                const parentIdentifier = data._parentId;
+                const allRows = bullpenTable.getRows();
+                
+                allRows.forEach(row => {
+                    const rowData = row.getData();
+                    if (rowData._isChild && rowData._parentId === parentIdentifier) {
+                        rowData._visible = data._expanded;
+                        const rowElement = row.getElement();
+                        if (rowElement) {
+                            rowElement.style.display = data._expanded ? '' : 'none';
                         }
-                    });
-                    
-                    // Update the table data
-                    bullpenTable.replaceData(allData);
-                    
-                    // Update expander icon
-                    const cellElement = cell.getElement();
-                    const expanderIcon = cellElement.querySelector('.row-expander');
-                    if (expanderIcon) {
-                        expanderIcon.innerHTML = data._expanded ? "−" : "+";
                     }
-                    
-                    // Restore scroll position
-                    setTimeout(() => {
-                        if (mainTableHolder) {
-                            mainTableHolder.scrollTop = scrollTop;
-                        }
-                    }, 50);
-                    
-                    // Save subtable state
-                    setTimeout(() => {
-                        self.saveSubtableState();
-                    }, 100);
+                });
+                
+                // Update expander icon and parent row class
+                const rowElement = cell.getRow().getElement();
+                if (rowElement) {
+                    if (data._expanded) {
+                        rowElement.classList.add('row-expanded');
+                    } else {
+                        rowElement.classList.remove('row-expanded');
+                    }
                 }
+                
+                const expanderIcon = cell.getElement().querySelector('.row-expander');
+                if (expanderIcon) {
+                    expanderIcon.innerHTML = data._expanded ? "−" : "+";
+                }
+                
+                // CRITICAL: Restore scroll position
+                const restoreScroll = () => {
+                    if (mainTableHolder && scrollTop >= 0) {
+                        mainTableHolder.scrollTop = scrollTop;
+                    }
+                };
+                
+                restoreScroll();
+                requestAnimationFrame(() => {
+                    restoreScroll();
+                    setTimeout(restoreScroll, 10);
+                    setTimeout(restoreScroll, 25);
+                    setTimeout(restoreScroll, 50);
+                    setTimeout(() => {
+                        restoreScroll();
+                        self.scrollLocked = false;
+                        console.log(`[Bullpen Click] Scroll restored to ${scrollTop}`);
+                    }, 100);
+                });
+                
+                // Save subtable state
+                setTimeout(() => {
+                    self.saveSubtableState();
+                }, 150);
             }
         });
         
