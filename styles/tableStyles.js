@@ -103,7 +103,14 @@ function injectMinimalStyles() {
             -ms-overflow-style: auto !important;
             scrollbar-width: auto !important;  /* Changed from thin to auto */
         }
-        
+
+        /* Allow subtables to expand naturally without manual scrolling */
+        .subrow-container .tabulator .tabulator-tableHolder {
+            overflow-y: visible !important;
+            max-height: none !important;
+            height: auto !important;
+        }
+
         /* Ensure scrollbar is always visible and prominent */
         .tabulator .tabulator-tableHolder::-webkit-scrollbar {
             width: 14px !important;  /* Wider for better visibility */
@@ -396,8 +403,14 @@ function injectFullStyles() {
         .tabulator-cell:last-child {
             border-right: none;
         }
-        
+
         /* CRITICAL: Subrow/subtable container styling - ISSUE #6 FIXED */
+        .subrow-container .tabulator .tabulator-tableHolder {
+            overflow-y: visible !important;
+            max-height: none !important;
+            height: auto !important;
+        }
+
         .subrow-container {
             padding: 15px 20px !important;
             background: #f8f9fa !important;

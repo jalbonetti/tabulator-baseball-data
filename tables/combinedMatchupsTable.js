@@ -514,11 +514,42 @@ export class MatchupsTable extends BaseTable {
 
         rowComponent.reformat();
 
+        // Ensure the subtable recalculates its layout after children visibility changes
+        this.refreshSubtableLayout(tableInstance);
+
         if (updateState) {
             const rowId = this.generateSubtableRowId(data, tableType);
             this.updateSubtableExpansionState(gameId, tableType, rowId, shouldExpand);
             this.saveSubtableState();
         }
+    }
+
+    refreshSubtableLayout(tableInstance) {
+        if (!tableInstance) {
+            return;
+        }
+
+        try {
+            const rows = tableInstance.getRows();
+            rows.forEach(row => {
+                if (row && typeof row.normalizeHeight === 'function') {
+                    row.normalizeHeight();
+                }
+            });
+        } catch (error) {
+            console.error('Error normalizing subtable row heights:', error);
+        }
+
+        requestAnimationFrame(() => {
+            try {
+                if (tableInstance.rowManager && typeof tableInstance.rowManager.adjustTableHeight === 'function') {
+                    tableInstance.rowManager.adjustTableHeight();
+                }
+                tableInstance.redraw(true);
+            } catch (error) {
+                console.error('Error refreshing subtable layout:', error);
+            }
+        });
     }
 
     // NEW: Restore expanded rows for a specific subtable
@@ -1399,6 +1430,8 @@ export class MatchupsTable extends BaseTable {
             }
         });
 
+        this.refreshSubtableLayout(pitchersTable);
+
         // Register this subtable instance for state management
         this.registerSubtableInstance(gameId, 'pitchers', pitchersTable);
     }
@@ -1526,6 +1559,8 @@ export class MatchupsTable extends BaseTable {
                 self.toggleSubtableParentRow(battersTable, row, 'batters', gameId);
             }
         });
+
+        this.refreshSubtableLayout(battersTable);
 
         // Register this subtable instance for state management
         this.registerSubtableInstance(gameId, 'batters', battersTable);
@@ -1674,6 +1709,8 @@ export class MatchupsTable extends BaseTable {
                 self.toggleSubtableParentRow(bullpenTable, row, 'bullpen', gameId);
             }
         });
+
+        this.refreshSubtableLayout(bullpenTable);
 
         // Register this subtable instance for state management
         this.registerSubtableInstance(gameId, 'bullpen', bullpenTable);
