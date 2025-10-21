@@ -114,9 +114,10 @@ export class MatchupsTable extends BaseTable {
         
         // Cache for subtable data
         this.subtableDataCache = new Map();
-        
+
         // NEW: Subtable state management integrated with global state
         this.subtableInstances = new Map(); // Track active subtable instances
+        this.pendingSubtableRestores = new Map();
 
         // Initialize global subtable state if not exists
         if (!window.GLOBAL_SUBTABLE_STATE) {
@@ -232,6 +233,10 @@ export class MatchupsTable extends BaseTable {
                 return;
             }
 
+            if (!instanceInfo.built || !instanceInfo.table._matchupsBuilt) {
+                return;
+            }
+
             const { table: tableInstance, type: tableType } = instanceInfo;
 
             if (!tableInstance.getRows) {
@@ -300,12 +305,14 @@ export class MatchupsTable extends BaseTable {
             const instanceInfo = this.subtableInstances.get(key);
 
             if (instanceInfo && instanceInfo.table) {
-                console.log(`Restoring ${expandedRows.size} expanded rows for subtable ${key}`);
-                this.restoreSubtableRowsForInstance(key, expandedRows);
-            } else {
-                setTimeout(() => {
+                if (instanceInfo.built && instanceInfo.table._matchupsBuilt) {
+                    console.log(`Restoring ${expandedRows.size} expanded rows for subtable ${key}`);
                     this.restoreSubtableRowsForInstance(key, expandedRows);
-                }, 150);
+                } else {
+                    this.queuePendingSubtableRestore(key, expandedRows);
+                }
+            } else {
+                this.queuePendingSubtableRestore(key, expandedRows);
             }
         });
     }
@@ -340,6 +347,37 @@ export class MatchupsTable extends BaseTable {
             gameId: key.substring(0, lastIndex),
             tableType: key.substring(lastIndex + 1)
         };
+    }
+
+    queuePendingSubtableRestore(subtableKey, expandedRows) {
+        if (!expandedRows || expandedRows.size === 0) {
+            this.pendingSubtableRestores.delete(subtableKey);
+            return;
+        }
+
+        const rowsSet = expandedRows instanceof Set ? expandedRows : new Set(expandedRows);
+        this.pendingSubtableRestores.set(subtableKey, new Set(rowsSet));
+    }
+
+    getSubtableElement(tableInstance) {
+        if (!tableInstance) {
+            return null;
+        }
+
+        if (tableInstance.element) {
+            return tableInstance.element;
+        }
+
+        if (tableInstance.table && tableInstance.table.element) {
+            return tableInstance.table.element;
+        }
+
+        return null;
+    }
+
+    isSubtableElementReady(tableInstance) {
+        const element = this.getSubtableElement(tableInstance);
+        return Boolean(element && element.isConnected);
     }
 
     getSubtableStateContainer() {
@@ -404,13 +442,53 @@ export class MatchupsTable extends BaseTable {
 
     registerSubtableInstance(gameId, tableType, tableInstance) {
         const subtableKey = this.buildSubtableKey(gameId, tableType);
-        this.subtableInstances.set(subtableKey, {
+        const instanceInfo = {
             table: tableInstance,
             type: tableType,
-            gameId: gameId
-        });
+            gameId: gameId,
+            built: false
+        };
 
-        this.restoreSubtableRowsForInstance(subtableKey);
+        tableInstance._matchupsKey = subtableKey;
+        tableInstance._matchupsBuilt = false;
+
+        this.subtableInstances.set(subtableKey, instanceInfo);
+
+        const handleBuilt = () => {
+            if (instanceInfo.built) {
+                return;
+            }
+
+            instanceInfo.built = true;
+            tableInstance._matchupsBuilt = true;
+
+            const pending = this.pendingSubtableRestores.get(subtableKey);
+            if (pending && pending.size > 0) {
+                this.restoreSubtableRowsForInstance(subtableKey, pending);
+                this.pendingSubtableRestores.delete(subtableKey);
+            } else {
+                this.restoreSubtableRowsForInstance(subtableKey);
+            }
+
+            this.refreshSubtableLayout(tableInstance);
+        };
+
+        if (typeof tableInstance.on === 'function') {
+            tableInstance.on('tableBuilt', handleBuilt);
+        }
+
+        // Fallback in case tableBuilt fired synchronously
+        const scheduleBuiltCheck = () => {
+            if (!instanceInfo.built && this.isSubtableElementReady(tableInstance)) {
+                handleBuilt();
+            }
+        };
+
+        if (typeof queueMicrotask === 'function') {
+            queueMicrotask(scheduleBuiltCheck);
+        } else {
+            Promise.resolve().then(scheduleBuiltCheck);
+        }
     }
 
     restoreSubtableRowsForInstance(subtableKey, expandedRowIds = null) {
@@ -420,10 +498,17 @@ export class MatchupsTable extends BaseTable {
             return;
         }
 
-        const { table: tableInstance, type: tableType, gameId } = instanceInfo;
-        const targetExpandedRows = expandedRowIds || this.getSavedExpandedRows(subtableKey);
+        const { table: tableInstance, type: tableType, gameId, built } = instanceInfo;
+        const targetExpandedRows = expandedRowIds
+            ? (expandedRowIds instanceof Set ? expandedRowIds : new Set(expandedRowIds))
+            : this.getSavedExpandedRows(subtableKey);
 
         if (!targetExpandedRows || targetExpandedRows.size === 0) {
+            return;
+        }
+
+        if (!built || !tableInstance._matchupsBuilt) {
+            this.queuePendingSubtableRestore(subtableKey, targetExpandedRows);
             return;
         }
 
@@ -525,7 +610,16 @@ export class MatchupsTable extends BaseTable {
     }
 
     refreshSubtableLayout(tableInstance) {
-        if (!tableInstance) {
+        if (!tableInstance || !tableInstance.getRows) {
+            return;
+        }
+
+        if (!tableInstance._matchupsBuilt) {
+            return;
+        }
+
+        const tableElement = this.getSubtableElement(tableInstance);
+        if (!tableElement || !tableElement.isConnected) {
             return;
         }
 
@@ -542,6 +636,11 @@ export class MatchupsTable extends BaseTable {
 
         requestAnimationFrame(() => {
             try {
+                const currentElement = this.getSubtableElement(tableInstance);
+                if (!currentElement || !currentElement.isConnected) {
+                    return;
+                }
+
                 if (tableInstance.rowManager && typeof tableInstance.rowManager.adjustTableHeight === 'function') {
                     tableInstance.rowManager.adjustTableHeight();
                 }
@@ -638,15 +737,16 @@ export class MatchupsTable extends BaseTable {
     // NEW: Clean up subtable instances when main row is collapsed
     cleanupSubtableInstances(gameId) {
         const keysToRemove = [];
-        
+
         this.subtableInstances.forEach((instance, key) => {
             if (key.startsWith(`${gameId}_`)) {
                 keysToRemove.push(key);
             }
         });
-        
+
         keysToRemove.forEach(key => {
             this.subtableInstances.delete(key);
+            this.pendingSubtableRestores.delete(key);
         });
     }
     
