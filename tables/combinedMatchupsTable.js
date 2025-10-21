@@ -607,16 +607,12 @@ export class MatchupsTable extends BaseTable {
                     }
                     
                     if (!existingSubrow) {
-                        // FIXED: Preserve scroll position during creation
-                        const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                        const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
-                        
                         // Create subtables asynchronously to avoid blocking
                         self.createMatchupSubtables(row, data).then(() => {
-                            // Restore scroll position after rendering
-                            if (tableHolder) {
-                                tableHolder.scrollTop = scrollTop;
-                            }
+                            // Normalize height once subtables have rendered
+                            setTimeout(() => {
+                                row.normalizeHeight();
+                            }, 100);
                         });
                     }
                 }
@@ -624,22 +620,14 @@ export class MatchupsTable extends BaseTable {
                 // Handle contraction
                 var existingSubrow = rowElement.querySelector('.subrow-container');
                 if (existingSubrow) {
-                    // FIXED: Preserve scroll position during removal
-                    const tableHolder = self.table.element.querySelector('.tabulator-tableHolder');
-                    const scrollTop = tableHolder ? tableHolder.scrollTop : 0;
-                    
                     // Clean up subtable instances
                     const gameId = data[self.F.MATCH_ID];
                     self.cleanupSubtableInstances(gameId);
-                    
+
                     existingSubrow.remove();
                     rowElement.classList.remove('row-expanded');
-                    
-                    // Restore scroll position
+
                     setTimeout(() => {
-                        if (tableHolder) {
-                            tableHolder.scrollTop = scrollTop;
-                        }
                         row.normalizeHeight();
                     }, 50);
                 }
