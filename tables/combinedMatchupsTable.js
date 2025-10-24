@@ -118,6 +118,8 @@ export class MatchupsTable extends BaseTable {
         // NEW: Subtable state management integrated with global state
         this.subtableInstances = new Map(); // Track active subtable instances
         this.pendingSubtableRestores = new Map();
+        this.subtableCreationPromises = new Map();
+        this.pendingRowLayoutRefreshes = new Map();
 
         // Initialize global subtable state if not exists
         if (!window.GLOBAL_SUBTABLE_STATE) {
@@ -478,17 +480,39 @@ export class MatchupsTable extends BaseTable {
         }
 
         // Fallback in case tableBuilt fired synchronously
+        let builtCheckAttempts = 0;
+        const maxBuiltCheckAttempts = 10;
+
         const scheduleBuiltCheck = () => {
-            if (!instanceInfo.built && this.isSubtableElementReady(tableInstance)) {
+            if (instanceInfo.built) {
+                return;
+            }
+
+            const elementReady = this.isSubtableElementReady(tableInstance);
+            let columnsReady = false;
+
+            if (tableInstance && tableInstance.columnManager) {
+                const columns = tableInstance.columnManager.columns;
+
+                if (Array.isArray(columns)) {
+                    columnsReady = columns.length > 0;
+                } else if (columns && typeof columns === 'object') {
+                    columnsReady = Object.keys(columns).length > 0;
+                }
+            }
+
+            if (elementReady && columnsReady) {
                 handleBuilt();
+                return;
+            }
+
+            if (builtCheckAttempts < maxBuiltCheckAttempts) {
+                builtCheckAttempts++;
+                setTimeout(scheduleBuiltCheck, 50);
             }
         };
 
-        if (typeof queueMicrotask === 'function') {
-            queueMicrotask(scheduleBuiltCheck);
-        } else {
-            Promise.resolve().then(scheduleBuiltCheck);
-        }
+        setTimeout(scheduleBuiltCheck, 0);
     }
 
     restoreSubtableRowsForInstance(subtableKey, expandedRowIds = null) {
@@ -707,11 +731,8 @@ export class MatchupsTable extends BaseTable {
                     
                     if (!existingSubrow) {
                         // Create subtables asynchronously to avoid blocking
-                        self.createMatchupSubtables(row, data).then(() => {
-                            // Normalize height once subtables have rendered
-                            setTimeout(() => {
-                                row.normalizeHeight();
-                            }, 100);
+                        self.createMatchupSubtables(row, data).catch(error => {
+                            console.error('Failed to create matchup subtables:', error);
                         });
                     }
                 }
@@ -733,6 +754,58 @@ export class MatchupsTable extends BaseTable {
             }
         };
     }
+
+    scheduleRowLayoutRefresh(rowComponent, delay = 0) {
+        if (!rowComponent || typeof rowComponent.normalizeHeight !== 'function') {
+            return;
+        }
+
+        const rowKey = rowComponent.getIndex ? rowComponent.getIndex() : null;
+
+        if (rowKey && this.pendingRowLayoutRefreshes.has(rowKey)) {
+            clearTimeout(this.pendingRowLayoutRefreshes.get(rowKey));
+            this.pendingRowLayoutRefreshes.delete(rowKey);
+        }
+
+        const runRefresh = () => {
+            try {
+                rowComponent.normalizeHeight();
+            } catch (error) {
+                console.error('Error normalizing matchup row height:', error);
+            }
+
+            requestAnimationFrame(() => {
+                try {
+                    rowComponent.normalizeHeight();
+
+                    if (this.table && this.table.rowManager && typeof this.table.rowManager.adjustTableHeight === 'function') {
+                        this.table.rowManager.adjustTableHeight();
+                    }
+
+                    if (this.table && typeof this.table.redraw === 'function') {
+                        this.table.redraw(true);
+                    }
+                } catch (error) {
+                    console.error('Error refreshing matchup row layout:', error);
+                }
+            });
+        };
+
+        if (delay > 0) {
+            const timeoutId = setTimeout(() => {
+                if (rowKey) {
+                    this.pendingRowLayoutRefreshes.delete(rowKey);
+                }
+                runRefresh();
+            }, delay);
+
+            if (rowKey) {
+                this.pendingRowLayoutRefreshes.set(rowKey, timeoutId);
+            }
+        } else {
+            runRefresh();
+        }
+    }
     
     // NEW: Clean up subtable instances when main row is collapsed
     cleanupSubtableInstances(gameId) {
@@ -748,6 +821,13 @@ export class MatchupsTable extends BaseTable {
             this.subtableInstances.delete(key);
             this.pendingSubtableRestores.delete(key);
         });
+
+        this.subtableCreationPromises.delete(String(gameId));
+
+        this.pendingRowLayoutRefreshes.forEach(timeoutId => {
+            clearTimeout(timeoutId);
+        });
+        this.pendingRowLayoutRefreshes.clear();
     }
     
     // Override from BaseTable for proper ID generation
@@ -793,80 +873,112 @@ export class MatchupsTable extends BaseTable {
     
     async createMatchupSubtables(row, data) {
         const rowElement = row.getElement();
-        return this.createMatchupSubtables_Internal(rowElement, data);
+        return this.createMatchupSubtables_Internal(rowElement, data, row);
     }
-    
-    async createMatchupSubtables_Internal(container, data) {
-        const gameId = data[this.F.MATCH_ID];
-        const opponentGameId = this.getOpponentGameId(gameId);
-        
-        // Create main container
-        const holderEl = document.createElement("div");
-        holderEl.classList.add('subrow-container');
-        holderEl.style.cssText = `
-            padding: 10px;
-            background: #f8f9fa;
-            margin: 10px 0;
-            border-radius: 4px;
-            display: block;
-            width: 100%;
-            position: relative;
-            z-index: 1;
-        `;
-        
-        // Load all subtable data (use opponent ID for pitcher/bullpen)
-        const subtableData = await this.loadSubtableData(gameId, opponentGameId);
-        
-        // Create layout structure
-        // Row 1: Park Factors and Weather (side by side)
-        const topRow = document.createElement("div");
-        topRow.style.cssText = "display: flex; gap: 20px; margin-bottom: 15px;";
-        
-        const parkContainer = document.createElement("div");
-        parkContainer.style.cssText = "flex: 1;";
-        
-        const weatherContainer = document.createElement("div");
-        weatherContainer.style.cssText = "flex: 1;";
-        
-        topRow.appendChild(parkContainer);
-        topRow.appendChild(weatherContainer);
-        holderEl.appendChild(topRow);
-        
-        // Row 2: Starting Pitchers (opponent's)
-        const pitchersContainer = document.createElement("div");
-        pitchersContainer.style.cssText = "margin-bottom: 15px;";
-        holderEl.appendChild(pitchersContainer);
-        
-        // Row 3: Batters
-        const battersContainer = document.createElement("div");
-        battersContainer.style.cssText = "margin-bottom: 15px;";
-        holderEl.appendChild(battersContainer);
-        
-        // Row 4: Bullpen (opponent's)
-        const bullpenContainer = document.createElement("div");
-        bullpenContainer.style.cssText = "margin-bottom: 15px;";
-        holderEl.appendChild(bullpenContainer);
-        
-        // Append to container
-        if (container.appendChild) {
-            // If container is a row element
-            container.appendChild(holderEl);
-        } else {
-            // If container is just a div
-            container.appendChild(holderEl);
+
+    async createMatchupSubtables_Internal(container, data, rowComponent = null) {
+        const rawGameId = data[this.F.MATCH_ID];
+
+        if (!rawGameId) {
+            return;
         }
-        
-        // Create all subtables
-        this.createParkFactorsTable(parkContainer, subtableData.park, data);
-        this.createWeatherTable(weatherContainer, data);
-        this.createPitchersTable(pitchersContainer, subtableData.pitchers, gameId);
-        this.createBattersTable(battersContainer, subtableData.batters, gameId);
-        this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
-        
-        // FIXED: Restore subtable state after creation
-        setTimeout(() => {
-            this.restoreSubtableState();
-        }, 200);
+
+        const gameId = String(rawGameId);
+
+        if (this.subtableCreationPromises.has(gameId)) {
+            return this.subtableCreationPromises.get(gameId);
+        }
+
+        const creationPromise = (async () => {
+            const opponentGameId = this.getOpponentGameId(gameId);
+
+            // Create main container
+            const holderEl = document.createElement("div");
+            holderEl.classList.add('subrow-container');
+            holderEl.style.cssText = `
+                padding: 10px;
+                background: #f8f9fa;
+                margin: 10px 0;
+                border-radius: 4px;
+                display: block;
+                width: 100%;
+                position: relative;
+                z-index: 1;
+            `;
+
+            // Append immediately so subsequent formatter passes detect the container
+            if (container && typeof container.appendChild === 'function') {
+                container.appendChild(holderEl);
+            }
+
+            if (rowComponent) {
+                this.scheduleRowLayoutRefresh(rowComponent);
+            }
+
+            // Load all subtable data (use opponent ID for pitcher/bullpen)
+            const subtableData = await this.loadSubtableData(gameId, opponentGameId);
+
+            if (!holderEl.isConnected) {
+                return holderEl;
+            }
+
+            // Create layout structure
+            // Row 1: Park Factors and Weather (side by side)
+            const topRow = document.createElement("div");
+            topRow.style.cssText = "display: flex; gap: 20px; margin-bottom: 15px;";
+
+            const parkContainer = document.createElement("div");
+            parkContainer.style.cssText = "flex: 1;";
+
+            const weatherContainer = document.createElement("div");
+            weatherContainer.style.cssText = "flex: 1;";
+
+            topRow.appendChild(parkContainer);
+            topRow.appendChild(weatherContainer);
+            holderEl.appendChild(topRow);
+
+            // Row 2: Starting Pitchers (opponent's)
+            const pitchersContainer = document.createElement("div");
+            pitchersContainer.style.cssText = "margin-bottom: 15px;";
+            holderEl.appendChild(pitchersContainer);
+
+            // Row 3: Batters
+            const battersContainer = document.createElement("div");
+            battersContainer.style.cssText = "margin-bottom: 15px;";
+            holderEl.appendChild(battersContainer);
+
+            // Row 4: Bullpen (opponent's)
+            const bullpenContainer = document.createElement("div");
+            bullpenContainer.style.cssText = "margin-bottom: 15px;";
+            holderEl.appendChild(bullpenContainer);
+
+            // Create all subtables
+            this.createParkFactorsTable(parkContainer, subtableData.park, data);
+            this.createWeatherTable(weatherContainer, data);
+            this.createPitchersTable(pitchersContainer, subtableData.pitchers, gameId);
+            this.createBattersTable(battersContainer, subtableData.batters, gameId);
+            this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
+
+            // FIXED: Restore subtable state after creation
+            setTimeout(() => {
+                this.restoreSubtableState();
+            }, 200);
+
+            if (rowComponent) {
+                this.scheduleRowLayoutRefresh(rowComponent, 50);
+                this.scheduleRowLayoutRefresh(rowComponent, 150);
+            }
+
+            return holderEl;
+        })();
+
+        this.subtableCreationPromises.set(gameId, creationPromise);
+
+        try {
+            return await creationPromise;
+        } finally {
+            this.subtableCreationPromises.delete(gameId);
+        }
     }
     
     async loadSubtableData(gameId, opponentGameId) {
