@@ -442,7 +442,8 @@ export class MatchupsTable extends BaseTable {
         }
     }
 
-    registerSubtableInstance(gameId, tableType, tableInstance) {
+    registerSubtableInstance(gameId, tableType, tableInstance, options = {}) {
+        const { parentRow = null } = options;
         const subtableKey = this.buildSubtableKey(gameId, tableType);
         const instanceInfo = {
             table: tableInstance,
@@ -473,10 +474,25 @@ export class MatchupsTable extends BaseTable {
             }
 
             this.refreshSubtableLayout(tableInstance);
+
+            if (parentRow) {
+                this.queueRowLayoutRefreshes(parentRow);
+            }
         };
 
         if (typeof tableInstance.on === 'function') {
             tableInstance.on('tableBuilt', handleBuilt);
+            tableInstance.on('dataProcessed', () => {
+                if (parentRow) {
+                    this.queueRowLayoutRefreshes(parentRow, [0, 160]);
+                }
+            });
+
+            tableInstance.on('renderComplete', () => {
+                if (parentRow) {
+                    this.queueRowLayoutRefreshes(parentRow, [60, 220]);
+                }
+            });
         }
 
         // Fallback in case tableBuilt fired synchronously
@@ -762,10 +778,30 @@ export class MatchupsTable extends BaseTable {
 
         const rowKey = rowComponent.getIndex ? rowComponent.getIndex() : null;
 
-        if (rowKey && this.pendingRowLayoutRefreshes.has(rowKey)) {
-            clearTimeout(this.pendingRowLayoutRefreshes.get(rowKey));
-            this.pendingRowLayoutRefreshes.delete(rowKey);
-        }
+        const registerTimeout = (timeoutId) => {
+            if (!rowKey) {
+                return;
+            }
+
+            if (!this.pendingRowLayoutRefreshes.has(rowKey)) {
+                this.pendingRowLayoutRefreshes.set(rowKey, new Set());
+            }
+
+            this.pendingRowLayoutRefreshes.get(rowKey).add(timeoutId);
+        };
+
+        const unregisterTimeout = (timeoutId) => {
+            if (!rowKey || !this.pendingRowLayoutRefreshes.has(rowKey)) {
+                return;
+            }
+
+            const timers = this.pendingRowLayoutRefreshes.get(rowKey);
+            timers.delete(timeoutId);
+
+            if (timers.size === 0) {
+                this.pendingRowLayoutRefreshes.delete(rowKey);
+            }
+        };
 
         const runRefresh = () => {
             try {
@@ -793,18 +829,53 @@ export class MatchupsTable extends BaseTable {
 
         if (delay > 0) {
             const timeoutId = setTimeout(() => {
-                if (rowKey) {
-                    this.pendingRowLayoutRefreshes.delete(rowKey);
-                }
+                unregisterTimeout(timeoutId);
                 runRefresh();
             }, delay);
 
-            if (rowKey) {
-                this.pendingRowLayoutRefreshes.set(rowKey, timeoutId);
-            }
+            registerTimeout(timeoutId);
         } else {
             runRefresh();
         }
+    }
+
+    queueRowLayoutRefreshes(rowComponent, delays = [0, 80, 200, 400]) {
+        if (!rowComponent) {
+            return;
+        }
+
+        delays.forEach(delay => {
+            this.scheduleRowLayoutRefresh(rowComponent, delay);
+        });
+    }
+
+    watchSimpleSubtableLayout(tableInstance, parentRow) {
+        if (!parentRow) {
+            return;
+        }
+
+        const queueRefresh = (delays) => {
+            this.queueRowLayoutRefreshes(parentRow, delays);
+        };
+
+        queueRefresh([0, 120]);
+
+        if (!tableInstance || typeof tableInstance.on !== 'function') {
+            queueRefresh([200, 400]);
+            return;
+        }
+
+        tableInstance.on('tableBuilt', () => {
+            queueRefresh([0, 160]);
+        });
+
+        tableInstance.on('renderComplete', () => {
+            queueRefresh([80, 240]);
+        });
+
+        tableInstance.on('dataProcessed', () => {
+            queueRefresh([120, 320]);
+        });
     }
     
     // NEW: Clean up subtable instances when main row is collapsed
@@ -824,8 +895,10 @@ export class MatchupsTable extends BaseTable {
 
         this.subtableCreationPromises.delete(String(gameId));
 
-        this.pendingRowLayoutRefreshes.forEach(timeoutId => {
-            clearTimeout(timeoutId);
+        this.pendingRowLayoutRefreshes.forEach(timers => {
+            timers.forEach(timeoutId => {
+                clearTimeout(timeoutId);
+            });
         });
         this.pendingRowLayoutRefreshes.clear();
     }
@@ -912,7 +985,7 @@ export class MatchupsTable extends BaseTable {
             }
 
             if (rowComponent) {
-                this.scheduleRowLayoutRefresh(rowComponent);
+                this.queueRowLayoutRefreshes(rowComponent, [0, 120]);
             }
 
             // Load all subtable data (use opponent ID for pitcher/bullpen)
@@ -953,11 +1026,11 @@ export class MatchupsTable extends BaseTable {
             holderEl.appendChild(bullpenContainer);
 
             // Create all subtables
-            this.createParkFactorsTable(parkContainer, subtableData.park, data);
-            this.createWeatherTable(weatherContainer, data);
-            this.createPitchersTable(pitchersContainer, subtableData.pitchers, gameId);
-            this.createBattersTable(battersContainer, subtableData.batters, gameId);
-            this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId);
+            this.createParkFactorsTable(parkContainer, subtableData.park, data, rowComponent);
+            this.createWeatherTable(weatherContainer, data, rowComponent);
+            this.createPitchersTable(pitchersContainer, subtableData.pitchers, gameId, rowComponent);
+            this.createBattersTable(battersContainer, subtableData.batters, gameId, rowComponent);
+            this.createBullpenTable(bullpenContainer, subtableData.bullpen, gameId, rowComponent);
 
             // FIXED: Restore subtable state after creation
             setTimeout(() => {
@@ -965,8 +1038,7 @@ export class MatchupsTable extends BaseTable {
             }, 200);
 
             if (rowComponent) {
-                this.scheduleRowLayoutRefresh(rowComponent, 50);
-                this.scheduleRowLayoutRefresh(rowComponent, 150);
+                this.queueRowLayoutRefreshes(rowComponent);
             }
 
             return holderEl;
@@ -1383,7 +1455,7 @@ export class MatchupsTable extends BaseTable {
     }
     
     // ✅ FIXED: Park Factors Table - Disabled sorting and resizing
-    createParkFactorsTable(container, parkData, matchupData) {
+    createParkFactorsTable(container, parkData, matchupData, parentRow = null) {
         const F = this.F;
         
         let stadiumName = matchupData[F.PARK] || "Stadium";
@@ -1408,7 +1480,7 @@ export class MatchupsTable extends BaseTable {
             return (order[a[F.PF_SPLIT]] || 999) - (order[b[F.PF_SPLIT]] || 999);
         });
         
-        new Tabulator(tableContainer, {
+        const parkTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
@@ -1428,10 +1500,14 @@ export class MatchupsTable extends BaseTable {
                 { title: "SO", field: F.PF_SO, width: 45, hozAlign: "center", resizable: false, headerSort: false }
             ]
         });
+
+        this.watchSimpleSubtableLayout(parkTable, parentRow);
+
+        return parkTable;
     }
     
     // ✅ FIXED: Weather Table - Disabled sorting and resizing
-    createWeatherTable(container, data) {
+    createWeatherTable(container, data, parentRow = null) {
         const F = this.F;
         
         // Add title
@@ -1471,7 +1547,7 @@ export class MatchupsTable extends BaseTable {
             parseWeatherData(data[F.WX4])
         ];
         
-        new Tabulator(tableContainer, {
+        const weatherTable = new Tabulator(tableContainer, {
             layout: "fitColumns",
             height: false,
             resizableColumns: false,
@@ -1496,10 +1572,14 @@ export class MatchupsTable extends BaseTable {
                 }
             ]
         });
+
+        this.watchSimpleSubtableLayout(weatherTable, parentRow);
+
+        return weatherTable;
     }
     
     // ✅ FIXED: Starting Pitchers Table - Properly integrated with subtable state management
-    createPitchersTable(container, pitchersData, gameId) {
+    createPitchersTable(container, pitchersData, gameId, parentRow = null) {
         const F = this.F;
         const self = this;
         
@@ -1633,11 +1713,13 @@ export class MatchupsTable extends BaseTable {
         this.refreshSubtableLayout(pitchersTable);
 
         // Register this subtable instance for state management
-        this.registerSubtableInstance(gameId, 'pitchers', pitchersTable);
+        this.registerSubtableInstance(gameId, 'pitchers', pitchersTable, { parentRow });
+
+        return pitchersTable;
     }
-    
+
     // ✅ FIXED: Batters Table - Properly integrated with subtable state management
-    createBattersTable(container, battersData, gameId) {
+    createBattersTable(container, battersData, gameId, parentRow = null) {
         const F = this.F;
         const self = this;
         
@@ -1763,11 +1845,13 @@ export class MatchupsTable extends BaseTable {
         this.refreshSubtableLayout(battersTable);
 
         // Register this subtable instance for state management
-        this.registerSubtableInstance(gameId, 'batters', battersTable);
+        this.registerSubtableInstance(gameId, 'batters', battersTable, { parentRow });
+
+        return battersTable;
     }
-    
+
     // ✅ FIXED: Bullpen Table - Properly integrated with subtable state management
-    createBullpenTable(container, bullpenData, gameId) {
+    createBullpenTable(container, bullpenData, gameId, parentRow = null) {
         const F = this.F;
         const self = this;
         const location = this.determineOpposingLocation(gameId);
@@ -1913,6 +1997,8 @@ export class MatchupsTable extends BaseTable {
         this.refreshSubtableLayout(bullpenTable);
 
         // Register this subtable instance for state management
-        this.registerSubtableInstance(gameId, 'bullpen', bullpenTable);
+        this.registerSubtableInstance(gameId, 'bullpen', bullpenTable, { parentRow });
+
+        return bullpenTable;
     }
 }
