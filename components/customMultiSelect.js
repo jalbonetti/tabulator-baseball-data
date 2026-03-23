@@ -1,7 +1,9 @@
-// components/customMultiSelect.js - FIXED VERSION WITH STATE SYNC
+// components/customMultiSelect.js - Custom Multi-Select Dropdown Filter for Tabulator
+// Dropdowns open ABOVE the table header
+// Updated for MLB field names (Batter Name, Pitcher Name, Game Matchup)
+
 export function createCustomMultiSelect(cell, onRendered, success, cancel, options = {}) {
-    // Extract options with defaults
-    const dropdownWidth = options.dropdownWidth || 200; // Default width
+    const dropdownWidth = options.dropdownWidth || 200;
     
     var button = document.createElement("button");
     button.className = "custom-multiselect-button";
@@ -17,6 +19,7 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        border-radius: 3px;
     `;
     
     var field = cell.getColumn().getField();
@@ -27,11 +30,12 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
     var isOpen = false;
     var isInitialized = false;
     var filterTimeout = null;
+    var clickTimeout = null;
+    var loadAttempts = 0;
     
-    // Store reference to column
     var column = cell.getColumn();
     
-    // Store expanded rows before filter operations
+    // Save expanded rows before filter operations
     function saveExpandedState() {
         const expandedRows = new Set();
         const rows = table.getRows();
@@ -39,20 +43,30 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         rows.forEach(row => {
             const data = row.getData();
             if (data._expanded) {
-                // Generate a unique ID for the row
                 let rowId = '';
-                if (data["Matchup Game ID"]) {
-                    rowId = `matchup_${data["Matchup Game ID"]}`;
-                } else if (data["Batter Name"]) {
-                    rowId = `batter_${data["Batter Name"]}_${data["Batter Team"]}`;
+                // Batter tables
+                if (data["Batter Name"]) {
+                    rowId = `batter_${data["Batter Name"]}_${data["Batter Team"] || ''}`;
                     if (data["Batter Prop Type"]) rowId += `_${data["Batter Prop Type"]}`;
-                    if (data["Batter Prop Value"]) rowId += `_${data["Batter Prop Value"]}`;
-                    if (data["Batter Prop Split ID"]) rowId += `_${data["Batter Prop Split ID"]}`;
-                } else if (data["Pitcher Name"]) {
-                    rowId = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"]}`;
+                    if (data["Batter Prop Line"]) rowId += `_${data["Batter Prop Line"]}`;
+                    if (data["Batter Over/Under"]) rowId += `_${data["Batter Over/Under"]}`;
+                    if (data["Batter Book"]) rowId += `_${data["Batter Book"]}`;
+                }
+                // Pitcher tables
+                else if (data["Pitcher Name"]) {
+                    rowId = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"] || ''}`;
                     if (data["Pitcher Prop Type"]) rowId += `_${data["Pitcher Prop Type"]}`;
-                    if (data["Pitcher Prop Value"]) rowId += `_${data["Pitcher Prop Value"]}`;
-                    if (data["Pitcher Prop Split ID"]) rowId += `_${data["Pitcher Prop Split ID"]}`;
+                    if (data["Pitcher Prop Line"]) rowId += `_${data["Pitcher Prop Line"]}`;
+                    if (data["Pitcher Over/Under"]) rowId += `_${data["Pitcher Over/Under"]}`;
+                    if (data["Pitcher Book"]) rowId += `_${data["Pitcher Book"]}`;
+                }
+                // Game tables
+                else if (data["Game Matchup"]) {
+                    rowId = `game_${data["Game Matchup"]}`;
+                    if (data["Game Prop Type"]) rowId += `_${data["Game Prop Type"]}`;
+                    if (data["Game Label"]) rowId += `_${data["Game Label"]}`;
+                    if (data["Game Line"]) rowId += `_${data["Game Line"]}`;
+                    if (data["Game Book"]) rowId += `_${data["Game Book"]}`;
                 }
                 
                 if (rowId) {
@@ -74,20 +88,25 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
             rows.forEach(row => {
                 const data = row.getData();
                 
-                // Generate the same unique ID
                 let rowId = '';
-                if (data["Matchup Game ID"]) {
-                    rowId = `matchup_${data["Matchup Game ID"]}`;
-                } else if (data["Batter Name"]) {
-                    rowId = `batter_${data["Batter Name"]}_${data["Batter Team"]}`;
+                if (data["Batter Name"]) {
+                    rowId = `batter_${data["Batter Name"]}_${data["Batter Team"] || ''}`;
                     if (data["Batter Prop Type"]) rowId += `_${data["Batter Prop Type"]}`;
-                    if (data["Batter Prop Value"]) rowId += `_${data["Batter Prop Value"]}`;
-                    if (data["Batter Prop Split ID"]) rowId += `_${data["Batter Prop Split ID"]}`;
+                    if (data["Batter Prop Line"]) rowId += `_${data["Batter Prop Line"]}`;
+                    if (data["Batter Over/Under"]) rowId += `_${data["Batter Over/Under"]}`;
+                    if (data["Batter Book"]) rowId += `_${data["Batter Book"]}`;
                 } else if (data["Pitcher Name"]) {
-                    rowId = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"]}`;
+                    rowId = `pitcher_${data["Pitcher Name"]}_${data["Pitcher Team"] || ''}`;
                     if (data["Pitcher Prop Type"]) rowId += `_${data["Pitcher Prop Type"]}`;
-                    if (data["Pitcher Prop Value"]) rowId += `_${data["Pitcher Prop Value"]}`;
-                    if (data["Pitcher Prop Split ID"]) rowId += `_${data["Pitcher Prop Split ID"]}`;
+                    if (data["Pitcher Prop Line"]) rowId += `_${data["Pitcher Prop Line"]}`;
+                    if (data["Pitcher Over/Under"]) rowId += `_${data["Pitcher Over/Under"]}`;
+                    if (data["Pitcher Book"]) rowId += `_${data["Pitcher Book"]}`;
+                } else if (data["Game Matchup"]) {
+                    rowId = `game_${data["Game Matchup"]}`;
+                    if (data["Game Prop Type"]) rowId += `_${data["Game Prop Type"]}`;
+                    if (data["Game Label"]) rowId += `_${data["Game Label"]}`;
+                    if (data["Game Line"]) rowId += `_${data["Game Line"]}`;
+                    if (data["Game Book"]) rowId += `_${data["Game Book"]}`;
                 }
                 
                 if (rowId && expandedRows.has(rowId)) {
@@ -97,17 +116,16 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
                         row.reformat();
                     }
                     
-                    // Update the expander icon
                     const cells = row.getCells();
-                    const nameFields = ["Batter Name", "Pitcher Name", "Matchup Team"];
+                    const nameFields = ["Batter Name", "Pitcher Name", "Game Matchup"];
                     
                     for (let nameField of nameFields) {
                         const nameCell = cells.find(c => c.getField() === nameField);
                         if (nameCell) {
                             const cellElement = nameCell.getElement();
-                            const expander = cellElement.querySelector('.row-expander');
+                            const expander = cellElement.querySelector('.expand-icon');
                             if (expander) {
-                                expander.innerHTML = "−";
+                                expander.style.transform = 'rotate(90deg)';
                             }
                             break;
                         }
@@ -141,242 +159,176 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
             padding: 0;
         `;
         
+        // Search box
+        var searchContainer = document.createElement("div");
+        searchContainer.style.cssText = 'padding: 6px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: white; z-index: 1;';
+        
+        var searchInput = document.createElement("input");
+        searchInput.type = "text";
+        searchInput.placeholder = "Search...";
+        searchInput.style.cssText = 'width: 100%; padding: 4px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; box-sizing: border-box;';
+        
+        searchInput.addEventListener("input", function() {
+            var searchTerm = this.value.toLowerCase();
+            var items = dropdown.querySelectorAll('.dropdown-item');
+            items.forEach(function(item) {
+                var label = item.querySelector('label');
+                if (label) {
+                    var text = label.textContent.toLowerCase();
+                    item.style.display = text.includes(searchTerm) ? '' : 'none';
+                }
+            });
+        });
+        
+        searchInput.addEventListener("click", function(e) {
+            e.stopPropagation();
+        });
+        
+        searchContainer.appendChild(searchInput);
+        dropdown.appendChild(searchContainer);
+        
+        // Controls (Select All / Deselect All)
+        var controlsDiv = document.createElement("div");
+        controlsDiv.style.cssText = 'padding: 4px 8px; border-bottom: 1px solid #eee; display: flex; gap: 8px; position: sticky; top: 38px; background: white; z-index: 1;';
+        
+        var selectAllBtn = document.createElement("button");
+        selectAllBtn.textContent = "All";
+        selectAllBtn.style.cssText = 'font-size: 10px; padding: 2px 6px; border: 1px solid #ccc; background: #f5f5f5; cursor: pointer; border-radius: 2px;';
+        selectAllBtn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            selectedValues = [...allValues];
+            updateCheckboxes();
+            applyFilter();
+        });
+        
+        var deselectAllBtn = document.createElement("button");
+        deselectAllBtn.textContent = "None";
+        deselectAllBtn.style.cssText = 'font-size: 10px; padding: 2px 6px; border: 1px solid #ccc; background: #f5f5f5; cursor: pointer; border-radius: 2px;';
+        deselectAllBtn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            selectedValues = [];
+            updateCheckboxes();
+            applyFilter();
+        });
+        
+        controlsDiv.appendChild(selectAllBtn);
+        controlsDiv.appendChild(deselectAllBtn);
+        dropdown.appendChild(controlsDiv);
+        
+        // Items container
+        var itemsContainer = document.createElement("div");
+        itemsContainer.className = 'dropdown-items-container';
+        
+        allValues.forEach(function(value) {
+            var item = document.createElement("div");
+            item.className = 'dropdown-item';
+            item.style.cssText = 'padding: 4px 8px; cursor: pointer; display: flex; align-items: center; gap: 6px;';
+            
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = value;
+            checkbox.checked = selectedValues.includes(value);
+            checkbox.style.cssText = 'margin: 0; cursor: pointer;';
+            
+            var label = document.createElement("label");
+            label.textContent = value;
+            label.style.cssText = 'cursor: pointer; font-size: 11px; white-space: nowrap;';
+            
+            item.addEventListener("click", function(e) {
+                e.stopPropagation();
+                checkbox.checked = !checkbox.checked;
+                
+                if (checkbox.checked) {
+                    if (!selectedValues.includes(value)) {
+                        selectedValues.push(value);
+                    }
+                } else {
+                    selectedValues = selectedValues.filter(v => v !== value);
+                }
+                
+                applyFilter();
+            });
+            
+            item.appendChild(checkbox);
+            item.appendChild(label);
+            itemsContainer.appendChild(item);
+        });
+        
+        dropdown.appendChild(itemsContainer);
+        
         document.body.appendChild(dropdown);
+        
         return dropdown;
     }
     
-    // Optimized filter function with debouncing
-    function customFilterFunction(headerValue, rowValue, rowData, filterParams) {
-        // If no header value, show all
-        if (!headerValue) return true;
+    function updateCheckboxes() {
+        var dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
         
-        // Convert row value to string for comparison
-        var rowValueStr = String(rowValue || '');
-        
-        // If headerValue is our special hide-all value
-        if (headerValue === "IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING") {
-            return false;
-        }
-        
-        // If headerValue is an array (our selected values)
-        if (Array.isArray(headerValue)) {
-            return headerValue.indexOf(rowValueStr) !== -1;
-        }
-        
-        // Default: exact match
-        return rowValueStr === String(headerValue);
+        var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(function(cb) {
+            cb.checked = selectedValues.includes(cb.value);
+        });
     }
     
-    // Set the custom filter function on the column
-    column.getDefinition().headerFilterFunc = customFilterFunction;
-    
-    // Debounced filter update with state preservation
-    function updateFilter() {
-        // Clear any pending filter update
+    function applyFilter() {
         if (filterTimeout) {
             clearTimeout(filterTimeout);
         }
         
-        // Save expanded state before filtering
-        const expandedState = saveExpandedState();
-        
-        // Debounce filter updates to prevent rapid redraws
-        filterTimeout = setTimeout(() => {
-            console.log("Updating filter for", field, "- selected:", selectedValues.length, "of", allValues.length);
+        filterTimeout = setTimeout(function() {
+            // Save expanded state before filtering
+            var expandedRows = saveExpandedState();
             
-            if (selectedValues.length === 0) {
-                // No values selected - hide all rows
-                success("IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING");
-            } else if (selectedValues.length === allValues.length) {
-                // All selected - show all rows
-                success("");
+            updateButtonText();
+            
+            if (selectedValues.length === 0 || selectedValues.length === allValues.length) {
+                success(undefined);
             } else {
-                // Some selected - pass the array of selected values
-                // Make a copy to ensure it's a new reference
-                success([...selectedValues]);
+                success(selectedValues);
             }
             
-            // Redraw the table
-            if (table.getRowCount && table.getRowCount() > 1000) {
-                // For large tables, use progressive redraw
-                requestAnimationFrame(() => {
-                    table.redraw(false);
-                    // Restore expanded state after redraw
-                    restoreExpandedState(expandedState);
-                });
-            } else {
-                table.redraw();
-                // Restore expanded state after redraw
-                restoreExpandedState(expandedState);
-            }
-        }, 150); // 150ms debounce
+            // Restore expanded state after filtering
+            restoreExpandedState(expandedRows);
+        }, 300);
     }
     
-    // Optimized dropdown rendering with virtual scrolling for large lists
-    function renderDropdown() {
-        var dropdown = document.getElementById(dropdownId) || createDropdown();
-        
-        // Use DocumentFragment for better performance
-        var fragment = document.createDocumentFragment();
-        
-        // Clear existing content
-        dropdown.innerHTML = '';
-        
-        // Add select all
-        var selectAll = document.createElement("div");
-        selectAll.style.cssText = `
-            padding: 8px 12px;
-            border-bottom: 2px solid #007bff;
-            font-weight: bold;
-            background: #f8f9fa;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        `;
-        
-        var selectAllLabel = document.createElement("label");
-        selectAllLabel.style.cssText = "display: flex; align-items: center; cursor: pointer;";
-        
-        var selectAllCheckbox = document.createElement("input");
-        selectAllCheckbox.type = "checkbox";
-        selectAllCheckbox.checked = selectedValues.length === allValues.length;
-        selectAllCheckbox.style.marginRight = "8px";
-        
-        var selectAllText = document.createElement("span");
-        selectAllText.textContent = selectedValues.length === allValues.length ? 'None' : 'All';
-        
-        selectAllLabel.appendChild(selectAllCheckbox);
-        selectAllLabel.appendChild(selectAllText);
-        selectAll.appendChild(selectAllLabel);
-        
-        selectAll.addEventListener('click', function(e) {
-            e.stopPropagation();
-            
-            if (selectedValues.length === allValues.length) {
-                selectedValues = [];
-            } else {
-                selectedValues = [...allValues];
-            }
-            
-            // Update immediately
-            updateButtonText();
-            updateFilter();
-            
-            // Then re-render dropdown to update checkboxes
-            renderDropdown();
-        });
-        
-        fragment.appendChild(selectAll);
-        
-        // For large lists, implement virtual scrolling
-        if (allValues.length > 100) {
-            // Create a container for virtual scrolling
-            var scrollContainer = document.createElement("div");
-            scrollContainer.style.cssText = `height: 250px; overflow-y: auto;`;
-            
-            // Add all items (simplified for stability)
-            allValues.forEach(function(value) {
-                fragment.appendChild(createOptionElement(value));
-            });
+    function updateButtonText() {
+        if (selectedValues.length === 0 || selectedValues.length === allValues.length) {
+            button.textContent = "All";
+            button.title = "All values selected";
+        } else if (selectedValues.length === 1) {
+            button.textContent = selectedValues[0];
+            button.title = selectedValues[0];
         } else {
-            // For smaller lists, render all items
-            allValues.forEach(function(value) {
-                fragment.appendChild(createOptionElement(value));
-            });
+            button.textContent = selectedValues.length + " of " + allValues.length;
+            button.title = selectedValues.join(', ');
         }
-        
-        dropdown.appendChild(fragment);
     }
     
-    // Create individual option element
-    function createOptionElement(value) {
-        var optionDiv = document.createElement("div");
-        optionDiv.style.cssText = `
-            padding: 6px 12px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-        `;
-        
-        var optionLabel = document.createElement("label");
-        optionLabel.style.cssText = "display: flex; align-items: center; cursor: pointer;";
-        
-        var optionCheckbox = document.createElement("input");
-        optionCheckbox.type = "checkbox";
-        optionCheckbox.checked = selectedValues.indexOf(value) !== -1;
-        optionCheckbox.style.marginRight = "8px";
-        
-        var optionText = document.createElement("span");
-        optionText.textContent = value;
-        
-        optionLabel.appendChild(optionCheckbox);
-        optionLabel.appendChild(optionText);
-        optionDiv.appendChild(optionLabel);
-        
-        optionDiv.addEventListener('click', function(e) {
-            e.stopPropagation();
-            
-            var index = selectedValues.indexOf(value);
-            if (index > -1) {
-                selectedValues.splice(index, 1);
-            } else {
-                selectedValues.push(value);
-            }
-            
-            console.log("Selection changed:", value, "- now selected:", selectedValues);
-            
-            // Update immediately
-            updateButtonText();
-            updateFilter();
-            
-            // Update checkbox
-            optionCheckbox.checked = selectedValues.indexOf(value) !== -1;
-            
-            // Update select all checkbox
-            var selectAllCheckbox = dropdown.querySelector('input[type="checkbox"]');
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = selectedValues.length === allValues.length;
-                var selectAllText = dropdown.querySelector('span');
-                if (selectAllText) {
-                    selectAllText.textContent = selectedValues.length === allValues.length ? 'None' : 'All';
-                }
-            }
-        });
-        
-        optionDiv.addEventListener('mouseenter', function() {
-            optionDiv.style.background = '#f0f0f0';
-        });
-        
-        optionDiv.addEventListener('mouseleave', function() {
-            optionDiv.style.background = 'white';
-        });
-        
-        return optionDiv;
-    }
-    
-    function showDropdown() {
-        var dropdown = document.getElementById(dropdownId) || createDropdown();
-        
-        renderDropdown();
-        
+    function positionDropdown(dropdown) {
         var buttonRect = button.getBoundingClientRect();
+        
+        // Position ABOVE the button
         dropdown.style.left = buttonRect.left + 'px';
-        dropdown.style.top = (buttonRect.bottom + 2) + 'px';
+        dropdown.style.top = 'auto';
+        dropdown.style.bottom = (window.innerHeight - buttonRect.top + 2) + 'px';
+        
+        // Ensure it doesn't go off-screen left
+        var dropdownRect = dropdown.getBoundingClientRect();
+        if (dropdownRect.right > window.innerWidth) {
+            dropdown.style.left = (window.innerWidth - dropdownRect.width - 10) + 'px';
+        }
+    }
+    
+    function openDropdown() {
+        var dropdown = document.getElementById(dropdownId) || createDropdown();
         dropdown.style.display = 'block';
-        
-        setTimeout(function() {
-            var dropdownRect = dropdown.getBoundingClientRect();
-            if (dropdownRect.bottom > window.innerHeight) {
-                dropdown.style.top = (buttonRect.top - dropdown.offsetHeight - 2) + 'px';
-            }
-            if (dropdownRect.right > window.innerWidth) {
-                dropdown.style.left = (window.innerWidth - dropdown.offsetWidth - 10) + 'px';
-            }
-        }, 0);
-        
+        positionDropdown(dropdown);
         isOpen = true;
     }
     
-    function hideDropdown() {
+    function closeDropdown() {
         var dropdown = document.getElementById(dropdownId);
         if (dropdown) {
             dropdown.style.display = 'none';
@@ -384,208 +336,89 @@ export function createCustomMultiSelect(cell, onRendered, success, cancel, optio
         isOpen = false;
     }
     
-    function updateButtonText() {
-        if (selectedValues.length === 0) {
-            button.textContent = "None";
-        } else if (selectedValues.length === allValues.length) {
-            button.textContent = "All";
-        } else {
-            button.textContent = selectedValues.length + " of " + allValues.length;
-        }
+    function closeAllDropdowns() {
+        document.querySelectorAll('[id^="dropdown_"]').forEach(function(d) {
+            d.style.display = 'none';
+        });
+        isOpen = false;
     }
     
-    // NEW: Check for existing filter value and sync with it
-    function getCurrentFilterValue() {
-        // Get the current filter value for this column
-        const headerFilters = table.getHeaderFilters();
-        const currentFilter = headerFilters.find(f => f.field === field);
-        
-        if (currentFilter && currentFilter.value) {
-            // Check what type of filter value we have
-            if (currentFilter.value === "IMPOSSIBLE_VALUE_THAT_MATCHES_NOTHING") {
-                return [];
-            } else if (Array.isArray(currentFilter.value)) {
-                return currentFilter.value.map(v => String(v));
-            } else if (currentFilter.value === "") {
-                return null; // All values
-            } else {
-                return [String(currentFilter.value)];
-            }
-        }
-        
-        return null; // No filter set
-    }
-    
-    // ENHANCED: Load values with filter state sync
+    // Load values from table data
     function loadValues() {
-        if (!isInitialized) {
-            // Use a Set for better performance with large datasets
-            var uniqueValues = new Set();
-            
-            // Get data more efficiently
-            var data = table.getData();
-            
-            // Use for loop for better performance
-            for (var i = 0; i < data.length; i++) {
-                var value = data[i][field];
-                if (value !== null && value !== undefined && value !== '') {
-                    uniqueValues.add(String(value));
-                }
-            }
-            
-            allValues = Array.from(uniqueValues);
-            
-            // Sort prop value fields numerically for both batter and pitcher tables
-            if (field === "Batter Prop Value" || field === "Pitcher Prop Value") {
-                allValues.sort(function(a, b) {
-                    return parseFloat(a) - parseFloat(b);
-                });
-            } else {
-                allValues.sort();
-            }
-            
-            // NEW: Check for existing filter and sync selected values
-            const existingFilter = getCurrentFilterValue();
-            
-            if (existingFilter !== null) {
-                // Filter is set, use those values
-                selectedValues = existingFilter;
-                console.log(`Synced with existing filter for ${field}: ${selectedValues.length} of ${allValues.length} selected`);
-            } else {
-                // No filter set, select all
-                selectedValues = [...allValues];
-            }
-            
-            isInitialized = true;
-        }
+        loadAttempts++;
         
-        updateButtonText();
+        try {
+            var data = table.getData();
+            if (!data || data.length === 0) {
+                if (loadAttempts < 10) {
+                    setTimeout(loadValues, 500);
+                }
+                return;
+            }
+            
+            var values = data.map(function(row) {
+                return row[field];
+            });
+            
+            allValues = [...new Set(values)]
+                .filter(function(v) { return v !== null && v !== undefined && v !== ''; })
+                .sort();
+            
+            selectedValues = [...allValues];
+            
+            updateButtonText();
+            isInitialized = true;
+            
+        } catch (e) {
+            console.error("Error loading dropdown values for " + field + ":", e);
+            if (loadAttempts < 10) {
+                setTimeout(loadValues, 500);
+            }
+        }
     }
     
-    // Button click with debouncing
-    var clickTimeout;
-    button.addEventListener('click', function(e) {
-        e.preventDefault();
+    // Button click handler
+    button.addEventListener("click", function(e) {
         e.stopPropagation();
         
-        // Debounce rapid clicks
         if (clickTimeout) {
             clearTimeout(clickTimeout);
         }
         
-        clickTimeout = setTimeout(() => {
+        clickTimeout = setTimeout(function() {
             if (isOpen) {
-                hideDropdown();
+                closeDropdown();
             } else {
+                closeAllDropdowns();
                 if (!isInitialized) {
                     loadValues();
                 }
-                showDropdown();
+                openDropdown();
             }
         }, 50);
     });
     
     // Close on outside click
-    var closeHandler = function(e) {
+    document.addEventListener("click", function(e) {
         if (isOpen) {
             var dropdown = document.getElementById(dropdownId);
-            if (dropdown && !dropdown.contains(e.target) && e.target !== button) {
-                hideDropdown();
-            }
-        }
-    };
-    
-    setTimeout(function() {
-        document.addEventListener('click', closeHandler);
-    }, 100);
-    
-    // ENHANCED: Initial load with filter state check
-    var loadAttempts = 0;
-    var initialLoadComplete = false;
-    
-    // Check if we're in a tab switch scenario
-    var isTabSwitch = false;
-    if (window.tabManager && window.tabManager.isTransitioning) {
-        isTabSwitch = true;
-    }
-    
-    var tryLoad = function() {
-        loadAttempts++;
-        
-        var data = table.getData();
-        if (data && data.length > 0) {
-            loadValues();
-            if (!initialLoadComplete) {
-                initialLoadComplete = true;
-                
-                // During tab switch, the filter is already applied
-                // We just need to make sure our UI reflects it
-                if (isTabSwitch) {
-                    // Just update the button text, don't reapply filter
-                    updateButtonText();
-                } else if (selectedValues.length !== allValues.length) {
-                    // Normal load - update filter if needed
-                    updateFilter();
-                }
-            }
-        } else if (loadAttempts < 5) {
-            setTimeout(tryLoad, 500);
-        }
-    };
-    
-    // Defer initial load to avoid blocking
-    requestAnimationFrame(() => {
-        tryLoad();
-    });
-    
-    // Listen for table events - but check for filter state
-    table.on("dataLoaded", function() {
-        if (!isInitialized) {
-            setTimeout(function() {
-                loadValues();
-                // Don't update filter on data load if it's already set
-                const existingFilter = getCurrentFilterValue();
-                if (existingFilter === null && selectedValues.length !== allValues.length) {
-                    updateFilter();
-                }
-            }, 100);
-        }
-    });
-    
-    // NEW: Listen for filter changes from other sources (like state restoration)
-    table.on("dataFiltered", function() {
-        // If filter was changed externally, sync our state
-        if (isInitialized) {
-            const currentFilter = getCurrentFilterValue();
-            if (currentFilter !== null) {
-                const currentSet = new Set(currentFilter);
-                const selectedSet = new Set(selectedValues);
-                
-                // Check if they're different
-                if (currentSet.size !== selectedSet.size || 
-                    [...currentSet].some(v => !selectedSet.has(v))) {
-                    console.log(`External filter change detected for ${field}, syncing...`);
-                    selectedValues = currentFilter;
-                    updateButtonText();
-                }
+            if (dropdown && !dropdown.contains(e.target) && !button.contains(e.target)) {
+                closeDropdown();
             }
         }
     });
     
-    // Cleanup
-    var cleanup = function() {
-        var dropdown = document.getElementById(dropdownId);
-        if (dropdown) {
-            dropdown.remove();
-        }
-        document.removeEventListener('click', closeHandler);
-        if (filterTimeout) {
-            clearTimeout(filterTimeout);
-        }
-        if (clickTimeout) {
-            clearTimeout(clickTimeout);
-        }
+    // Custom filter function
+    column.getDefinition().headerFilterFunc = function(headerValue, rowValue, rowData, filterParams) {
+        if (!headerValue || !Array.isArray(headerValue)) return true;
+        if (headerValue.length === 0) return true;
+        return headerValue.includes(rowValue);
     };
+    
+    // Initialize values on render
+    onRendered(function() {
+        loadValues();
+    });
     
     return button;
 }
