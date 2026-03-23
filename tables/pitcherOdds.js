@@ -220,7 +220,7 @@ export class PitcherOddsTable extends BaseTable {
         
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const CELL_PADDING = 16;
         const SORT_ICON_WIDTH = 20;
         
@@ -266,7 +266,7 @@ export class PitcherOddsTable extends BaseTable {
         const ctx = canvas.getContext('2d');
         const maxWidths = { "Pitcher Team": 0, "Pitcher Prop Type": 0, "Pitcher Book": 0, "Pitcher Matchup": 0, "Pitcher Best Odds Books": 0, "Pitcher Over/Under": 0 };
         
-        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const fieldToTitle = { "Pitcher Team": "Team", "Pitcher Prop Type": "Prop", "Pitcher Book": "Book", "Pitcher Matchup": "Matchup", "Pitcher Best Odds Books": "Best Books", "Pitcher Over/Under": "Label" };
         
         Object.keys(maxWidths).forEach(field => {
@@ -274,7 +274,7 @@ export class PitcherOddsTable extends BaseTable {
             maxWidths[field] = ctx.measureText(title).width + 32;
         });
         
-        ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '500 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         data.forEach(row => {
             Object.keys(maxWidths).forEach(field => {
                 const value = row[field];
