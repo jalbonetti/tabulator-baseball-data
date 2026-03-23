@@ -178,38 +178,21 @@ function injectMinimalStyles() {
             .tabulator-header .tabulator-col.tabulator-frozen { position: sticky !important; left: 0 !important; z-index: 101 !important; }
         }
         
-        /* CRITICAL: Override global font-size for filter inputs */
-        .tabulator .bankroll-input,
-        .tabulator .bankroll-input-container *,
-        .tabulator .min-max-input,
-        .tabulator .min-max-filter-container input {
+        /* Fix bankroll input text size (global .tabulator * override makes it too large) */
+        .tabulator .bankroll-input {
             font-size: 9px !important;
         }
         .tabulator .bankroll-input-container span {
             font-size: 9px !important;
         }
         
-        /* Column header title: ensure proper weight and size */
-        .tabulator .tabulator-col-title {
-            font-weight: 600 !important;
-        }
-        
         /* Placeholder styling for loading state */
-        .tabulator .tabulator-placeholder {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-        }
         .tabulator .tabulator-placeholder span {
             font-size: 14px !important;
             color: #999 !important;
             font-style: italic !important;
-            font-weight: 400 !important;
         }
     `;
-}
 
 function injectFullStyles() {
     const mobile = isMobile();
@@ -351,35 +334,19 @@ function injectFullStyles() {
             .tabulator-header .tabulator-col.tabulator-frozen { position: sticky !important; left: 0 !important; z-index: 101 !important; }
         }
         
-        /* CRITICAL: Override global font-size for filter inputs */
-        .tabulator .bankroll-input,
-        .tabulator .bankroll-input-container *,
-        .tabulator .min-max-input,
-        .tabulator .min-max-filter-container input {
+        /* Fix bankroll input text size (global .tabulator * override makes it too large) */
+        .tabulator .bankroll-input {
             font-size: 9px !important;
         }
         .tabulator .bankroll-input-container span {
             font-size: 9px !important;
         }
         
-        /* Column header title: ensure proper weight and size */
-        .tabulator .tabulator-col-title {
-            font-weight: 600 !important;
-        }
-        
         /* Placeholder styling for loading state */
-        .tabulator .tabulator-placeholder {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-        }
         .tabulator .tabulator-placeholder span {
             font-size: 14px !important;
             color: #999 !important;
             font-style: italic !important;
-            font-weight: 400 !important;
         }
     `;
     document.head.appendChild(style);
