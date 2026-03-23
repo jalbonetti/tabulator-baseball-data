@@ -194,7 +194,7 @@ export class GameOddsTable extends BaseTable {
         
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const CELL_PADDING = 16;
         const SORT_ICON_WIDTH = 20;
         
@@ -240,14 +240,14 @@ export class GameOddsTable extends BaseTable {
         const ctx = canvas.getContext('2d');
         const maxWidths = { "Game Matchup": 0, "Game Prop Type": 0, "Game Label": 0, "Game Book": 0, "Game Best Odds Books": 0 };
         
-        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const fieldToTitle = { "Game Matchup": "Matchup", "Game Prop Type": "Prop", "Game Label": "Label", "Game Book": "Book", "Game Best Odds Books": "Best Books" };
         
         Object.keys(maxWidths).forEach(field => {
             maxWidths[field] = ctx.measureText(fieldToTitle[field] || field).width + 32;
         });
         
-        ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '500 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         data.forEach(row => {
             Object.keys(maxWidths).forEach(field => {
                 const value = row[field];
