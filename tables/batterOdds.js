@@ -388,7 +388,7 @@ export class BatterOddsTable extends BaseTable {
         
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         
         const CELL_PADDING = 16;
         const SORT_ICON_WIDTH = 20;
@@ -463,7 +463,7 @@ export class BatterOddsTable extends BaseTable {
         };
         
         // Measure header widths first
-        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const HEADER_PADDING = 16;
         const SORT_ICON_WIDTH = 16;
         
@@ -483,7 +483,7 @@ export class BatterOddsTable extends BaseTable {
         });
         
         // Measure data widths
-        ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        ctx.font = '500 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         
         data.forEach(row => {
             Object.keys(maxWidths).forEach(field => {
