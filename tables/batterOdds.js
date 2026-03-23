@@ -91,22 +91,66 @@ export class BatterOddsTable extends BaseTable {
         this.table.on("tableBuilt", () => {
             console.log("Batter Odds table built");
             
-            if (!isSmallScreen) {
-                setTimeout(() => {
-                    const data = this.table ? this.table.getData() : [];
-                    if (data.length > 0) {
-                        this.scanDataForMaxWidths(data);
+            // Width calculations for all devices
+            setTimeout(() => {
+                const data = this.table ? this.table.getData() : [];
+                if (data.length > 0) {
+                    this.scanDataForMaxWidths(data);
+                    if (!isMobile() && !isTablet()) {
                         this.equalizeClusteredColumns();
                         this.calculateAndApplyWidths();
                     }
-                    this.ensureNameColumnWidth();
-                }, 200);
-            } else {
-                setTimeout(() => {
-                    this.ensureNameColumnWidth();
-                }, 50);
-            }
+                } else {
+                    // Even with no data, constrain the table width on desktop
+                    if (!isMobile() && !isTablet()) {
+                        this.calculateAndApplyWidths();
+                    }
+                }
+                this.ensureNameColumnWidth();
+            }, 100);
         });
+        
+        this.table.on("renderComplete", () => {
+            // Recalculate widths after render (handles tab switching) - desktop only
+            if (!isMobile() && !isTablet()) {
+                setTimeout(() => {
+                    this.calculateAndApplyWidths();
+                }, 100);
+            }
+            // Always ensure Name column meets minimum width
+            setTimeout(() => {
+                this.ensureNameColumnWidth();
+            }, 50);
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', this.debounce(() => {
+            if (this.table && this.table.getDataCount() > 0 && !isMobile() && !isTablet()) {
+                this.calculateAndApplyWidths();
+                this.ensureNameColumnWidth();
+            }
+        }, 250));
+    }
+
+    // Force recalculation - called by TabManager on tab switch
+    forceRecalculateWidths() {
+        if (!this.table) return;
+        const data = this.table ? this.table.getData() : [];
+        if (data.length > 0) {
+            this.scanDataForMaxWidths(data);
+            this.equalizeClusteredColumns();
+            this.calculateAndApplyWidths();
+        }
+        this.ensureNameColumnWidth();
+    }
+
+    // Debounce helper
+    debounce(func, wait) {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
     }
 
     // Ensure Name column maintains minimum width
