@@ -54,7 +54,7 @@ function injectScrollbarFix() {
 function injectMinimalStyles() {
     const mobile = isMobile();
     const tablet = isTablet();
-    const baseFontSize = mobile ? 10 : tablet ? 11 : 12;
+    const baseFontSize = mobile ? 11 : tablet ? 12 : 14;
     
     const style = document.createElement('style');
     style.setAttribute('data-source', 'github-baseball-minimal');
@@ -214,7 +214,7 @@ function injectFullStyles() {
     const mobile = isMobile();
     const tablet = isTablet();
     const scale = getDeviceScale();
-    const baseFontSize = mobile ? 10 : tablet ? 11 : 12;
+    const baseFontSize = mobile ? 11 : tablet ? 12 : 14;
     
     const style = document.createElement('style');
     style.setAttribute('data-source', 'github-baseball-full');
