@@ -193,6 +193,9 @@ function injectMinimalStyles() {
             font-style: italic !important;
         }
     `;
+    document.head.appendChild(style);
+    console.log('Baseball minimal styles injected');
+}
 
 function injectFullStyles() {
     const mobile = isMobile();
