@@ -120,21 +120,6 @@ function injectMinimalStyles() {
                 overflow-y: scroll !important;
                 overflow-x: auto !important;
             }
-            /* Grey cover over the header's scrollbar reservation area */
-            .tabulator .tabulator-header {
-                position: relative !important;
-            }
-            .tabulator .tabulator-header::after {
-                content: '' !important;
-                position: absolute !important;
-                top: 0 !important;
-                right: 0 !important;
-                width: 17px !important;
-                height: 100% !important;
-                background: #e8e8e8 !important;
-                z-index: 10 !important;
-                pointer-events: none !important;
-            }
         }
         
         @media screen and (max-width: 1024px) {
@@ -364,21 +349,6 @@ function injectFullStyles() {
             .table-wrapper { background: #e8e8e8 !important; }
             .tabulator .tabulator-tableholder {
                 background-color: #e8e8e8 !important; overflow-y: scroll !important; overflow-x: auto !important;
-            }
-            /* Grey cover over the header's scrollbar reservation area */
-            .tabulator .tabulator-header {
-                position: relative !important;
-            }
-            .tabulator .tabulator-header::after {
-                content: '' !important;
-                position: absolute !important;
-                top: 0 !important;
-                right: 0 !important;
-                width: 17px !important;
-                height: 100% !important;
-                background: #e8e8e8 !important;
-                z-index: 10 !important;
-                pointer-events: none !important;
             }
         }
         
