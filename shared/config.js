@@ -1,4 +1,6 @@
-// shared/config.js - COMPLETE RESPONSIVE CONFIGURATION WITH FIXED DIMENSIONS
+// shared/config.js - Baseball Props Configuration
+// Updated to match NBA repository patterns (responsive breakpoints, helpers)
+
 export const CONFIG = {
     // Supabase Configuration
     SUPABASE_URL: 'https://hcwolbvmffkmjcxsumwn.supabase.co',
@@ -6,8 +8,8 @@ export const CONFIG = {
     
     // Cache Configuration
     CACHE_ENABLED: true,
-    CACHE_TTL: 15 * 60 * 1000, // 15 minutes in milliseconds
-    CACHE_VERSION: '1.0.0',
+    CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+    CACHE_VERSION: '2.0.0',
     
     // API Configuration
     API_CONFIG: {
@@ -19,136 +21,23 @@ export const CONFIG = {
             "Prefer": "return=representation,count=exact",
             "Accept": "application/json",
             "Accept-Profile": "public",
-            "Cache-Control": "public, max-age=900"
+            "Cache-Control": "public, max-age=300"
         },
         fetchConfig: {
             pageSize: 1000,
             maxRetries: 3,
             retryDelay: 1000,
-            timeout: 300000,
-            maxRequestsPerSecond: 5,
-            enableBatching: true,
-            cacheEnabled: true,
-            cacheDuration: 15 * 60 * 1000
         }
     },
     
-    // Table Names
-    TABLES: {
-        BATTER_CLEARANCES: 'ModBatterClearances',
-        PITCHER_CLEARANCES: 'ModPitcherClearances',
-        BATTER_CLEARANCES_ALT: 'ModBatterClearancesAlt',
-        PITCHER_CLEARANCES_ALT: 'ModPitcherClearancesAlt',
-        MOD_BATTER_STATS: 'ModBatterStats',
-        MOD_PITCHER_STATS: 'ModPitcherStats',
-        MATCHUPS: 'ModMatchupsData',
-        BATTER_ODDS: 'ModBatterOdds',
-        PITCHER_ODDS: 'ModPitcherOdds',
-        BATTER_PROPS: 'ModBatterProps',
-        PITCHER_PROPS: 'ModPitcherProps',
-        GAME_PROPS: 'ModGameProps'
-    },
-    
-    // FIXED TABLE DIMENSIONS - Properly sized to prevent overflow
-    TABLE_DIMENSIONS: {
-        // Desktop dimensions (1200px+ screens) - CORRECTED WIDTHS
-        desktop: {
-            matchups: { 
-                width: 1200, 
-                maxWidth: 1200,
-                subtableWidth: 1120, // Leaves room for padding
-                parkFactorsWidth: 550,
-                weatherWidth: 550
-            },
-            batterClearances: { 
-                width: 1400, // Reduced from 1860px
-                maxWidth: 1400 
-            },
-            batterClearancesAlt: { 
-                width: 1200, // Reduced from 1360px
-                maxWidth: 1200 
-            },
-            pitcherClearances: { 
-                width: 1400, // Reduced from 1860px
-                maxWidth: 1400 
-            },
-            pitcherClearancesAlt: { 
-                width: 1200, // Reduced from 1360px
-                maxWidth: 1200 
-            },
-            modBatterStats: { 
-                width: 1400, // Reduced from 1720px
-                maxWidth: 1400 
-            },
-            modPitcherStats: { 
-                width: 1400, // Reduced from 1720px
-                maxWidth: 1400 
-            },
-            batterProps: { 
-                width: 1400, // Reduced from 1720px
-                maxWidth: 1400 
-            },
-            pitcherProps: { 
-                width: 1400, // Reduced from 1720px
-                maxWidth: 1400 
-            },
-            gameProps: { 
-                width: 1400, // Reduced from 1720px
-                maxWidth: 1400 
-            }
-        },
-        // Tablet dimensions (768px - 1199px)
-        tablet: {
-            scale: 0.85,
-            transformOrigin: 'top center',
-            containerWidth: '118%' // 100 / 0.85
-        },
-        // Mobile dimensions (< 768px)
-        mobile: {
-            scale: 0.75,
-            transformOrigin: 'top center',
-            containerWidth: '133%' // 100 / 0.75
-        }
-    },
-    
-    // Responsive breakpoints
+    // Responsive Breakpoints (matching NBA)
     BREAKPOINTS: {
-        mobile: 767,
-        tablet: 1199,
-        desktop: 1200,
-        ultrawide: 1920
+        mobile: 768,
+        tablet: 1024,
+        desktop: 1025
     },
     
-    // Display Configuration
-    DISPLAY: {
-        ROWS_PER_PAGE: 50,
-        MAX_ROWS_VIRTUAL: 10000,
-        DEBOUNCE_DELAY: 300,
-        ANIMATION_DURATION: 200,
-        TABLE_HEIGHT: '600px',
-        HEADER_HEIGHT: 30,
-        ROW_HEIGHT: 28,
-        MOBILE_SCALE: 0.75,
-        TABLET_SCALE: 0.85,
-        REMOVE_ALL_SCROLLBARS: true,
-        ENABLE_PINCH_ZOOM: true
-    },
-    
-    // Feature Flags
-    FEATURES: {
-        ENABLE_CACHING: true,
-        ENABLE_VIRTUAL_DOM: true,
-        ENABLE_PROGRESSIVE_LOADING: true,
-        ENABLE_STATE_PRESERVATION: true,
-        ENABLE_ODDS_INTEGRATION: true,
-        ENABLE_RESPONSIVE_TABLES: true,
-        REMOVE_SCROLLBARS: true,
-        ENABLE_MOBILE_PINCH_ZOOM: true,
-        USE_FIXED_TABLE_CONTAINERS: true,
-        ENABLE_BACKGROUND_IMAGES: true
-    },
-    
-    // Team Abbreviations Mapping
+    // Team Abbreviations
     TEAM_ABBREVIATIONS: {
         'Arizona Diamondbacks': 'ARI',
         'Atlanta Braves': 'ATL',
@@ -180,85 +69,51 @@ export const CONFIG = {
         'Texas Rangers': 'TEX',
         'Toronto Blue Jays': 'TOR',
         'Washington Nationals': 'WSH'
-    },
-    
-    // Service Worker Configuration
-    SW_CONFIG: {
-        enabled: false,
-        cacheVersion: 'v1',
-        cacheNames: {
-            static: 'tabulator-static-v1',
-            api: 'tabulator-api-v1',
-            runtime: 'tabulator-runtime-v1'
-        }
     }
 };
 
-// Export helper functions
-export function getTeamAbbreviation(fullName) {
-    return CONFIG.TEAM_ABBREVIATIONS[fullName] || fullName;
-}
+// =====================================================
+// Responsive helper functions (matching NBA patterns)
+// =====================================================
 
-export function getSupabaseConfig() {
-    return {
-        url: CONFIG.SUPABASE_URL,
-        anonKey: CONFIG.SUPABASE_ANON_KEY
-    };
-}
-
-// Get responsive table dimensions based on screen size
-export function getTableDimensions(tableName) {
-    const width = window.innerWidth;
-    
-    if (width <= CONFIG.BREAKPOINTS.mobile) {
-        // Mobile - return desktop dimensions but they'll be scaled
-        return {
-            ...CONFIG.TABLE_DIMENSIONS.desktop[tableName],
-            scale: CONFIG.TABLE_DIMENSIONS.mobile.scale,
-            needsScaling: true
-        };
-    } else if (width <= CONFIG.BREAKPOINTS.tablet) {
-        // Tablet
-        return {
-            ...CONFIG.TABLE_DIMENSIONS.desktop[tableName],
-            scale: CONFIG.TABLE_DIMENSIONS.tablet.scale,
-            needsScaling: true
-        };
-    } else {
-        // Desktop
-        return {
-            ...CONFIG.TABLE_DIMENSIONS.desktop[tableName],
-            scale: 1,
-            needsScaling: false
-        };
-    }
-}
-
-// Check if device is mobile
 export function isMobile() {
+    if (typeof window === 'undefined') return false;
     return window.innerWidth <= CONFIG.BREAKPOINTS.mobile;
 }
 
-// Check if device is tablet
 export function isTablet() {
+    if (typeof window === 'undefined') return false;
     return window.innerWidth > CONFIG.BREAKPOINTS.mobile && 
            window.innerWidth <= CONFIG.BREAKPOINTS.tablet;
 }
 
-// Get appropriate scale for current device
+export function isDesktop() {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth > CONFIG.BREAKPOINTS.tablet;
+}
+
+export function getDeviceType() {
+    if (isMobile()) return 'mobile';
+    if (isTablet()) return 'tablet';
+    return 'desktop';
+}
+
 export function getDeviceScale() {
-    if (isMobile()) {
-        return CONFIG.TABLE_DIMENSIONS.mobile.scale;
-    } else if (isTablet()) {
-        return CONFIG.TABLE_DIMENSIONS.tablet.scale;
-    }
+    if (typeof window === 'undefined') return 1;
+    const width = window.innerWidth;
+    if (width <= 480) return 0.7;
+    if (width <= 768) return 0.8;
+    if (width <= 1024) return 0.9;
     return 1;
 }
 
-// Export CONFIG as default for backwards compatibility
-export default CONFIG;
+export function getResponsiveFontSize(baseSize = 12) {
+    const scale = getDeviceScale();
+    return Math.round(baseSize * scale);
+}
 
-// Export additional items for direct access
+// Export API config and team map for direct access
 export const API_CONFIG = CONFIG.API_CONFIG;
 export const TEAM_NAME_MAP = CONFIG.TEAM_ABBREVIATIONS;
-export const SW_CONFIG = CONFIG.SW_CONFIG;
+
+export default CONFIG;
