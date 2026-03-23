@@ -11,7 +11,7 @@ import { createBankrollInput, bankrollFilterFunction, getBankrollValue } from '.
 import { isMobile, isTablet, TEAM_NAME_MAP } from '../shared/config.js';
 
 const NAME_COLUMN_MIN_WIDTH = 205;
-const EV_KELLY_COLUMN_MIN_WIDTH = 55;
+const EV_KELLY_COLUMN_MIN_WIDTH = 75;
 
 export class BatterOddsTable extends BaseTable {
     constructor(elementId) {
@@ -230,7 +230,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Matchup", 
                 field: "Batter Matchup", 
                 widthGrow: 0,
-                minWidth: 70,
+                minWidth: 90,
                 sorter: "string",
                 headerFilter: createCustomMultiSelect,
                 resizable: false,
@@ -241,7 +241,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Team", 
                 field: "Batter Team", 
                 widthGrow: 0,
-                minWidth: 45,
+                minWidth: 55,
                 sorter: "string", 
                 headerFilter: createCustomMultiSelect,
                 resizable: false,
@@ -251,7 +251,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Prop", 
                 field: "Batter Prop Type", 
                 widthGrow: 0,
-                minWidth: 55,
+                minWidth: 65,
                 sorter: "string", 
                 headerFilter: createCustomMultiSelect,
                 resizable: false,
@@ -262,7 +262,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Label", 
                 field: "Batter Over/Under", 
                 widthGrow: 0,
-                minWidth: 50,
+                minWidth: 60,
                 sorter: "string", 
                 headerFilter: createCustomMultiSelect,
                 resizable: false,
@@ -272,7 +272,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Line", 
                 field: "Batter Prop Line", 
                 widthGrow: 0,
-                minWidth: 50,
+                minWidth: 55,
                 sorter: function(a, b) { return self.oddsSorter(a, b); },
                 headerFilter: createCustomMultiSelect,
                 resizable: false,
@@ -283,7 +283,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Book", 
                 field: "Batter Book", 
                 widthGrow: 0,
-                minWidth: 60,
+                minWidth: 70,
                 sorter: "string", 
                 headerFilter: createCustomMultiSelect,
                 resizable: false,
@@ -293,7 +293,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Book Odds", 
                 field: "Batter Prop Odds", 
                 widthGrow: 0,
-                minWidth: 55,
+                minWidth: 85,
                 sorter: function(a, b) { return self.oddsSorter(a, b); },
                 headerFilter: createMinMaxFilter,
                 headerFilterFunc: minMaxFilterFunction,
@@ -307,7 +307,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Median Odds", 
                 field: "Batter Median Odds", 
                 widthGrow: 0,
-                minWidth: 55,
+                minWidth: 100,
                 sorter: function(a, b) { return self.oddsSorter(a, b); },
                 headerFilter: createMinMaxFilter,
                 headerFilterFunc: minMaxFilterFunction,
@@ -321,7 +321,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Best Odds", 
                 field: "Batter Best Odds", 
                 widthGrow: 0,
-                minWidth: 55,
+                minWidth: 85,
                 sorter: function(a, b) { return self.oddsSorter(a, b); },
                 headerFilter: createMinMaxFilter,
                 headerFilterFunc: minMaxFilterFunction,
@@ -335,7 +335,7 @@ export class BatterOddsTable extends BaseTable {
                 title: "Best Books", 
                 field: "Batter Best Odds Books", 
                 widthGrow: 0,
-                minWidth: 70,
+                minWidth: 90,
                 sorter: "string",
                 resizable: false,
                 hozAlign: "center"
