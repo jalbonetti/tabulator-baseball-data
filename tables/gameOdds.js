@@ -9,7 +9,7 @@ import { createMinMaxFilter, minMaxFilterFunction } from '../components/minMaxFi
 import { createBankrollInput, bankrollFilterFunction, getBankrollValue } from '../components/bankrollInput.js';
 import { isMobile, isTablet, TEAM_NAME_MAP } from '../shared/config.js';
 
-const EV_KELLY_COLUMN_MIN_WIDTH = 55;
+const EV_KELLY_COLUMN_MIN_WIDTH = 75;
 
 export class GameOddsTable extends BaseTable {
     constructor(elementId) {
@@ -168,21 +168,21 @@ export class GameOddsTable extends BaseTable {
                 field: "Game Matchup", 
                 frozen: true,
                 widthGrow: 0,
-                minWidth: isSmallScreen ? 80 : 120,
+                minWidth: isSmallScreen ? 95 : 135,
                 sorter: "string",
                 headerFilter: createCustomMultiSelect,
                 resizable: false,
                 hozAlign: "left",
                 formatter: matchupFormatter
             },
-            { title: "Prop", field: "Game Prop Type", widthGrow: 0, minWidth: 60, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
-            { title: "Label", field: "Game Label", widthGrow: 0, minWidth: 60, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
-            { title: "Line", field: "Game Line", widthGrow: 0, minWidth: 50, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, hozAlign: "center", formatter: lineFormatter },
-            { title: "Book", field: "Game Book", widthGrow: 0, minWidth: 60, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
-            { title: "Book Odds", field: "Game Odds", widthGrow: 0, minWidth: 55, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
-            { title: "Median Odds", field: "Game Median Odds", widthGrow: 0, minWidth: 55, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
-            { title: "Best Odds", field: "Game Best Odds", widthGrow: 0, minWidth: 55, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
-            { title: "Best Books", field: "Game Best Odds Books", widthGrow: 0, minWidth: 70, sorter: "string", resizable: false, hozAlign: "center" },
+            { title: "Prop", field: "Game Prop Type", widthGrow: 0, minWidth: 70, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
+            { title: "Label", field: "Game Label", widthGrow: 0, minWidth: 70, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
+            { title: "Line", field: "Game Line", widthGrow: 0, minWidth: 55, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, hozAlign: "center", formatter: lineFormatter },
+            { title: "Book", field: "Game Book", widthGrow: 0, minWidth: 70, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
+            { title: "Book Odds", field: "Game Odds", widthGrow: 0, minWidth: 85, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
+            { title: "Median Odds", field: "Game Median Odds", widthGrow: 0, minWidth: 85, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
+            { title: "Best Odds", field: "Game Best Odds", widthGrow: 0, minWidth: 100, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
+            { title: "Best Books", field: "Game Best Odds Books", widthGrow: 0, minWidth: 90, sorter: "string", resizable: false, hozAlign: "center" },
             { title: "EV %", field: "EV %", widthGrow: 0, minWidth: EV_KELLY_COLUMN_MIN_WIDTH, sorter: function(a, b) { return self.percentSorter(a, b); }, resizable: false, formatter: evFormatter, hozAlign: "center", cssClass: "cluster-ev-kelly" },
             { title: "Bet Size", field: "Quarter Kelly %", widthGrow: 0, minWidth: EV_KELLY_COLUMN_MIN_WIDTH, sorter: function(a, b) { return self.percentSorter(a, b); }, headerFilter: createBankrollInput, headerFilterFunc: bankrollFilterFunction, headerFilterLiveFilter: false, headerFilterParams: { bankrollKey: 'Game Quarter Kelly %' }, resizable: false, formatter: kellyFormatter, hozAlign: "center", cssClass: "cluster-ev-kelly" },
             { title: "Link", field: "Link", width: 50, widthGrow: 0, minWidth: 40, maxWidth: 50, sorter: "string", resizable: false, hozAlign: "center", formatter: linkFormatter, headerSort: false }
