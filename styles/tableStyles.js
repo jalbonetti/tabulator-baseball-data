@@ -177,9 +177,38 @@ function injectMinimalStyles() {
             .tabulator-row:hover .tabulator-cell.tabulator-frozen { background: #fef2f2 !important; }
             .tabulator-header .tabulator-col.tabulator-frozen { position: sticky !important; left: 0 !important; z-index: 101 !important; }
         }
+        
+        /* CRITICAL: Override global font-size for filter inputs */
+        .tabulator .bankroll-input,
+        .tabulator .bankroll-input-container *,
+        .tabulator .min-max-input,
+        .tabulator .min-max-filter-container input {
+            font-size: 9px !important;
+        }
+        .tabulator .bankroll-input-container span {
+            font-size: 9px !important;
+        }
+        
+        /* Column header title: ensure proper weight and size */
+        .tabulator .tabulator-col-title {
+            font-weight: 600 !important;
+        }
+        
+        /* Placeholder styling for loading state */
+        .tabulator .tabulator-placeholder {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        .tabulator .tabulator-placeholder span {
+            font-size: 14px !important;
+            color: #999 !important;
+            font-style: italic !important;
+            font-weight: 400 !important;
+        }
     `;
-    document.head.appendChild(style);
-    console.log('Baseball minimal styles injected');
 }
 
 function injectFullStyles() {
@@ -320,6 +349,37 @@ function injectFullStyles() {
             .tabulator-row.tabulator-row-odd .tabulator-cell.tabulator-frozen { background: #ffffff !important; }
             .tabulator-row:hover .tabulator-cell.tabulator-frozen { background: #fef2f2 !important; }
             .tabulator-header .tabulator-col.tabulator-frozen { position: sticky !important; left: 0 !important; z-index: 101 !important; }
+        }
+        
+        /* CRITICAL: Override global font-size for filter inputs */
+        .tabulator .bankroll-input,
+        .tabulator .bankroll-input-container *,
+        .tabulator .min-max-input,
+        .tabulator .min-max-filter-container input {
+            font-size: 9px !important;
+        }
+        .tabulator .bankroll-input-container span {
+            font-size: 9px !important;
+        }
+        
+        /* Column header title: ensure proper weight and size */
+        .tabulator .tabulator-col-title {
+            font-weight: 600 !important;
+        }
+        
+        /* Placeholder styling for loading state */
+        .tabulator .tabulator-placeholder {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        .tabulator .tabulator-placeholder span {
+            font-size: 14px !important;
+            color: #999 !important;
+            font-style: italic !important;
+            font-weight: 400 !important;
         }
     `;
     document.head.appendChild(style);
