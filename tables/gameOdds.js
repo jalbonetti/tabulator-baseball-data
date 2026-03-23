@@ -70,17 +70,51 @@ export class GameOddsTable extends BaseTable {
         this.table.on("tableBuilt", () => {
             console.log("Game Odds table built");
             
-            if (!isSmallScreen) {
-                setTimeout(() => {
-                    const data = this.table ? this.table.getData() : [];
-                    if (data.length > 0) {
-                        this.scanDataForMaxWidths(data);
+            setTimeout(() => {
+                const data = this.table ? this.table.getData() : [];
+                if (data.length > 0) {
+                    this.scanDataForMaxWidths(data);
+                    if (!isMobile() && !isTablet()) {
                         this.equalizeClusteredColumns();
                         this.calculateAndApplyWidths();
                     }
-                }, 200);
+                } else {
+                    if (!isMobile() && !isTablet()) {
+                        this.calculateAndApplyWidths();
+                    }
+                }
+            }, 100);
+        });
+        
+        this.table.on("renderComplete", () => {
+            if (!isMobile() && !isTablet()) {
+                setTimeout(() => { this.calculateAndApplyWidths(); }, 100);
             }
         });
+        
+        window.addEventListener('resize', this.debounce(() => {
+            if (this.table && this.table.getDataCount() > 0 && !isMobile() && !isTablet()) {
+                this.calculateAndApplyWidths();
+            }
+        }, 250));
+    }
+
+    forceRecalculateWidths() {
+        if (!this.table) return;
+        const data = this.table ? this.table.getData() : [];
+        if (data.length > 0) {
+            this.scanDataForMaxWidths(data);
+            this.equalizeClusteredColumns();
+            this.calculateAndApplyWidths();
+        }
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
     }
 
     oddsSorter(a, b) {
