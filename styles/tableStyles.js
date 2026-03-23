@@ -74,6 +74,18 @@ function injectMinimalStyles() {
         
         .table-container { display: block !important; visibility: visible !important; background: #e8e8e8 !important; }
         
+        /* Header styles - matching NBA */
+        .tabulator-header {
+            background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .tabulator-col {
+            background: transparent;
+            border-right: 1px solid rgba(255,255,255,0.2);
+        }
+        
         .tabulator-col-title {
             white-space: normal !important;
             word-break: break-word !important;
@@ -81,6 +93,7 @@ function injectMinimalStyles() {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
+            padding: 4px 2px !important;
         }
         
         .tabulator-cell {
@@ -227,9 +240,22 @@ function injectFullStyles() {
         }
         .tabulator .tabulator-tableholder { background-color: #e8e8e8; }
         
+        /* Header styles - matching NBA */
+        .tabulator-header {
+            background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .tabulator-col {
+            background: transparent;
+            border-right: 1px solid rgba(255,255,255,0.2);
+        }
+        
         .tabulator-col-title {
             white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important;
             text-align: center !important; display: flex !important; align-items: center !important; justify-content: center !important;
+            padding: 4px 2px !important;
         }
         
         .tabulator-cell {
