@@ -1,11 +1,12 @@
 // styles/tableStyles.js - Baseball Table Styles
 // Ported from NBA version with identical formatting patterns
 // FIXED:
+// - Desktop baseFontSize reduced from 14 to 12 to match NBA (prevents squished headers)
+// - Mobile baseFontSize reduced from 11 to 10 to match NBA
 // - Scrollbar fix uses high-specificity selectors to counter Webflow's aggressive hiding
-// - Sort arrow padding increased to prevent overlap with header text
 // - Custom multi-select button font-size override (global .tabulator * rule was overriding)
-// - Placeholder text enlarged for loading state visibility
-// - Red notch above scrollbar fixed via scrollbar-corner styling and header overflow
+// - Placeholder text enlarged to 24px for loading state visibility
+// - Red notch above scrollbar fixed via ::after pseudo-element on header
 
 import { isMobile, isTablet, getDeviceScale } from '../shared/config.js';
 
@@ -39,7 +40,6 @@ function injectScrollbarFix() {
     const style = document.createElement('style');
     style.setAttribute('data-source', 'scrollbar-fix');
 
-    // Use extremely high specificity selectors and counter the display:none
     style.textContent = `
         /* =====================================================
            SCROLLBAR FIX - Counters Webflow's aggressive hiding
@@ -81,7 +81,7 @@ function injectScrollbarFix() {
                 background: #991b1b !important;
             }
             
-            /* Scrollbar corner - prevent red notch from header gradient bleeding through */
+            /* Scrollbar corner */
             html body .tabulator .tabulator-tableholder::-webkit-scrollbar-corner,
             html body div.tabulator div.tabulator-tableholder::-webkit-scrollbar-corner {
                 background: #e8e8e8 !important;
@@ -89,7 +89,7 @@ function injectScrollbarFix() {
                 visibility: visible !important;
             }
             
-            /* Also set Firefox scrollbar */
+            /* Firefox scrollbar */
             html body .tabulator .tabulator-tableholder,
             html body div.tabulator div.tabulator-tableholder {
                 scrollbar-width: thin !important;
@@ -123,7 +123,6 @@ function injectScrollbarFix() {
         webflowStyle.parentNode.insertBefore(style, webflowStyle.nextSibling);
         console.log('Scrollbar fix injected immediately after Webflow styles');
     } else {
-        // Fallback: append to head
         document.head.appendChild(style);
         console.log('Scrollbar fix injected at end of head');
     }
@@ -132,12 +131,15 @@ function injectScrollbarFix() {
 function injectMinimalStyles() {
     const mobile = isMobile();
     const tablet = isTablet();
-    const baseFontSize = mobile ? 11 : tablet ? 12 : 14;
+    // FIXED: Font sizes now match NBA exactly: 10/11/12
+    // Previously was 11/12/14 which made headers squished and filters oversized
+    const baseFontSize = mobile ? 10 : tablet ? 11 : 12;
     
     const style = document.createElement('style');
     style.setAttribute('data-source', 'github-baseball-minimal');
     style.setAttribute('data-table-styles', 'github');
     style.textContent = `
+        /* GLOBAL FONT SIZE - Responsive (matches NBA: 10/11/12) */
         .tabulator, .tabulator *, .subrow-container, .subrow-container *,
         .tabulator-table, .tabulator-table *, .tabulator-header, .tabulator-header *,
         .tabulator-row, .tabulator-row *, .tabulator-cell, .tabulator-cell * {
@@ -152,12 +154,12 @@ function injectMinimalStyles() {
         
         .table-container { display: block !important; visibility: visible !important; background: #e8e8e8 !important; }
         
-        /* Header styles - matching NBA */
+        /* Header styles */
         .tabulator-header {
             background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
             color: white;
             font-weight: 600;
-            overflow: hidden !important;
+            position: relative !important;
         }
         
         .tabulator-col {
@@ -165,20 +167,15 @@ function injectMinimalStyles() {
             border-right: 1px solid rgba(255,255,255,0.2);
         }
         
-        /* FIX: Increased padding-right to 14px to prevent sort arrow overlapping header text */
+        /* Header title - center-justified, wrap at word boundaries */
         .tabulator-col-title {
             white-space: normal !important;
             word-break: break-word !important;
+            overflow-wrap: break-word !important;
             text-align: center !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            padding: 4px 14px 4px 2px !important;
-        }
-        
-        /* Columns with headerSort:false don't need extra right padding */
-        .tabulator-col[aria-sort="none"]:not(.tabulator-sortable) .tabulator-col-title,
-        .tabulator-col:not(.tabulator-sortable) .tabulator-col-title {
             padding: 4px 2px !important;
         }
         
@@ -197,6 +194,7 @@ function injectMinimalStyles() {
             box-shadow: 0 -4px 12px rgba(0,0,0,0.3) !important;
         }
         
+        /* Desktop layout */
         @media screen and (min-width: 1025px) {
             .table-container { background: #e8e8e8 !important; }
             .table-wrapper { background: #e8e8e8 !important; }
@@ -206,8 +204,25 @@ function injectMinimalStyles() {
                 overflow-y: scroll !important;
                 overflow-x: auto !important;
             }
+            
+            /* FIX: Grey overlay above scrollbar to hide red header gradient bleed.
+               The header extends the full width of .tabulator including the 17px scrollbar
+               gutter. This pseudo-element covers that area so the red gradient doesn't
+               show as a colored notch above the scrollbar track. */
+            .tabulator .tabulator-header::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 17px;
+                height: 100%;
+                background: #e8e8e8;
+                z-index: 50;
+                pointer-events: none;
+            }
         }
         
+        /* Mobile/tablet layout */
         @media screen and (max-width: 1024px) {
             .tabulator-header { display: flex !important; align-items: stretch !important; }
             .tabulator-col:not(.tabulator-col-group) .tabulator-col-title {
@@ -218,6 +233,9 @@ function injectMinimalStyles() {
                 background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
                 z-index: 100 !important;
             }
+            .tabulator-header .tabulator-col.tabulator-frozen {
+                background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+            }
         }
         
         .subrow-container {
@@ -225,7 +243,10 @@ function injectMinimalStyles() {
             border-top: 2px solid #b91c1c !important;
         }
         
-        .min-max-filter-container {
+        /* Min/Max filter - stacked vertically */
+        .min-max-filter-container,
+        .tabulator .min-max-filter-container,
+        .tabulator-header-filter .min-max-filter-container {
             display: flex !important;
             flex-direction: column !important;
             flex-wrap: nowrap !important;
@@ -266,6 +287,13 @@ function injectMinimalStyles() {
             transition: transform 0.2s ease;
         }
         
+        /* Base overflow for tableholder */
+        .tabulator .tabulator-tableholder {
+            overflow-y: auto !important;
+            overflow-x: auto !important;
+        }
+        
+        /* Mobile frozen column support */
         @media screen and (max-width: 1024px) {
             .table-container { width: 100% !important; max-width: 100vw !important; overflow-x: hidden !important; }
             .table-container .tabulator { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
@@ -277,7 +305,7 @@ function injectMinimalStyles() {
             .tabulator-header .tabulator-col.tabulator-frozen { position: sticky !important; left: 0 !important; z-index: 101 !important; }
         }
         
-        /* FIX: Bankroll input text size (global .tabulator * override makes it too large) */
+        /* FIX: Bankroll input text size */
         .tabulator .bankroll-input {
             font-size: 9px !important;
         }
@@ -285,19 +313,20 @@ function injectMinimalStyles() {
             font-size: 9px !important;
         }
         
-        /* FIX: Custom multi-select button text size (global .tabulator * override makes "Loading..." too large) */
-        .tabulator .custom-multiselect-button {
+        /* FIX: Custom multi-select button - override global .tabulator * font-size */
+        .tabulator .custom-multiselect-button,
+        .tabulator-header-filter .custom-multiselect-button {
             font-size: 11px !important;
         }
         
-        /* FIX: Placeholder styling - enlarged for visibility during loading state */
+        /* FIX: Placeholder text - large and visible during loading state */
         .tabulator .tabulator-placeholder span {
-            font-size: 20px !important;
+            font-size: 24px !important;
             color: #999 !important;
             font-style: italic !important;
         }
         
-        /* FIX: Header text filter input - prevent global font override */
+        /* Header text filter input */
         .tabulator-header-filter input[type="search"],
         .tabulator-header-filter input[type="text"] {
             width: 100% !important;
@@ -308,38 +337,58 @@ function injectMinimalStyles() {
             box-sizing: border-box !important;
         }
         
-        /* FIX: Scrollbar corner - prevent red header gradient from showing as a notch */
-        .tabulator .tabulator-tableholder::-webkit-scrollbar-corner {
-            background: #e8e8e8 !important;
+        /* Mobile subtable compact layout */
+        @media screen and (max-width: 768px) {
+            .subrow-container { padding: 8px 10px !important; }
+            .subrow-container > div { gap: 6px !important; }
+            .subrow-container > div > div { padding: 8px !important; min-width: unset !important; }
+            .subrow-container h4 { font-size: 11px !important; margin: 0 0 4px 0 !important; }
+            .subrow-container div > div > div { font-size: 10px !important; margin-bottom: 2px !important; }
+            .subtable-scroll-wrapper { gap: 8px !important; max-height: 350px !important; }
+        }
+        
+        @media screen and (min-width: 769px) and (max-width: 1024px) {
+            .subrow-container { padding: 10px 15px !important; }
+            .subrow-container > div { gap: 10px !important; }
+            .subrow-container > div > div { padding: 10px !important; }
+            .subrow-container h4 { font-size: 12px !important; }
+            .subrow-container div > div > div { font-size: 11px !important; }
+            .subtable-scroll-wrapper { gap: 10px !important; }
+        }
+        
+        .subrow-container > div[style*="flex"] {
+            flex-wrap: nowrap !important; overflow-x: auto !important;
         }
     `;
     document.head.appendChild(style);
-    console.log('Baseball minimal styles injected with scrollbar, sort arrow, multi-select, placeholder, and corner fixes');
+    console.log('Baseball minimal styles injected');
 }
 
 function injectFullStyles() {
     const mobile = isMobile();
     const tablet = isTablet();
     const scale = getDeviceScale();
-    const baseFontSize = mobile ? 11 : tablet ? 12 : 14;
+    // FIXED: Font sizes now match NBA exactly: 10/11/12
+    // Previously was 11/12/14 which made headers squished and filters oversized
+    const baseFontSize = mobile ? 10 : tablet ? 11 : 12;
     
     const style = document.createElement('style');
     style.setAttribute('data-source', 'github-baseball-full');
     style.setAttribute('data-table-styles', 'github');
     style.textContent = `
         /* ===================================
-           BASEBALL TABLE STYLES - FIXED
-           Headers wrap at word boundaries
-           Center-justified via CSS
-           Data cells single-line
-           Desktop-only vertical scrollbar (high specificity to counter Webflow)
-           Sort arrow padding to prevent overlap
-           Multi-select button font size override
-           Larger placeholder text for loading state
-           Scrollbar corner fix for red notch
+           BASEBALL TABLE STYLES
+           Matches NBA basketball-props patterns:
+           - Desktop 12px font (same as NBA)
+           - Headers wrap at word boundaries
+           - Center-justified via CSS
+           - Data cells single-line with ellipsis
+           - Desktop vertical scrollbar with Webflow counter
+           - Grey overlay above scrollbar (no red notch)
+           - 24px placeholder text for loading visibility
            =================================== */
         
-        /* GLOBAL FONT SIZE - Responsive */
+        /* GLOBAL FONT SIZE - Responsive (matches NBA: 10/11/12) */
         .tabulator, .tabulator *, .subrow-container, .subrow-container *,
         .tabulator-table, .tabulator-table *, .tabulator-header, .tabulator-header *,
         .tabulator-row, .tabulator-row *, .tabulator-cell, .tabulator-cell * {
@@ -347,6 +396,7 @@ function injectFullStyles() {
             line-height: 1.3 !important;
         }
         
+        /* Base table container */
         .table-container {
             width: 100%; max-width: 100%; margin: 0 auto; position: relative;
             background: #e8e8e8; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; overflow: visible;
@@ -365,7 +415,7 @@ function injectFullStyles() {
             background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
             color: white;
             font-weight: 600;
-            overflow: hidden !important;
+            position: relative !important;
         }
         
         .tabulator-col {
@@ -373,15 +423,10 @@ function injectFullStyles() {
             border-right: 1px solid rgba(255,255,255,0.2);
         }
         
-        /* FIX: Header title - increased right padding to 14px for sort arrow clearance */
+        /* Header title - wrap at word boundaries, CENTER-JUSTIFIED */
         .tabulator-col-title {
             white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important;
             text-align: center !important; display: flex !important; align-items: center !important; justify-content: center !important;
-            padding: 4px 14px 4px 2px !important;
-        }
-        
-        /* Columns with no sort don't need extra right padding */
-        .tabulator-col:not(.tabulator-sortable) .tabulator-col-title {
             padding: 4px 2px !important;
         }
         
@@ -408,7 +453,9 @@ function injectFullStyles() {
             text-overflow: ellipsis !important;
         }
         
-        /* Scrollbar styles - Desktop only */
+        /* =====================================================
+           SCROLLBAR STYLES - Desktop only
+           ===================================================== */
         @media screen and (min-width: 1025px) {
             .tabulator .tabulator-tableholder::-webkit-scrollbar {
                 width: 16px !important;
@@ -426,7 +473,6 @@ function injectFullStyles() {
             .tabulator .tabulator-tableholder::-webkit-scrollbar-thumb:hover {
                 background: #991b1b;
             }
-            /* FIX: Scrollbar corner - prevent red notch from header gradient */
             .tabulator .tabulator-tableholder::-webkit-scrollbar-corner {
                 background: #e8e8e8;
             }
@@ -434,6 +480,22 @@ function injectFullStyles() {
             .tabulator .tabulator-tableholder {
                 scrollbar-width: auto;
                 scrollbar-color: #b91c1c #f1f1f1;
+            }
+            
+            /* FIX: Grey overlay above scrollbar to hide red header gradient bleed.
+               The header extends the full width of .tabulator including the 17px scrollbar
+               gutter. This pseudo-element covers that area so the red gradient doesn't
+               show as a colored notch above the scrollbar track. */
+            .tabulator .tabulator-header::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 17px;
+                height: 100%;
+                background: #e8e8e8;
+                z-index: 50;
+                pointer-events: none;
             }
         }
         
@@ -445,7 +507,9 @@ function injectFullStyles() {
             }
         }
         
-        /* Dropdown filter styles - ABOVE the table */
+        /* =====================================================
+           DROPDOWN FILTER STYLES - opens ABOVE the table
+           ===================================================== */
         .custom-multiselect-dropdown,
         [id^="dropdown_"] {
             z-index: 2147483647 !important;
@@ -474,7 +538,9 @@ function injectFullStyles() {
             color: #333;
         }
         
-        /* Min/Max filter - MUST stack vertically */
+        /* =====================================================
+           MIN/MAX FILTER - stacked vertically
+           ===================================================== */
         .min-max-filter-container,
         .tabulator .min-max-filter-container,
         .tabulator-header-filter .min-max-filter-container {
@@ -501,7 +567,6 @@ function injectFullStyles() {
             appearance: none !important;
         }
         
-        /* Hide number input arrows */
         .min-max-input::-webkit-outer-spin-button,
         .min-max-input::-webkit-inner-spin-button {
             -webkit-appearance: none !important;
@@ -514,7 +579,9 @@ function injectFullStyles() {
             box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.2) !important;
         }
         
-        /* Expandable row styling */
+        /* =====================================================
+           EXPANDABLE ROW / SUBTABLE Styles
+           ===================================================== */
         .subrow-container {
             background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
             border-top: 2px solid #b91c1c !important;
@@ -525,7 +592,9 @@ function injectFullStyles() {
             transition: transform 0.2s ease;
         }
         
-        /* Header text filter input styling */
+        /* =====================================================
+           HEADER FILTER INPUT
+           ===================================================== */
         .tabulator-header-filter input[type="search"],
         .tabulator-header-filter input[type="text"] {
             width: 100% !important;
@@ -536,7 +605,7 @@ function injectFullStyles() {
             box-sizing: border-box !important;
         }
         
-        /* FIX: Bankroll input text size (global .tabulator * override makes it too large) */
+        /* FIX: Bankroll input text size */
         .tabulator .bankroll-input {
             font-size: 9px !important;
         }
@@ -544,19 +613,16 @@ function injectFullStyles() {
             font-size: 9px !important;
         }
         
-        /* FIX: Placeholder styling - enlarged for loading state visibility */
+        /* FIX: Placeholder text - large and visible during loading state */
         .tabulator .tabulator-placeholder span {
-            font-size: 20px !important;
+            font-size: 24px !important;
             color: #999 !important;
             font-style: italic !important;
         }
         
         /* =====================================================
-           CRITICAL FIX: Standalone header vertical alignment
-           On mobile/tablet, columns without parent groups (Name, Team)
-           need to be top-aligned and fill full header height
+           STANDALONE HEADER VERTICAL ALIGNMENT
            ===================================================== */
-        
         @media screen and (max-width: 1024px) {
             .tabulator-header {
                 display: flex !important;
@@ -568,12 +634,10 @@ function injectFullStyles() {
                 padding-top: 4px !important;
             }
             
-            /* Frozen columns should have solid background to hide content scrolling behind */
             .tabulator-header .tabulator-frozen {
                 background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
                 z-index: 100 !important;
             }
-            
             .tabulator-header .tabulator-col.tabulator-frozen {
                 background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
             }
@@ -597,14 +661,36 @@ function injectFullStyles() {
                 max-width: 35px !important;
             }
             
-            /* Reduce container padding */
-            .subrow-container {
-                padding: 4px 2px !important;
-                gap: 4px !important;
-            }
+            .subrow-container { padding: 8px 10px !important; }
+            .subrow-container > div { gap: 6px !important; }
+            .subrow-container > div > div { padding: 8px !important; min-width: unset !important; }
+            .subrow-container h4 { font-size: 11px !important; margin: 0 0 4px 0 !important; }
+            .subrow-container div > div > div { font-size: 10px !important; margin-bottom: 2px !important; }
+            .subtable-scroll-wrapper { gap: 8px !important; max-height: 350px !important; }
         }
         
-        /* Desktop: Ensure table fits in browser width with grey background */
+        @media screen and (min-width: 769px) and (max-width: 1024px) {
+            .subrow-container { padding: 10px 15px !important; }
+            .subrow-container > div { gap: 10px !important; }
+            .subrow-container > div > div { padding: 10px !important; }
+            .subrow-container h4 { font-size: 12px !important; }
+            .subrow-container div > div > div { font-size: 11px !important; }
+            .subtable-scroll-wrapper { gap: 10px !important; }
+        }
+        
+        .subrow-container > div[style*="flex"] {
+            flex-wrap: nowrap !important; overflow-x: auto !important;
+        }
+        
+        /* Base overflow for tableholder */
+        .tabulator .tabulator-tableholder {
+            overflow-y: auto !important;
+            overflow-x: auto !important;
+        }
+        
+        /* =====================================================
+           DESKTOP LAYOUT
+           ===================================================== */
         @media screen and (min-width: 1025px) {
             .tabulator {
                 width: 100% !important;
@@ -630,10 +716,7 @@ function injectFullStyles() {
         
         /* =====================================================
            MOBILE FROZEN COLUMN FIX
-           Constrain BOTH container AND tabulator width so 
-           tableholder becomes the scroll container.
            ===================================================== */
-        
         @media screen and (max-width: 1024px) {
             .table-container {
                 width: 100% !important;
@@ -679,5 +762,5 @@ function injectFullStyles() {
         }
     `;
     document.head.appendChild(style);
-    console.log('Baseball full styles injected with scrollbar, sort arrow, multi-select, placeholder, and corner fixes');
+    console.log('Baseball full styles injected');
 }
