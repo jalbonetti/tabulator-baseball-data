@@ -14,7 +14,7 @@ export class PitcherOddsTable extends BaseTable {
     constructor(elementId) {
         super(elementId, 'BaseballPitcherPropOdds');
         this.teamAbbrevMap = TEAM_NAME_MAP;
-        this.propAbbrevMap = { 'Strikeouts': 'K', 'Hits Allowed': 'HA', 'Walks Allowed': 'BBA', 'Earned Runs': 'ER', 'Outs Recorded': 'Outs', 'Pitching Outs': 'Outs' };
+        this.propAbbrevMap = { 'Strikeouts': 'K', 'Hits Allowed': 'Hits', 'Walks': 'BB', 'Earned Runs': 'ER', 'Outs Recorded': 'Outs', 'Pitching Outs': 'Outs', 'Record a Win': 'Win' };
     }
 
     abbreviateMatchup(matchup) {
