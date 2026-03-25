@@ -1,5 +1,8 @@
 // components/minMaxFilter.js - Min/Max Range Filter for Tabulator
 // Compact dual-input filter for numeric columns (prop values, odds)
+//
+// FIX APPLIED: Removed -moz-appearance: textfield, -webkit-appearance: none,
+//   and appearance: none from inline styles so number input spinners (up/down arrows) are visible.
 
 export function createMinMaxFilter(cell, onRendered, success, cancel, editorParams = {}) {
     const maxWidth = editorParams.maxWidth || 45;
@@ -15,6 +18,7 @@ export function createMinMaxFilter(cell, onRendered, success, cancel, editorPara
         margin: 0 auto;
     `;
     
+    // FIXED: Removed -moz-appearance, -webkit-appearance, appearance to keep spinners visible
     const inputStyle = `
         width: 100%;
         padding: 2px 3px;
@@ -23,9 +27,6 @@ export function createMinMaxFilter(cell, onRendered, success, cancel, editorPara
         border-radius: 2px;
         text-align: center;
         box-sizing: border-box;
-        -moz-appearance: textfield;
-        -webkit-appearance: none;
-        appearance: none;
     `;
     
     const minInput = document.createElement('input');
@@ -52,36 +53,21 @@ export function createMinMaxFilter(cell, onRendered, success, cancel, editorPara
             const maxVal = maxInput.value !== '' ? parseFloat(maxInput.value) : null;
             
             if (minVal === null && maxVal === null) {
-                success(null);
+                success('');
             } else {
                 success({ min: minVal, max: maxVal });
             }
         }, 300);
     }
     
-    [minInput, maxInput].forEach(input => {
-        input.addEventListener('change', applyFilter);
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                applyFilter();
-            }
-            if (e.key === 'Escape') {
-                minInput.value = '';
-                maxInput.value = '';
-                success(null);
-            }
-        });
-        
-        input.addEventListener('focus', function() {
-            this.style.borderColor = '#b91c1c';
-            this.style.boxShadow = '0 0 0 1px rgba(185, 28, 28, 0.2)';
-        });
-        
-        input.addEventListener('blur', function() {
-            this.style.borderColor = '#ccc';
-            this.style.boxShadow = 'none';
-        });
-    });
+    minInput.addEventListener('change', applyFilter);
+    minInput.addEventListener('input', applyFilter);
+    maxInput.addEventListener('change', applyFilter);
+    maxInput.addEventListener('input', applyFilter);
+    
+    // Prevent sort trigger on click
+    minInput.addEventListener('click', (e) => { e.stopPropagation(); });
+    maxInput.addEventListener('click', (e) => { e.stopPropagation(); });
     
     container.appendChild(minInput);
     container.appendChild(maxInput);
@@ -90,42 +76,26 @@ export function createMinMaxFilter(cell, onRendered, success, cancel, editorPara
 }
 
 export function minMaxFilterFunction(headerValue, rowValue, rowData, filterParams) {
-    if (!headerValue || (headerValue.min === null && headerValue.max === null)) {
+    if (!headerValue || headerValue === '') return true;
+    
+    if (typeof headerValue === 'object' && headerValue !== null) {
+        const { min, max } = headerValue;
+        
+        if (rowValue === null || rowValue === undefined || rowValue === '' || rowValue === '-') {
+            return false;
+        }
+        
+        const numValue = parseFloat(String(rowValue).replace(/[+$%,]/g, ''));
+        
+        if (isNaN(numValue)) return false;
+        
+        if (min !== null && numValue < min) return false;
+        if (max !== null && numValue > max) return false;
+        
         return true;
-    }
-    
-    let numValue;
-    
-    if (rowValue === null || rowValue === undefined || rowValue === '' || rowValue === '-') {
-        return false;
-    }
-    
-    const strValue = String(rowValue).trim();
-    
-    if (strValue.startsWith('+') || strValue.startsWith('-')) {
-        numValue = parseFloat(strValue);
-    } else {
-        numValue = parseFloat(strValue);
-    }
-    
-    if (isNaN(numValue)) {
-        return false;
-    }
-    
-    const { min, max } = headerValue;
-    
-    if (min !== null && max !== null) {
-        return numValue >= min && numValue <= max;
-    } else if (min !== null) {
-        return numValue >= min;
-    } else if (max !== null) {
-        return numValue <= max;
     }
     
     return true;
 }
 
-export default {
-    createMinMaxFilter,
-    minMaxFilterFunction
-};
+export default { createMinMaxFilter, minMaxFilterFunction };
