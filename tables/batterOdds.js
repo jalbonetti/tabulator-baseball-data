@@ -1,14 +1,20 @@
 // tables/batterOdds.js - Baseball Batter Prop Odds Table
-// Modeled exactly on NBA basketPlayerPropOdds.js
+// Modeled exactly on NBA basketPlayerPropOdds.js / CBB cbbPlayerPropOdds.js
 // Supabase: BaseballBatterPropOdds
 // All columns are TEXT type - sorters parse strings
 // EV% and Kelly% stored as decimals (0.052 = 5.2%), multiply by 100 for display
+//
+// FIXES APPLIED:
+//   1. ...this.tableConfig → ...this.getBaseConfig()  (provides AJAX config so data loads)
+//   2. Added injectContainerStyles('table0-container') in initialize()
+//   3. Font measurement 14px → 12px in scanDataForMaxWidths/equalizeClusteredColumns (matches display font)
 
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { createMinMaxFilter, minMaxFilterFunction } from '../components/minMaxFilter.js';
 import { createBankrollInput, bankrollFilterFunction, getBankrollValue } from '../components/bankrollInput.js';
 import { isMobile, isTablet, TEAM_NAME_MAP } from '../shared/config.js';
+import { injectContainerStyles } from '../styles/tableStyles.js';
 
 const NAME_COLUMN_MIN_WIDTH = 205;
 const EV_KELLY_COLUMN_MIN_WIDTH = 75;
@@ -17,10 +23,8 @@ export class BatterOddsTable extends BaseTable {
     constructor(elementId) {
         super(elementId, 'BaseballBatterPropOdds');
         
-        // Team abbreviation map (full name -> abbreviation) for matchup formatting
         this.teamAbbrevMap = TEAM_NAME_MAP;
         
-        // Prop type abbreviation mapping for baseball
         this.propAbbrevMap = {
             'Hits + Runs + RBIs': 'H+R+RBI',
             'Total Bases': 'TB',
@@ -49,24 +53,20 @@ export class BatterOddsTable extends BaseTable {
     }
 
     initialize() {
+        // FIXED: Inject ID-scoped container styles for scrollbar, placeholder, filter fonts
+        injectContainerStyles('table0-container');
+        
         const mobile = isMobile();
         const tablet = isTablet();
         const isSmallScreen = mobile || tablet;
         
+        // FIXED: Use this.getBaseConfig() instead of this.tableConfig
+        const baseConfig = this.getBaseConfig();
+        
         const config = {
-            ...this.tableConfig,
-            virtualDom: true,
-            virtualDomBuffer: 500,
-            renderVertical: "virtual",
-            renderHorizontal: "basic",
-            pagination: false,
-            layoutColumnsOnNewData: false,
-            responsiveLayout: false,
-            maxHeight: "600px",
-            height: "600px",
+            ...baseConfig,
             placeholder: "Loading batter prop odds...",
             layout: "fitData",
-            
             columns: this.getColumns(isSmallScreen),
             initialSort: [
                 {column: "EV %", dir: "desc"}
@@ -91,7 +91,6 @@ export class BatterOddsTable extends BaseTable {
         this.table.on("tableBuilt", () => {
             console.log("Batter Odds table built");
             
-            // Width calculations for all devices
             setTimeout(() => {
                 const data = this.table ? this.table.getData() : [];
                 if (data.length > 0) {
@@ -101,8 +100,28 @@ export class BatterOddsTable extends BaseTable {
                         this.calculateAndApplyWidths();
                     }
                 } else {
-                    // Even with no data, constrain the table width on desktop
                     if (!isMobile() && !isTablet()) {
+                        this.calculateAndApplyWidths();
+                    }
+                }
+                this.ensureNameColumnWidth();
+            }, 200);
+            
+            window.addEventListener('resize', this.debounce(() => {
+                if (this.table && this.table.getDataCount() > 0 && !isMobile() && !isTablet()) {
+                    this.calculateAndApplyWidths();
+                    this.ensureNameColumnWidth();
+                }
+            }, 250));
+        });
+        
+        this.table.on("dataLoaded", () => {
+            setTimeout(() => {
+                const data = this.table ? this.table.getData() : [];
+                if (data.length > 0) {
+                    this.scanDataForMaxWidths(data);
+                    if (!isMobile() && !isTablet()) {
+                        this.equalizeClusteredColumns();
                         this.calculateAndApplyWidths();
                     }
                 }
@@ -111,28 +130,17 @@ export class BatterOddsTable extends BaseTable {
         });
         
         this.table.on("renderComplete", () => {
-            // Recalculate widths after render (handles tab switching) - desktop only
             if (!isMobile() && !isTablet()) {
                 setTimeout(() => {
                     this.calculateAndApplyWidths();
                 }, 100);
             }
-            // Always ensure Name column meets minimum width
             setTimeout(() => {
                 this.ensureNameColumnWidth();
             }, 50);
         });
-        
-        // Handle window resize
-        window.addEventListener('resize', this.debounce(() => {
-            if (this.table && this.table.getDataCount() > 0 && !isMobile() && !isTablet()) {
-                this.calculateAndApplyWidths();
-                this.ensureNameColumnWidth();
-            }
-        }, 250));
     }
 
-    // Force recalculation - called by TabManager on tab switch
     forceRecalculateWidths() {
         if (!this.table) return;
         const data = this.table ? this.table.getData() : [];
@@ -144,7 +152,6 @@ export class BatterOddsTable extends BaseTable {
         this.ensureNameColumnWidth();
     }
 
-    // Debounce helper
     debounce(func, wait) {
         let timeout;
         return (...args) => {
@@ -153,7 +160,6 @@ export class BatterOddsTable extends BaseTable {
         };
     }
 
-    // Ensure Name column maintains minimum width
     ensureNameColumnWidth() {
         if (!this.table) return;
         const nameColumn = this.table.getColumn("Batter Name");
@@ -165,7 +171,6 @@ export class BatterOddsTable extends BaseTable {
         }
     }
 
-    // Custom sorter for odds with +/- prefix (all stored as text)
     oddsSorter(a, b) {
         const getNum = (val) => {
             if (val === null || val === undefined || val === '' || val === '-') return -99999;
@@ -175,7 +180,6 @@ export class BatterOddsTable extends BaseTable {
         return getNum(a) - getNum(b);
     }
 
-    // Custom sorter for percentage values stored as decimals
     percentSorter(a, b) {
         const getNum = (val) => {
             if (val === null || val === undefined || val === '' || val === '-') return -99999;
@@ -217,7 +221,6 @@ export class BatterOddsTable extends BaseTable {
             return self.abbreviateProp(value);
         };
 
-        // EV % formatter - decimal to percentage (0.052 -> 5.2%)
         const evFormatter = (cell) => {
             const value = cell.getValue();
             if (value === null || value === undefined || value === '' || value === '-') return '-';
@@ -227,7 +230,6 @@ export class BatterOddsTable extends BaseTable {
             return pct.toFixed(1) + '%';
         };
 
-        // Quarter Kelly % formatter - decimal to percentage OR monetary amount
         const kellyFormatter = (cell) => {
             const value = cell.getValue();
             if (value === null || value === undefined || value === '' || value === '-') return '-';
@@ -237,7 +239,6 @@ export class BatterOddsTable extends BaseTable {
             const bankroll = getBankrollValue('Quarter Kelly %');
             
             if (bankroll > 0) {
-                // num is decimal (0.035), multiply by bankroll for dollar amount
                 const amount = num * bankroll;
                 return '$' + amount.toFixed(2);
             } else {
@@ -259,185 +260,35 @@ export class BatterOddsTable extends BaseTable {
         };
 
         return [
-            {
-                title: "Name", 
-                field: "Batter Name", 
-                frozen: true,
-                widthGrow: 0,
-                minWidth: NAME_COLUMN_MIN_WIDTH,
-                sorter: "string", 
-                headerFilter: true,
-                resizable: false,
-                hozAlign: "left"
-            },
-            {
-                title: "Matchup", 
-                field: "Batter Matchup", 
-                widthGrow: 0,
-                minWidth: 90,
-                sorter: "string",
-                headerFilter: createCustomMultiSelect,
-                resizable: false,
-                hozAlign: "center",
-                formatter: matchupFormatter
-            },
-            {
-                title: "Team", 
-                field: "Batter Team", 
-                widthGrow: 0,
-                minWidth: 55,
-                sorter: "string", 
-                headerFilter: createCustomMultiSelect,
-                resizable: false,
-                hozAlign: "center"
-            },
-            {
-                title: "Prop", 
-                field: "Batter Prop Type", 
-                widthGrow: 0,
-                minWidth: 65,
-                sorter: "string", 
-                headerFilter: createCustomMultiSelect,
-                resizable: false,
-                hozAlign: "center",
-                formatter: propFormatter
-            },
-            {
-                title: "Label", 
-                field: "Batter Over/Under", 
-                widthGrow: 0,
-                minWidth: 60,
-                sorter: "string", 
-                headerFilter: createCustomMultiSelect,
-                resizable: false,
-                hozAlign: "center"
-            },
-            {
-                title: "Line", 
-                field: "Batter Prop Line", 
-                widthGrow: 0,
-                minWidth: 55,
-                sorter: function(a, b) { return self.oddsSorter(a, b); },
-                headerFilter: createCustomMultiSelect,
-                resizable: false,
-                hozAlign: "center",
-                formatter: lineFormatter
-            },
-            {
-                title: "Book", 
-                field: "Batter Book", 
-                widthGrow: 0,
-                minWidth: 70,
-                sorter: "string", 
-                headerFilter: createCustomMultiSelect,
-                resizable: false,
-                hozAlign: "center"
-            },
-            {
-                title: "Book Odds", 
-                field: "Batter Prop Odds", 
-                widthGrow: 0,
-                minWidth: 85,
-                sorter: function(a, b) { return self.oddsSorter(a, b); },
-                headerFilter: createMinMaxFilter,
-                headerFilterFunc: minMaxFilterFunction,
-                headerFilterLiveFilter: false,
-                resizable: false,
-                formatter: oddsFormatter,
-                hozAlign: "center",
-                cssClass: "cluster-odds"
-            },
-            {
-                title: "Median Odds", 
-                field: "Batter Median Odds", 
-                widthGrow: 0,
-                minWidth: 100,
-                sorter: function(a, b) { return self.oddsSorter(a, b); },
-                headerFilter: createMinMaxFilter,
-                headerFilterFunc: minMaxFilterFunction,
-                headerFilterLiveFilter: false,
-                resizable: false,
-                formatter: oddsFormatter,
-                hozAlign: "center",
-                cssClass: "cluster-odds"
-            },
-            {
-                title: "Best Odds", 
-                field: "Batter Best Odds", 
-                widthGrow: 0,
-                minWidth: 85,
-                sorter: function(a, b) { return self.oddsSorter(a, b); },
-                headerFilter: createMinMaxFilter,
-                headerFilterFunc: minMaxFilterFunction,
-                headerFilterLiveFilter: false,
-                resizable: false,
-                formatter: oddsFormatter,
-                hozAlign: "center",
-                cssClass: "cluster-odds"
-            },
-            {
-                title: "Best Books", 
-                field: "Batter Best Odds Books", 
-                widthGrow: 0,
-                minWidth: 90,
-                sorter: "string",
-                resizable: false,
-                hozAlign: "center"
-            },
-            {
-                title: "EV %", 
-                field: "EV %", 
-                widthGrow: 0,
-                minWidth: EV_KELLY_COLUMN_MIN_WIDTH,
-                sorter: function(a, b) { return self.percentSorter(a, b); },
-                resizable: false,
-                formatter: evFormatter,
-                hozAlign: "center",
-                cssClass: "cluster-ev-kelly"
-            },
-            {
-                title: "Bet Size", 
-                field: "Quarter Kelly %", 
-                widthGrow: 0,
-                minWidth: EV_KELLY_COLUMN_MIN_WIDTH,
-                sorter: function(a, b) { return self.percentSorter(a, b); },
-                headerFilter: createBankrollInput,
-                headerFilterFunc: bankrollFilterFunction,
-                headerFilterLiveFilter: false,
-                resizable: false,
-                formatter: kellyFormatter,
-                hozAlign: "center",
-                cssClass: "cluster-ev-kelly"
-            },
-            {
-                title: "Link", 
-                field: "Link", 
-                width: 50,
-                widthGrow: 0,
-                minWidth: 40,
-                maxWidth: 50,
-                sorter: "string",
-                resizable: false,
-                hozAlign: "center",
-                formatter: linkFormatter,
-                headerSort: false
-            }
+            { title: "Name", field: "Batter Name", frozen: true, widthGrow: 0, minWidth: NAME_COLUMN_MIN_WIDTH, sorter: "string", headerFilter: true, resizable: false, hozAlign: "left" },
+            { title: "Matchup", field: "Batter Matchup", widthGrow: 0, minWidth: 90, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center", formatter: matchupFormatter },
+            { title: "Team", field: "Batter Team", widthGrow: 0, minWidth: 55, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
+            { title: "Prop", field: "Batter Prop Type", widthGrow: 0, minWidth: 65, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center", formatter: propFormatter },
+            { title: "Label", field: "Batter Over/Under", widthGrow: 0, minWidth: 60, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
+            { title: "Line", field: "Batter Prop Line", widthGrow: 0, minWidth: 60, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center", formatter: lineFormatter },
+            { title: "Book", field: "Batter Book", widthGrow: 0, minWidth: 70, sorter: "string", headerFilter: createCustomMultiSelect, resizable: false, hozAlign: "center" },
+            { title: "Book Odds", field: "Batter Prop Odds", widthGrow: 0, minWidth: 85, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
+            { title: "Median Odds", field: "Batter Median Odds", widthGrow: 0, minWidth: 85, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
+            { title: "Best Odds", field: "Batter Best Odds", widthGrow: 0, minWidth: 85, sorter: function(a, b) { return self.oddsSorter(a, b); }, headerFilter: createMinMaxFilter, headerFilterFunc: minMaxFilterFunction, headerFilterLiveFilter: false, resizable: false, formatter: oddsFormatter, hozAlign: "center", cssClass: "cluster-odds" },
+            { title: "Best Books", field: "Batter Best Odds Books", widthGrow: 0, minWidth: 90, sorter: "string", resizable: false, hozAlign: "center" },
+            { title: "EV %", field: "EV %", widthGrow: 0, minWidth: EV_KELLY_COLUMN_MIN_WIDTH, sorter: function(a, b) { return self.percentSorter(a, b); }, resizable: false, formatter: evFormatter, hozAlign: "center", cssClass: "cluster-ev-kelly" },
+            { title: "Bet Size", field: "Quarter Kelly %", widthGrow: 0, minWidth: EV_KELLY_COLUMN_MIN_WIDTH, sorter: function(a, b) { return self.percentSorter(a, b); }, headerFilter: createBankrollInput, headerFilterFunc: bankrollFilterFunction, headerFilterLiveFilter: false, headerFilterParams: { bankrollKey: 'Quarter Kelly %' }, resizable: false, formatter: kellyFormatter, hozAlign: "center", cssClass: "cluster-ev-kelly" },
+            { title: "Link", field: "Link", width: 50, widthGrow: 0, minWidth: 40, maxWidth: 50, sorter: "string", resizable: false, hozAlign: "center", formatter: linkFormatter, headerSort: false }
         ];
     }
 
-    // Equalize clustered column widths
     equalizeClusteredColumns() {
         if (!this.table) return;
         if (isMobile() || isTablet()) return;
         
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        // FIXED: 14px → 12px to match actual display font size
+        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         
         const CELL_PADDING = 16;
         const SORT_ICON_WIDTH = 20;
         
-        // Group 1: Odds columns
         const oddsCluster = ['Batter Prop Odds', 'Batter Median Odds', 'Batter Best Odds'];
         let maxOddsWidth = 0;
         
@@ -463,9 +314,8 @@ export class BatterOddsTable extends BaseTable {
             console.log(`Batter Odds cluster equalized to ${Math.ceil(maxOddsWidth)}px`);
         }
         
-        // Group 2: EV/Kelly columns
         const evKellyCluster = ['EV %', 'Quarter Kelly %'];
-        let maxEvKellyWidth = 0;
+        let maxEvKellyWidth = EV_KELLY_COLUMN_MIN_WIDTH;
         
         evKellyCluster.forEach(field => {
             const column = this.table.getColumn(field);
@@ -490,7 +340,6 @@ export class BatterOddsTable extends BaseTable {
         }
     }
 
-    // Scan data for max column widths (virtual scroll safety)
     scanDataForMaxWidths(data) {
         if (!data || data.length === 0 || !this.table) return;
         
@@ -506,8 +355,8 @@ export class BatterOddsTable extends BaseTable {
             "Batter Over/Under": 0
         };
         
-        // Measure header widths first
-        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        // FIXED: 14px → 12px to match actual display font size
+        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const HEADER_PADDING = 16;
         const SORT_ICON_WIDTH = 16;
         
@@ -526,8 +375,8 @@ export class BatterOddsTable extends BaseTable {
             maxWidths[field] = headerWidth;
         });
         
-        // Measure data widths
-        ctx.font = '500 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        // FIXED: 14px → 12px to match actual display font size
+        ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         
         data.forEach(row => {
             Object.keys(maxWidths).forEach(field => {
@@ -568,7 +417,6 @@ export class BatterOddsTable extends BaseTable {
         console.log('Batter Odds max width scan complete');
     }
 
-    // Calculate and apply table widths
     calculateAndApplyWidths() {
         if (!this.table) return;
         
@@ -589,46 +437,29 @@ export class BatterOddsTable extends BaseTable {
             return;
         }
         
-        // Desktop: constrain to content width
-        tableElement.style.width = 'auto';
-        tableElement.style.minWidth = 'auto';
-        tableElement.style.maxWidth = 'none';
-        
-        const tableHolder = tableElement.querySelector('.tabulator-tableholder');
-        if (tableHolder) {
-            tableHolder.style.width = 'auto';
-            tableHolder.style.maxWidth = 'none';
-        }
-        
-        const tabulatorTable = tableElement.querySelector('.tabulator-table');
-        if (tabulatorTable) tabulatorTable.style.width = 'auto';
-        
-        void tableElement.offsetWidth;
-        
         try {
-            const columns = this.table.getColumns();
-            let totalColumnWidth = 0;
+            const tableHolder = tableElement.querySelector('.tabulator-tableholder');
+            if (tableHolder) tableHolder.style.overflowY = 'scroll';
             
-            columns.forEach(col => {
-                totalColumnWidth += col.getWidth();
+            let totalColumnWidth = 0;
+            this.table.getColumns().forEach(col => {
+                if (col.isVisible()) totalColumnWidth += col.getWidth();
             });
             
             const SCROLLBAR_WIDTH = 17;
-            const totalWidthWithScrollbar = totalColumnWidth + SCROLLBAR_WIDTH;
+            const totalWidth = totalColumnWidth + SCROLLBAR_WIDTH;
             
-            tableElement.style.width = totalWidthWithScrollbar + 'px';
-            tableElement.style.minWidth = totalWidthWithScrollbar + 'px';
-            tableElement.style.maxWidth = totalWidthWithScrollbar + 'px';
+            tableElement.style.width = totalWidth + 'px';
+            tableElement.style.minWidth = totalWidth + 'px';
+            tableElement.style.maxWidth = totalWidth + 'px';
             
             if (tableHolder) {
-                tableHolder.style.width = totalWidthWithScrollbar + 'px';
-                tableHolder.style.maxWidth = totalWidthWithScrollbar + 'px';
+                tableHolder.style.width = totalWidth + 'px';
+                tableHolder.style.maxWidth = totalWidth + 'px';
             }
             
-            const tabulatorHeader = tableElement.querySelector('.tabulator-header');
-            if (tabulatorHeader) {
-                tabulatorHeader.style.width = totalWidthWithScrollbar + 'px';
-            }
+            const header = tableElement.querySelector('.tabulator-header');
+            if (header) header.style.width = totalWidth + 'px';
             
             const tableContainer = tableElement.closest('.table-container');
             if (tableContainer) {
@@ -637,9 +468,13 @@ export class BatterOddsTable extends BaseTable {
                 tableContainer.style.maxWidth = 'none';
             }
             
-            console.log(`Batter Odds table width: ${totalWidthWithScrollbar}px`);
+            console.log(`Batter Odds: Set width to ${totalWidth}px (columns: ${totalColumnWidth}px + scrollbar: ${SCROLLBAR_WIDTH}px)`);
         } catch (error) {
-            console.error('Error in calculateAndApplyWidths:', error);
+            console.error('Batter Odds calculateAndApplyWidths error:', error);
         }
+    }
+
+    expandNameColumnToFill() {
+        this.calculateAndApplyWidths();
     }
 }
