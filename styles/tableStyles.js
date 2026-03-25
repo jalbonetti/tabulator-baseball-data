@@ -3,8 +3,11 @@
 //
 // KEY FIX: Added injectContainerStyles() export — each table calls this with its
 // container ID to inject ID-scoped CSS rules that beat Webflow's specificity.
-// This is the EXACT pattern used by NHL (nhlPlayerPropOdds._injectPropOddsStyles)
-// and CBB (cbbPlayerPropOdds) which work flawlessly on Webflow.
+//
+// FIX APPLIED: Removed all spinner-hiding CSS for .min-max-input
+//   (removed -moz-appearance: textfield, -webkit-appearance: none, appearance: none,
+//    and the ::-webkit-outer-spin-button / ::-webkit-inner-spin-button pseudo-element rules)
+//   so that number input up/down arrows are visible.
 
 import { isMobile, isTablet, getDeviceScale } from '../shared/config.js';
 
@@ -21,13 +24,6 @@ export function injectStyles() {
 /**
  * Inject container-ID-scoped styles for a specific table.
  * Called from each table's initialize() method with the hardcoded container ID.
- * 
- * Uses #containerId selectors (specificity 1,0,X) which reliably beat
- * Webflow's class-based and universal rules. Same pattern as NHL's
- * _injectPropOddsStyles() and CBB's equivalent.
- * 
- * @param {string} containerId - The container element ID (e.g., 'table0-container')
- * @param {string} color - Theme color for scrollbar thumb (default: MLB red)
  */
 export function injectContainerStyles(containerId, color = '#b91c1c') {
     const styleId = `${containerId}-override-styles`;
@@ -100,28 +96,11 @@ export function injectContainerStyles(containerId, color = '#b91c1c') {
                 scrollbar-width: thin !important;
                 scrollbar-color: ${color} #f1f1f1 !important;
             }
-
-            /* Grey overlay above scrollbar — hides red header gradient bleed (the "notch") */
-            #${containerId} .tabulator .tabulator-header {
-                position: relative !important;
-            }
-            #${containerId} .tabulator .tabulator-header::after {
-                content: '';
-                position: absolute;
-                top: 0;
-                right: 0;
-                width: 17px;
-                height: 100%;
-                background: #e8e8e8;
-                z-index: 50;
-                pointer-events: none;
-            }
         }
 
-        /* Mobile/tablet: constrain to viewport, frozen columns */
+        /* Mobile/tablet: horizontal scroll, thin scrollbar */
         @media screen and (max-width: 1024px) {
             #${containerId} {
-                width: 100% !important;
                 max-width: 100vw !important;
                 overflow-x: hidden !important;
             }
@@ -185,7 +164,6 @@ export function injectContainerStyles(containerId, color = '#b91c1c') {
 /**
  * Scrollbar fix with high-specificity selectors.
  * Generic fix that works alongside injectContainerStyles().
- * The container-scoped version has even higher specificity.
  */
 function injectScrollbarFix() {
     if (document.querySelector('style[data-source="scrollbar-fix"]')) {
@@ -267,7 +245,6 @@ function injectScrollbarFix() {
 function injectMinimalStyles() {
     const mobile = isMobile();
     const tablet = isTablet();
-    // Match NBA exactly: 10/11/12
     const baseFontSize = mobile ? 10 : tablet ? 11 : 12;
 
     const style = document.createElement('style');
@@ -315,8 +292,9 @@ function injectMinimalStyles() {
             text-overflow: ellipsis !important;
         }
 
-        /* Dropdown filters */
-        .custom-multiselect-dropdown, [id^="dropdown_"] {
+        /* Dropdown filters — position ABOVE table */
+        .custom-multiselect-dropdown,
+        [id^="dropdown_"] {
             z-index: 2147483647 !important;
             position: fixed !important;
             background: white !important;
@@ -325,9 +303,37 @@ function injectMinimalStyles() {
             box-shadow: 0 -4px 12px rgba(0,0,0,0.3) !important;
         }
 
-        /* Mobile/tablet header alignment */
+        /* DESKTOP: Grey background fills empty space */
+        @media screen and (min-width: 1025px) {
+            .table-container { background: #e8e8e8 !important; }
+            .table-wrapper { background: #e8e8e8 !important; }
+            .tabulator { background-color: #e8e8e8 !important; }
+            .tabulator .tabulator-tableholder {
+                background-color: #e8e8e8 !important;
+                overflow-y: scroll !important;
+                overflow-x: auto !important;
+            }
+        }
+
+        /* Standalone header alignment on mobile/tablet */
         @media screen and (max-width: 1024px) {
-            .tabulator-header { display: flex !important; align-items: stretch !important; }
+            .tabulator-header {
+                display: flex !important;
+                align-items: stretch !important;
+            }
+            .tabulator-header > .tabulator-headers > .tabulator-col {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+            .tabulator-col:not(.tabulator-col-group) > .tabulator-col-content {
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                align-items: center !important;
+                height: 100% !important;
+                padding-top: 8px !important;
+            }
             .tabulator-col:not(.tabulator-col-group) .tabulator-col-title {
                 text-align: center !important;
                 padding-top: 4px !important;
@@ -339,53 +345,41 @@ function injectMinimalStyles() {
             .tabulator-header .tabulator-col.tabulator-frozen {
                 background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
             }
+            .tabulator .tabulator-tableholder::-webkit-scrollbar {
+                width: 4px !important;
+                height: 4px !important;
+            }
         }
 
-        .subrow-container {
-            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
-            border-top: 2px solid #b91c1c !important;
+        /* Min/Max filter layout — FIXED: No spinner-hiding rules */
+        .min-max-filter-container,
+        .tabulator .min-max-filter-container,
+        .tabulator-header .min-max-filter-container,
+        .tabulator-header-filter .min-max-filter-container {
+            display: flex !important;
+            flex-direction: column !important;
+            flex-wrap: nowrap !important;
+            gap: 2px !important;
+            max-width: 45px !important;
+            margin: 0 auto !important;
         }
-
-        /* Min/Max filter */
-        .min-max-filter-container {
-            display: flex !important; flex-direction: column !important; flex-wrap: nowrap !important;
-            gap: 2px !important; max-width: 45px !important; margin: 0 auto !important;
-        }
-        .min-max-input, .min-max-filter-container > input {
-            width: 100% !important; flex-shrink: 0 !important; padding: 2px 3px !important;
-            font-size: 9px !important; border: 1px solid #ccc !important; border-radius: 2px !important;
-            text-align: center !important; box-sizing: border-box !important;
-            -moz-appearance: textfield !important; -webkit-appearance: none !important;
-        }
-        .min-max-input::-webkit-outer-spin-button, .min-max-input::-webkit-inner-spin-button {
-            -webkit-appearance: none !important; margin: 0 !important;
+        .min-max-input,
+        .min-max-filter-container > input {
+            width: 100% !important;
+            flex-shrink: 0 !important;
+            padding: 2px 3px !important;
+            font-size: 9px !important;
+            border: 1px solid #ccc !important;
+            border-radius: 2px !important;
+            text-align: center !important;
+            box-sizing: border-box !important;
         }
         .min-max-input:focus {
-            outline: none !important; border-color: #b91c1c !important;
+            outline: none !important;
+            border-color: #b91c1c !important;
             box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.2) !important;
         }
 
-        .expand-icon { cursor: pointer; transition: transform 0.2s ease; }
-
-        .tabulator .tabulator-tableholder {
-            overflow-y: auto !important; overflow-x: auto !important;
-        }
-
-        /* Frozen column support */
-        @media screen and (max-width: 1024px) {
-            .table-container { width: 100% !important; max-width: 100vw !important; overflow-x: hidden !important; }
-            .table-container .tabulator { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
-            .table-container .tabulator .tabulator-tableholder { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
-            .tabulator-row .tabulator-cell.tabulator-frozen { background: inherit !important; position: sticky !important; left: 0 !important; z-index: 10 !important; }
-            .tabulator-row.tabulator-row-even .tabulator-cell.tabulator-frozen { background: #fafafa !important; }
-            .tabulator-row.tabulator-row-odd .tabulator-cell.tabulator-frozen { background: #ffffff !important; }
-            .tabulator-row:hover .tabulator-cell.tabulator-frozen { background: #fef2f2 !important; }
-            .tabulator-header .tabulator-col.tabulator-frozen { position: sticky !important; left: 0 !important; z-index: 101 !important; }
-        }
-
-        /* Fallback overrides (container-scoped versions take priority on Webflow) */
-        .tabulator .bankroll-input { font-size: 9px !important; }
-        .tabulator .bankroll-input-container span { font-size: 9px !important; }
         .tabulator .custom-multiselect-button { font-size: 11px !important; }
         .tabulator .tabulator-placeholder span {
             font-size: 24px !important; color: #999 !important; font-style: italic !important;
@@ -423,7 +417,6 @@ function injectFullStyles() {
     const mobile = isMobile();
     const tablet = isTablet();
     const scale = getDeviceScale();
-    // Match NBA exactly: 10/11/12
     const baseFontSize = mobile ? 10 : tablet ? 11 : 12;
 
     const style = document.createElement('style');
@@ -464,64 +457,72 @@ function injectFullStyles() {
 
         .tabulator-row { border-bottom: 1px solid #e8e8e8; min-height: 32px; }
         .tabulator-row:nth-child(even) { background-color: #fafafa; }
-        .tabulator-row:hover { background-color: #fef2f2 !important; }
-        .tabulator-row.row-expanded { background-color: #fef2f2 !important; }
+        .tabulator-row:hover { background-color: #fef2f2; }
 
         .tabulator-cell {
             padding: 6px 4px; border-right: 1px solid #f0f0f0;
             white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
         }
 
+        /* Scrollbar styles - Desktop only */
         @media screen and (min-width: 1025px) {
             .tabulator .tabulator-tableholder::-webkit-scrollbar { width: 16px !important; height: 16px !important; }
             .tabulator .tabulator-tableholder::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 8px; }
             .tabulator .tabulator-tableholder::-webkit-scrollbar-thumb { background: #b91c1c; border-radius: 8px; min-height: 50px; }
             .tabulator .tabulator-tableholder::-webkit-scrollbar-thumb:hover { background: #991b1b; }
-            .tabulator .tabulator-tableholder::-webkit-scrollbar-corner { background: #e8e8e8; }
             .tabulator .tabulator-tableholder { scrollbar-width: auto; scrollbar-color: #b91c1c #f1f1f1; }
         }
-        @media screen and (max-width: 1024px) {
-            .tabulator .tabulator-tableholder::-webkit-scrollbar { width: 4px !important; height: 4px !important; }
-        }
 
-        .custom-multiselect-dropdown, [id^="dropdown_"] {
+        /* Dropdown filter styles - ABOVE the table */
+        .custom-multiselect-dropdown,
+        [id^="dropdown_"] {
             z-index: 2147483647 !important; position: fixed !important; background: white !important;
             border: 1px solid #333 !important; border-radius: 4px !important;
             box-shadow: 0 -4px 12px rgba(0,0,0,0.3) !important;
         }
-        .custom-multiselect-button, .tabulator .custom-multiselect-button {
-            font-size: 11px !important;
-        }
 
-        .min-max-filter-container {
+        /* Min/Max filter layout — FIXED: No spinner-hiding rules */
+        .min-max-filter-container,
+        .tabulator .min-max-filter-container,
+        .tabulator-header .min-max-filter-container,
+        .tabulator-header-filter .min-max-filter-container {
             display: flex !important; flex-direction: column !important; flex-wrap: nowrap !important;
             gap: 2px !important; max-width: 45px !important; margin: 0 auto !important;
         }
-        .min-max-input, .min-max-filter-container > input {
-            width: 100% !important; flex-shrink: 0 !important; font-size: 9px !important; padding: 2px 3px !important;
-            border: 1px solid #ccc !important; border-radius: 2px !important; text-align: center !important;
-            box-sizing: border-box !important; -moz-appearance: textfield !important;
+        .min-max-input,
+        .min-max-filter-container > input {
+            width: 100% !important; flex-shrink: 0 !important; padding: 2px 3px !important;
+            font-size: 9px !important; border: 1px solid #ccc !important; border-radius: 2px !important;
+            text-align: center !important; box-sizing: border-box !important;
         }
-        .min-max-input::-webkit-outer-spin-button, .min-max-input::-webkit-inner-spin-button { -webkit-appearance: none !important; }
-        .min-max-input:focus { outline: none !important; border-color: #b91c1c !important; }
-
-        .subrow-container { background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important; border-top: 2px solid #b91c1c !important; }
-        .expand-icon { cursor: pointer; transition: transform 0.2s ease; }
-
-        .tabulator-header-filter input[type="search"], .tabulator-header-filter input[type="text"] {
-            width: 100% !important; padding: 4px 6px !important; font-size: 11px !important;
-            border: 1px solid #ccc !important; border-radius: 3px !important; box-sizing: border-box !important;
+        .min-max-input:focus {
+            outline: none !important; border-color: #b91c1c !important;
+            box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.2) !important;
         }
-        .tabulator .bankroll-input { font-size: 9px !important; }
-        .tabulator .bankroll-input-container span { font-size: 9px !important; }
-        .tabulator .tabulator-placeholder span { font-size: 24px !important; color: #999 !important; font-style: italic !important; }
 
+        /* Standalone header alignment on mobile/tablet */
         @media screen and (max-width: 1024px) {
             .tabulator-header { display: flex !important; align-items: stretch !important; }
-            .tabulator-col:not(.tabulator-col-group) .tabulator-col-title { text-align: center !important; padding-top: 4px !important; }
-            .tabulator-header .tabulator-frozen { background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important; z-index: 100 !important; }
+            .tabulator-header > .tabulator-headers > .tabulator-col {
+                display: flex !important; flex-direction: column !important; align-items: stretch !important;
+            }
+            .tabulator-col:not(.tabulator-col-group) > .tabulator-col-content {
+                display: flex !important; flex-direction: column !important; justify-content: flex-start !important;
+                align-items: center !important; height: 100% !important; padding-top: 8px !important;
+            }
+            .tabulator-col:not(.tabulator-col-group) .tabulator-col-title {
+                text-align: center !important; padding-top: 4px !important;
+            }
+            .tabulator-header .tabulator-frozen {
+                background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important; z-index: 100 !important;
+            }
+            .tabulator-header .tabulator-col.tabulator-frozen {
+                background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+            }
+            .tabulator .tabulator-tableholder::-webkit-scrollbar { width: 4px !important; height: 4px !important; }
         }
 
+        /* Mobile styles */
         @media screen and (max-width: 768px) {
             .tabulator-col, .tabulator-cell { padding: 2px 1px !important; }
             .min-max-input { font-size: 8px !important; padding: 1px 2px !important; }
@@ -547,6 +548,35 @@ function injectFullStyles() {
             .tabulator-row.tabulator-row-odd .tabulator-cell.tabulator-frozen { background: #ffffff !important; }
             .tabulator-row:hover .tabulator-cell.tabulator-frozen { background: #fef2f2 !important; }
             .tabulator-header .tabulator-col.tabulator-frozen { position: sticky !important; left: 0 !important; z-index: 101 !important; }
+        }
+
+        .tabulator .custom-multiselect-button { font-size: 11px !important; }
+        .tabulator .tabulator-placeholder span {
+            font-size: 24px !important; color: #999 !important; font-style: italic !important;
+        }
+        .tabulator-header-filter input[type="search"],
+        .tabulator-header-filter input[type="text"] {
+            width: 100% !important; padding: 4px 6px !important; font-size: 11px !important;
+            border: 1px solid #ccc !important; border-radius: 3px !important; box-sizing: border-box !important;
+        }
+
+        /* Mobile subtable compact layout */
+        @media screen and (max-width: 768px) {
+            .subrow-container { padding: 8px 10px !important; }
+            .subrow-container > div { gap: 6px !important; }
+            .subrow-container > div > div { padding: 8px !important; min-width: unset !important; }
+            .subrow-container h4 { font-size: 11px !important; margin: 0 0 4px 0 !important; }
+            .subtable-scroll-wrapper { gap: 8px !important; max-height: 350px !important; }
+        }
+        @media screen and (min-width: 769px) and (max-width: 1024px) {
+            .subrow-container { padding: 10px 15px !important; }
+            .subrow-container > div { gap: 10px !important; }
+            .subrow-container > div > div { padding: 10px !important; }
+            .subrow-container h4 { font-size: 12px !important; }
+            .subtable-scroll-wrapper { gap: 10px !important; }
+        }
+        .subrow-container > div[style*="flex"] {
+            flex-wrap: nowrap !important; overflow-x: auto !important;
         }
     `;
     document.head.appendChild(style);
