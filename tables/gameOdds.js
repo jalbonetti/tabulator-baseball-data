@@ -69,8 +69,8 @@ export class GameOddsTable extends BaseTable {
         const self = this;
         const oddsFormatter = (cell) => { const v = cell.getValue(); if (v == null || v === '' || v === '-') return '-'; const n = parseInt(v, 10); if (isNaN(n)) return '-'; return n > 0 ? `+${n}` : `${n}`; };
         const lineFormatter = (cell) => { const v = cell.getValue(); if (v == null || v === '') return ''; const n = parseFloat(v); if (isNaN(n)) return ''; return n.toFixed(1); };
-        const evFormatter = (cell) => { const v = cell.getValue(); if (v == null || v === '' || v === '-') return '-'; const n = parseFloat(v); if (isNaN(n)) return '-'; return n.toFixed(1) + '%'; };
-        const kellyFormatter = (cell) => { const v = cell.getValue(); if (v == null || v === '' || v === '-') return '-'; const n = parseFloat(v); if (isNaN(n)) return '-'; const b = getBankrollValue('Game Quarter Kelly %'); if (b > 0) return '$' + (n / 100 * b).toFixed(2); return n.toFixed(1) + '%'; };
+        const evFormatter = (cell) => { const v = cell.getValue(); if (v == null || v === '' || v === '-') return '-'; const n = parseFloat(v); if (isNaN(n)) return '-'; return (n * 100).toFixed(1) + '%'; };
+        const kellyFormatter = (cell) => { const v = cell.getValue(); if (v == null || v === '' || v === '-') return '-'; const n = parseFloat(v); if (isNaN(n)) return '-'; const b = getBankrollValue('Game Quarter Kelly %'); if (b > 0) return '$' + (n * b).toFixed(2); return (n * 100).toFixed(1) + '%'; };
         const matchupFormatter = (cell) => { const v = cell.getValue(); return v ? self.abbreviateMatchup(v) : '-'; };
         const linkFormatter = (cell) => { const v = cell.getValue(); if (!v || v === '-' || v === '') return '-'; const a = document.createElement('a'); a.href = v; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Bet'; a.style.cssText = 'color:#b91c1c;text-decoration:underline;font-weight:500;'; return a; };
 
@@ -109,7 +109,7 @@ export class GameOddsTable extends BaseTable {
         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
         ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const maxWidths = { "Game Matchup": 0, "Game Prop Type": 0, "Game Label": 0, "Game Book": 0, "Game Odds": 0, "Game Median Odds": 0, "Game Best Odds": 0, "Game Best Odds Books": 0, "EV %": 0, "Quarter Kelly %": 0, "Link": 0 };
-        data.forEach(row => { Object.keys(maxWidths).forEach(field => { const value = row[field]; if (value != null && value !== '') { let dv = String(value); if (field.includes('Odds') && field !== 'Game Best Odds Books') { const n = parseInt(value, 10); if (!isNaN(n)) dv = n > 0 ? `+${n}` : `${n}`; } if (field === 'EV %' || field === 'Quarter Kelly %') { const n = parseFloat(value); if (!isNaN(n)) dv = n.toFixed(1)+'%'; } if (field === 'Link') dv = 'Bet'; const w = ctx.measureText(dv).width; if (w > maxWidths[field]) maxWidths[field] = w; } }); });
+        data.forEach(row => { Object.keys(maxWidths).forEach(field => { const value = row[field]; if (value != null && value !== '') { let dv = String(value); if (field.includes('Odds') && field !== 'Game Best Odds Books') { const n = parseInt(value, 10); if (!isNaN(n)) dv = n > 0 ? `+${n}` : `${n}`; } if (field === 'EV %' || field === 'Quarter Kelly %') { const n = parseFloat(value); if (!isNaN(n)) dv = (n*100).toFixed(1)+'%'; } if (field === 'Link') dv = 'Bet'; const w = ctx.measureText(dv).width; if (w > maxWidths[field]) maxWidths[field] = w; } }); });
         const CELL_PADDING = 16; const BUFFER = 8;
         Object.keys(maxWidths).forEach(field => { if (maxWidths[field] > 0) { const col = this.table.getColumn(field); if (col) { const req = maxWidths[field] + CELL_PADDING + BUFFER; if (req > col.getWidth()) col.setWidth(Math.ceil(req)); } } });
     }
