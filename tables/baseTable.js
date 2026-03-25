@@ -1,87 +1,11 @@
 // tables/baseTable.js - Base Table Class for Baseball Props
-// Ported from NBA version with MLB-specific identifier fields and caching
+// Simplified to match CBB pattern: No IndexedDB, memory cache only
+// FIXED: layout "fitData" (was "fitDataFill"), renderHorizontal "basic" (was "virtual")
 import { API_CONFIG, TEAM_NAME_MAP, isMobile, isTablet, getDeviceType } from '../shared/config.js';
 
 // Global data cache to persist between tab switches
 const dataCache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-// IndexedDB for persistent caching
-const DB_NAME = 'BaseballTabulatorCache';
-const DB_VERSION = 1;
-const STORE_NAME = 'tableData';
-
-class CacheManager {
-    constructor() {
-        this.db = null;
-        this.initDB();
-    }
-
-    async initDB() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
-            
-            request.onerror = () => {
-                console.error('Failed to open IndexedDB');
-                reject(request.error);
-            };
-            
-            request.onsuccess = () => {
-                this.db = request.result;
-                resolve();
-            };
-            
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
-                    store.createIndex('timestamp', 'timestamp', { unique: false });
-                }
-            };
-        });
-    }
-
-    async getCachedData(key) {
-        if (!this.db) await this.initDB();
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([STORE_NAME], 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.get(key);
-            
-            request.onsuccess = () => {
-                const result = request.result;
-                if (result && Date.now() - result.timestamp < CACHE_DURATION) {
-                    console.log(`IndexedDB cache hit for ${key}`);
-                    resolve(result.data);
-                } else {
-                    resolve(null);
-                }
-            };
-            
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    async setCachedData(key, data) {
-        if (!this.db) await this.initDB();
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.put({
-                key: key,
-                data: data,
-                timestamp: Date.now()
-            });
-            
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        });
-    }
-}
-
-const cacheManager = new CacheManager();
 
 export class BaseTable {
     constructor(elementId, endpoint) {
@@ -91,29 +15,14 @@ export class BaseTable {
         this.dataLoaded = false;
         this.filterState = [];
         this.sortState = [];
-        this.expandedRowsCache = new Set();
-        this.expandedRowsSet = new Set();
-        this.expandedRowsMetadata = new Map();
-        this.temporaryExpandedRows = new Set();
-        this.lastScrollPosition = 0;
-        this.isRestoringState = false;
-        this.pendingStateRestore = false;
-        this.pendingRestoration = false;
-        this.restorationAttempts = 0;
-        this.maxRestorationAttempts = 3;
-        
-        this.tableConfig = this.getBaseConfig();
     }
     
     // Filter out NULL/empty rows from Supabase
     filterNullRows(records) {
-        if (!records || !Array.isArray(records)) {
-            return records;
-        }
+        if (!records || !Array.isArray(records)) return records;
         
         const originalCount = records.length;
         
-        // Primary identifier fields - a row is valid if ANY of these has a value
         const primaryIdentifierFields = [
             "Batter Name",       // Batter odds table
             "Pitcher Name",      // Pitcher odds table
@@ -147,12 +56,29 @@ export class BaseTable {
         });
         
         if (originalCount !== filtered.length) {
-            console.warn(`⚠️ Filtered out ${originalCount - filtered.length} NULL/empty rows from ${this.endpoint}`);
+            console.warn(`Filtered out ${originalCount - filtered.length} NULL/empty rows from ${this.endpoint}`);
         }
         
         return filtered;
     }
+
+    // Memory cache helpers
+    getCachedData(key) {
+        const cached = dataCache.get(key);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            return cached.data;
+        }
+        dataCache.delete(key);
+        return null;
+    }
     
+    setCachedData(key, data) {
+        dataCache.set(key, { data, timestamp: Date.now() });
+    }
+    
+    // Get base table configuration with AJAX
+    // FIXED: layout "fitData" (was "fitDataFill"), renderHorizontal "basic" (was "virtual")
+    // FIXED: Removed IndexedDB caching — memory cache only (matches CBB pattern)
     getBaseConfig() {
         const self = this;
         const url = API_CONFIG.baseURL + this.endpoint;
@@ -161,11 +87,11 @@ export class BaseTable {
         return {
             height: "600px",
             maxHeight: "600px",
-            layout: "fitDataFill",
+            layout: "fitData",
             virtualDom: true,
             virtualDomBuffer: 500,
             renderVertical: "virtual",
-            renderHorizontal: "virtual",
+            renderHorizontal: "basic",
             layoutColumnsOnNewData: false,
             responsiveLayout: false,
             pagination: false,
@@ -182,28 +108,16 @@ export class BaseTable {
                 headers: API_CONFIG.headers
             },
             
+            // Custom request function with memory caching
             ajaxRequestFunc: async function(url, config, params) {
+                // Check memory cache
+                const memoryCached = self.getCachedData(cacheKey);
+                if (memoryCached) {
+                    console.log(`Cache hit for ${cacheKey}`);
+                    return self.filterNullRows(memoryCached);
+                }
+                
                 try {
-                    // Check in-memory cache first
-                    if (dataCache.has(cacheKey)) {
-                        const cached = dataCache.get(cacheKey);
-                        if (Date.now() - cached.timestamp < CACHE_DURATION) {
-                            console.log(`Memory cache hit for ${cacheKey}`);
-                            return self.filterNullRows(cached.data);
-                        }
-                    }
-                    
-                    // Check IndexedDB cache
-                    try {
-                        const idbData = await cacheManager.getCachedData(cacheKey);
-                        if (idbData) {
-                            dataCache.set(cacheKey, { data: idbData, timestamp: Date.now() });
-                            return self.filterNullRows(idbData);
-                        }
-                    } catch (e) {
-                        console.warn('IndexedDB cache miss:', e);
-                    }
-                    
                     // Fetch from Supabase with pagination
                     let allRecords = [];
                     let page = 0;
@@ -233,14 +147,8 @@ export class BaseTable {
                         console.log(`Fetched page ${page}: ${records.length} records (total: ${allRecords.length})`);
                     }
                     
-                    // Cache the results
-                    dataCache.set(cacheKey, { data: allRecords, timestamp: Date.now() });
-                    
-                    try {
-                        await cacheManager.setCachedData(cacheKey, allRecords);
-                    } catch (e) {
-                        console.warn('Failed to cache to IndexedDB:', e);
-                    }
+                    // Cache the results in memory
+                    self.setCachedData(cacheKey, allRecords);
                     
                     return self.filterNullRows(allRecords);
                     
@@ -294,150 +202,53 @@ export class BaseTable {
             const expanded = data._expanded;
             
             const container = document.createElement('div');
-            container.style.cssText = 'display: flex; align-items: center; cursor: pointer;';
+            container.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;';
             
             const icon = document.createElement('span');
-            icon.className = 'expand-icon';
-            icon.style.cssText = 'margin-right: 10px; font-size: 10px; transition: transform 0.2s; color: #b91c1c; display: inline-flex; width: 12px;';
-            icon.innerHTML = '▶';
+            icon.textContent = expanded ? '▼' : '▶';
+            icon.style.cssText = 'font-size:8px;color:#b91c1c;flex-shrink:0;';
             
-            if (expanded) {
-                icon.style.transform = 'rotate(90deg)';
-            }
-            
-            const text = document.createElement('span');
-            text.textContent = value;
-            text.style.cssText = 'font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = value;
+            nameSpan.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             
             container.appendChild(icon);
-            container.appendChild(text);
-            
+            container.appendChild(nameSpan);
             return container;
         };
     }
 
-    // Setup row expansion/collapse on click
+    // Setup row expansion (for clearance/alt tables that use expandable rows)
     setupRowExpansion() {
         if (!this.table) return;
         
-        const self = this;
-        
-        this.table.on("rowClick", function(e, row) {
+        this.table.on("rowClick", (e, row) => {
             const data = row.getData();
-            const wasExpanded = data._expanded;
+            data._expanded = !data._expanded;
             
-            data._expanded = !wasExpanded;
-            
-            const cells = row.getCells();
-            const nameFields = ["Batter Name", "Pitcher Name", "Game Matchup"];
-            
-            for (let nameField of nameFields) {
-                const nameCell = cells.find(c => c.getField() === nameField);
-                if (nameCell) {
-                    const cellElement = nameCell.getElement();
-                    const icon = cellElement.querySelector('.expand-icon');
-                    if (icon) {
-                        icon.style.transform = data._expanded ? 'rotate(90deg)' : '';
-                    }
-                    break;
-                }
-            }
-            
-            row.update(data);
-            row.reformat();
-            
-            const rowId = self.generateRowId(data);
-            if (data._expanded) {
-                self.expandedRowsCache.add(rowId);
-                if (window.globalExpandedState) {
-                    window.globalExpandedState.set(`${self.elementId}_${rowId}`, true);
-                }
-            } else {
-                self.expandedRowsCache.delete(rowId);
-                if (window.globalExpandedState) {
-                    window.globalExpandedState.delete(`${self.elementId}_${rowId}`);
-                }
-            }
-            
-            console.log(`Row ${data._expanded ? 'expanded' : 'collapsed'}: ${rowId}`);
-        });
-    }
-
-    // Save current state
-    saveState() {
-        if (!this.table) return;
-        this.filterState = this.table.getHeaderFilters();
-        this.sortState = this.table.getSorters();
-    }
-
-    // Restore saved state
-    restoreState() {
-        if (!this.table) return;
-        
-        if (this.filterState && this.filterState.length > 0) {
-            this.filterState.forEach(filter => {
-                this.table.setHeaderFilterValue(filter.field, filter.value);
-            });
-        }
-        
-        if (this.sortState && this.sortState.length > 0) {
-            this.table.setSort(this.sortState);
-        }
-    }
-
-    // Save temporary expanded state (before filter/sort operations)
-    saveTemporaryExpandedState() {
-        this.temporaryExpandedRows.clear();
-        
-        if (this.table) {
-            const rows = this.table.getRows();
-            rows.forEach(row => {
-                const data = row.getData();
-                if (data._expanded) {
-                    const id = this.generateRowId(data);
-                    this.temporaryExpandedRows.add(id);
-                }
-            });
-        }
-        console.log(`Temporarily saved ${this.temporaryExpandedRows.size} expanded rows for ${this.elementId}`);
-    }
-    
-    // Restore temporary expanded state
-    restoreTemporaryExpandedState() {
-        if (this.temporaryExpandedRows.size > 0 && this.table) {
-            console.log(`Restoring ${this.temporaryExpandedRows.size} temporarily expanded rows for ${this.elementId}`);
-            
-            setTimeout(() => {
-                const rows = this.table.getRows();
-                rows.forEach(row => {
-                    const data = row.getData();
-                    const id = this.generateRowId(data);
-                    
-                    if (this.temporaryExpandedRows.has(id) && !data._expanded) {
-                        data._expanded = true;
-                        row.update(data);
-                        row.reformat();
-                    }
-                });
-            }, 100);
-        }
-    }
-
-    // Apply global expanded state
-    applyGlobalExpandedState() {
-        if (!this.table || !window.globalExpandedState) return;
-        
-        const rows = this.table.getRows();
-        rows.forEach(row => {
-            const data = row.getData();
             const rowId = this.generateRowId(data);
-            const stateKey = `${this.elementId}_${rowId}`;
-            
-            if (window.globalExpandedState.has(stateKey)) {
-                data._expanded = true;
-                row.update(data);
-                row.reformat();
+            if (data._expanded) {
+                window.globalExpandedState.set(rowId, true);
+            } else {
+                window.globalExpandedState.delete(rowId);
             }
+            
+            row.reformat();
         });
+    }
+
+    // Refresh data from Supabase
+    async refreshData() {
+        if (!this.table) return;
+        
+        const cacheKey = `baseball_${this.endpoint}`;
+        dataCache.delete(cacheKey);
+        
+        try {
+            await this.table.setData();
+            console.log(`Refreshed data for ${this.endpoint}`);
+        } catch (error) {
+            console.error(`Error refreshing data for ${this.endpoint}:`, error);
+        }
     }
 }
