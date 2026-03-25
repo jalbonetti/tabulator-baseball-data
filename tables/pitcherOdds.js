@@ -1,12 +1,18 @@
 // tables/pitcherOdds.js - Baseball Pitcher Prop Odds Table
 // Modeled exactly on batterOdds.js / NBA basketPlayerPropOdds.js
 // Supabase: BaseballPitcherPropOdds
+//
+// FIXES APPLIED:
+//   1. ...this.tableConfig → ...this.getBaseConfig()  (provides AJAX config so data loads)
+//   2. Added injectContainerStyles('table1-container') in initialize()
+//   3. Font measurement 14px → 12px in scanDataForMaxWidths/equalizeClusteredColumns
 
 import { BaseTable } from './baseTable.js';
 import { createCustomMultiSelect } from '../components/customMultiSelect.js';
 import { createMinMaxFilter, minMaxFilterFunction } from '../components/minMaxFilter.js';
 import { createBankrollInput, bankrollFilterFunction, getBankrollValue } from '../components/bankrollInput.js';
 import { isMobile, isTablet, TEAM_NAME_MAP } from '../shared/config.js';
+import { injectContainerStyles } from '../styles/tableStyles.js';
 
 const NAME_COLUMN_MIN_WIDTH = 205;
 const EV_KELLY_COLUMN_MIN_WIDTH = 75;
@@ -42,24 +48,20 @@ export class PitcherOddsTable extends BaseTable {
     }
 
     initialize() {
+        // FIXED: Inject ID-scoped container styles for scrollbar, placeholder, filter fonts
+        injectContainerStyles('table1-container');
+        
         const mobile = isMobile();
         const tablet = isTablet();
         const isSmallScreen = mobile || tablet;
         
+        // FIXED: Use this.getBaseConfig() instead of this.tableConfig
+        const baseConfig = this.getBaseConfig();
+        
         const config = {
-            ...this.tableConfig,
-            virtualDom: true,
-            virtualDomBuffer: 500,
-            renderVertical: "virtual",
-            renderHorizontal: "basic",
-            pagination: false,
-            layoutColumnsOnNewData: false,
-            responsiveLayout: false,
-            maxHeight: "600px",
-            height: "600px",
+            ...baseConfig,
             placeholder: "Loading pitcher prop odds...",
             layout: "fitData",
-            
             columns: this.getColumns(isSmallScreen),
             initialSort: [
                 {column: "EV %", dir: "desc"}
@@ -98,6 +100,27 @@ export class PitcherOddsTable extends BaseTable {
                     }
                 }
                 this.ensureNameColumnWidth();
+            }, 200);
+            
+            window.addEventListener('resize', this.debounce(() => {
+                if (this.table && this.table.getDataCount() > 0 && !isMobile() && !isTablet()) {
+                    this.calculateAndApplyWidths();
+                    this.ensureNameColumnWidth();
+                }
+            }, 250));
+        });
+        
+        this.table.on("dataLoaded", () => {
+            setTimeout(() => {
+                const data = this.table ? this.table.getData() : [];
+                if (data.length > 0) {
+                    this.scanDataForMaxWidths(data);
+                    if (!isMobile() && !isTablet()) {
+                        this.equalizeClusteredColumns();
+                        this.calculateAndApplyWidths();
+                    }
+                }
+                this.ensureNameColumnWidth();
             }, 100);
         });
         
@@ -107,13 +130,6 @@ export class PitcherOddsTable extends BaseTable {
             }
             setTimeout(() => { this.ensureNameColumnWidth(); }, 50);
         });
-        
-        window.addEventListener('resize', this.debounce(() => {
-            if (this.table && this.table.getDataCount() > 0 && !isMobile() && !isTablet()) {
-                this.calculateAndApplyWidths();
-                this.ensureNameColumnWidth();
-            }
-        }, 250));
     }
 
     forceRecalculateWidths() {
@@ -255,7 +271,8 @@ export class PitcherOddsTable extends BaseTable {
         
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        // FIXED: 14px → 12px to match actual display font size
+        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const CELL_PADDING = 16;
         const SORT_ICON_WIDTH = 20;
         
@@ -277,7 +294,7 @@ export class PitcherOddsTable extends BaseTable {
         }
         
         const evCluster = ['EV %', 'Quarter Kelly %'];
-        let maxEvWidth = 0;
+        let maxEvWidth = EV_KELLY_COLUMN_MIN_WIDTH;
         evCluster.forEach(field => {
             const column = this.table.getColumn(field);
             if (column) {
@@ -301,7 +318,8 @@ export class PitcherOddsTable extends BaseTable {
         const ctx = canvas.getContext('2d');
         const maxWidths = { "Pitcher Team": 0, "Pitcher Prop Type": 0, "Pitcher Book": 0, "Pitcher Matchup": 0, "Pitcher Best Odds Books": 0, "Pitcher Over/Under": 0 };
         
-        ctx.font = '600 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        // FIXED: 14px → 12px to match actual display font size
+        ctx.font = '600 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         const fieldToTitle = { "Pitcher Team": "Team", "Pitcher Prop Type": "Prop", "Pitcher Book": "Book", "Pitcher Matchup": "Matchup", "Pitcher Best Odds Books": "Best Books", "Pitcher Over/Under": "Label" };
         
         Object.keys(maxWidths).forEach(field => {
@@ -309,7 +327,8 @@ export class PitcherOddsTable extends BaseTable {
             maxWidths[field] = ctx.measureText(title).width + 32;
         });
         
-        ctx.font = '500 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        // FIXED: 14px → 12px to match actual display font size
+        ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
         data.forEach(row => {
             Object.keys(maxWidths).forEach(field => {
                 const value = row[field];
@@ -317,52 +336,71 @@ export class PitcherOddsTable extends BaseTable {
                     let dv = String(value);
                     if (field === 'Pitcher Prop Type') dv = this.abbreviateProp(value);
                     if (field === 'Pitcher Matchup') dv = this.abbreviateMatchup(value);
-                    const tw = ctx.measureText(dv).width;
-                    if (tw > maxWidths[field]) maxWidths[field] = tw;
+                    const w = ctx.measureText(dv).width;
+                    if (w > maxWidths[field]) maxWidths[field] = w;
                 }
             });
         });
         
+        const CELL_PADDING = 16;
+        const BUFFER = 8;
         Object.keys(maxWidths).forEach(field => {
             if (maxWidths[field] > 0) {
-                const col = this.table.getColumn(field);
-                if (col) {
-                    const req = maxWidths[field] + 24;
-                    if (req > col.getWidth()) col.setWidth(Math.ceil(req));
+                const column = this.table.getColumn(field);
+                if (column) {
+                    const requiredWidth = maxWidths[field] + CELL_PADDING + BUFFER;
+                    if (requiredWidth > column.getWidth()) column.setWidth(Math.ceil(requiredWidth));
                 }
             }
         });
+        
         this.ensureNameColumnWidth();
+        console.log('Pitcher Odds max width scan complete');
     }
 
     calculateAndApplyWidths() {
         if (!this.table) return;
-        const el = this.table.element;
-        if (!el) return;
+        const tableElement = this.table.element;
+        if (!tableElement) return;
         
         if (isMobile() || isTablet()) {
-            el.style.width = ''; el.style.minWidth = ''; el.style.maxWidth = '';
-            const tc = el.closest('.table-container');
+            tableElement.style.width = '';
+            tableElement.style.minWidth = '';
+            tableElement.style.maxWidth = '';
+            const tc = tableElement.closest('.table-container');
             if (tc) { tc.style.width = ''; tc.style.minWidth = ''; tc.style.maxWidth = ''; }
             this.ensureNameColumnWidth();
             return;
         }
         
-        el.style.width = 'auto'; el.style.minWidth = 'auto'; el.style.maxWidth = 'none';
-        const th = el.querySelector('.tabulator-tableholder');
-        if (th) { th.style.width = 'auto'; th.style.maxWidth = 'none'; }
-        void el.offsetWidth;
-        
         try {
-            let total = 0;
-            this.table.getColumns().forEach(c => { total += c.getWidth(); });
-            const w = total + 17;
-            el.style.width = w + 'px'; el.style.minWidth = w + 'px'; el.style.maxWidth = w + 'px';
-            if (th) { th.style.width = w + 'px'; th.style.maxWidth = w + 'px'; }
-            const hdr = el.querySelector('.tabulator-header');
-            if (hdr) hdr.style.width = w + 'px';
-            const tc = el.closest('.table-container');
+            const tableHolder = tableElement.querySelector('.tabulator-tableholder');
+            if (tableHolder) tableHolder.style.overflowY = 'scroll';
+            
+            let totalColumnWidth = 0;
+            this.table.getColumns().forEach(col => { if (col.isVisible()) totalColumnWidth += col.getWidth(); });
+            
+            const SCROLLBAR_WIDTH = 17;
+            const totalWidth = totalColumnWidth + SCROLLBAR_WIDTH;
+            
+            tableElement.style.width = totalWidth + 'px';
+            tableElement.style.minWidth = totalWidth + 'px';
+            tableElement.style.maxWidth = totalWidth + 'px';
+            
+            if (tableHolder) { tableHolder.style.width = totalWidth + 'px'; tableHolder.style.maxWidth = totalWidth + 'px'; }
+            const header = tableElement.querySelector('.tabulator-header');
+            if (header) header.style.width = totalWidth + 'px';
+            
+            const tc = tableElement.closest('.table-container');
             if (tc) { tc.style.width = 'fit-content'; tc.style.minWidth = 'auto'; tc.style.maxWidth = 'none'; }
-        } catch (e) { console.error('Error in calculateAndApplyWidths:', e); }
+            
+            console.log(`Pitcher Odds: Set width to ${totalWidth}px`);
+        } catch (error) {
+            console.error('Pitcher Odds calculateAndApplyWidths error:', error);
+        }
+    }
+
+    expandNameColumnToFill() {
+        this.calculateAndApplyWidths();
     }
 }
